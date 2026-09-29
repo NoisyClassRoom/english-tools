@@ -15,7 +15,7 @@
     font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; font-size: 18px; }
   main { max-width: 900px; margin: 0 auto; padding: 20px 16px 60px; }
   h1 { font-size: 26px; margin: 0 0 6px; }
-  h2 { margin: 0 0 14px; font-size: 22px; }
+  h2 { margin: 26px 0 0; font-size: 20px; color: var(--muted); }
   .hint { color: var(--muted); font-size: 16px; }
   .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 24px; }
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px; margin-top: 16px; }
@@ -38,7 +38,7 @@
 
   /* flashcard */
   .flash { min-height: 260px; display: flex; flex-direction: column; align-items: center; justify-content: center;
-    border: 2px solid var(--line); border-radius: var(--radius); background: var(--card); cursor: pointer; padding: 20px; user-select: none; }
+    border: 2px solid var(--line); border-radius: var(--radius); background: var(--card); cursor: pointer; padding: 20px; user-select: none; text-align: center; }
   .flash .pic { font-size: 90px; line-height: 1.1; }
   .flash .word { font-size: 46px; font-weight: 700; margin-top: 6px; }
   .flash .sub { color: var(--muted); margin-top: 10px; }
@@ -54,10 +54,11 @@
   .opt.wrong { border-color: var(--bad); background: var(--bad-soft); animation: shake .3s; }
   @keyframes shake { 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
 
-  /* quiz */
+  /* quiz + test */
   .q { text-align: center; }
   .q .pic { font-size: 90px; line-height: 1.1; }
   .q .sl { font-size: 30px; font-weight: 600; margin: 6px 0 16px; }
+  .q .stem { font-size: 28px; font-weight: 600; margin: 10px 0 20px; line-height: 1.4; }
   .choices { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 10px; }
   .choices .opt { text-align: center; font-size: 22px; }
 
@@ -78,9 +79,9 @@
 <body>
 <main>
   <div id="home">
-    <h1>English Exercises</h1>
-    <p class="hint">Choose a topic.</p>
-    <div class="grid" id="setGrid"></div>
+    <h1 id="homeTitle">English Exercises</h1>
+    <p class="hint" id="homeHint"></p>
+    <div id="homeBody"></div>
   </div>
 
   <div id="menu" class="hidden">
@@ -101,6 +102,7 @@
   </div>
 </main>
 
+<script src="classes.js"></script>
 <script src="sets.js"></script>
 <script>
 (() => {
@@ -112,16 +114,60 @@
   const setBar = f => $('#bar').style.width = Math.round(f * 100) + '%';
 
   let set = null;
+  const CLASSES = window.CLASSES || [];
+  const SHARED = window.SETS || [];
 
   // ----- home -----
-  const SETS = window.SETS || [];
-  SETS.forEach(s => {
-    const b = el('button', 'tile');
-    b.append(el('span', 'ico', s.icon || '📘'), document.createTextNode(s.title), el('small', '', s.words.length + ' words'));
-    b.onclick = () => openSet(s);
-    $('#setGrid').append(b);
-  });
-  if (!SETS.length) $('#setGrid').textContent = 'No exercises yet.';
+  const grid = sets => {
+    const g = el('div', 'grid');
+    sets.forEach(s => {
+      const b = el('button', 'tile');
+      b.append(el('span', 'ico', s.icon || '📘'), document.createTextNode(s.title),
+               el('small', '', s.unit ? s.unit + ' · ' + s.words.length + ' words' : s.words.length + ' words'));
+      b.onclick = () => openSet(s);
+      g.append(b);
+    });
+    return g;
+  };
+  const renderSets = (classSets, info) => {
+    const body = $('#homeBody'); body.innerHTML = '';
+    $('#homeTitle').textContent = info ? info.title + ' · ' + info.book : 'Extra practice';
+    $('#homeHint').textContent = 'Choose a topic.';
+    if (classSets.length) body.append(grid(classSets));
+    if (SHARED.length) {
+      if (classSets.length) body.append(el('h2', '', 'Extra practice'));
+      body.append(grid(SHARED));
+    }
+    if (!classSets.length && !SHARED.length) body.textContent = 'No exercises yet.';
+  };
+  const renderPicker = () => {
+    const body = $('#homeBody'); body.innerHTML = '';
+    $('#homeHint').textContent = 'Choose your class.';
+    const g = el('div', 'grid');
+    CLASSES.filter(c => c.ready).forEach(c => {
+      const b = el('button', 'tile');
+      b.append(el('span', 'ico', '🎓'), document.createTextNode(c.title), el('small', '', c.book));
+      b.onclick = () => { location.search = '?class=' + encodeURIComponent(c.id); };
+      g.append(b);
+    });
+    const x = el('button', 'tile');
+    x.append(el('span', 'ico', '⭐'), document.createTextNode('Extra practice'), el('small', '', 'For everyone'));
+    x.onclick = () => { location.search = '?class=extra'; };
+    g.append(x);
+    body.append(g);
+  };
+
+  const cls = new URLSearchParams(location.search).get('class');
+  const info = CLASSES.find(c => c.id === cls && c.ready);
+  if (cls === 'extra') renderSets([], null);
+  else if (info) {
+    const s = document.createElement('script');
+    s.src = 'class-' + info.id + '.js';
+    s.onload = () => renderSets(window.CLASS_SETS || [], info);
+    s.onerror = () => { $('#homeBody').textContent = 'Could not load the exercises for this class.'; };
+    document.head.append(s);
+  } else renderPicker();
+
   $('#backHome').onclick = () => show('home');
   $('#backMenu').onclick = () => show('menu');
 
@@ -130,7 +176,8 @@
     { id: 'flash', icon: '🃏', name: 'Flashcards', desc: 'Look, think, flip', run: flashcards },
     { id: 'match', icon: '🔗', name: 'Match', desc: 'Pair words and pictures', run: match },
     { id: 'quiz',  icon: '❓', name: 'Quiz', desc: 'Pick the right word', run: quiz },
-    { id: 'gap',   icon: '✏️', name: 'Fill the gap', desc: 'Complete the sentences', run: gap, need: s => (s.sentences || []).length }
+    { id: 'gap',   icon: '✏️', name: 'Fill the gap', desc: 'Complete the sentences', run: gap, need: s => (s.sentences || []).length },
+    { id: 'test',  icon: '📝', name: 'Unit test', desc: 'Grammar check', run: test, need: s => (s.tests || []).length }
   ];
   function openSet(s) {
     set = s; $('#menuTitle').textContent = s.icon + ' ' + s.title;
@@ -227,6 +274,29 @@
           else { b.classList.add('wrong'); [...box.children].find(x => x.textContent === w.en).classList.add('done'); }
           i++; setBar(i / qs.length);
           setTimeout(() => i < qs.length ? ask() : finish(score, qs.length, quiz), 900);
+        };
+        box.append(b);
+      });
+      q.append(box); s.append(q);
+    };
+    ask();
+  }
+
+  // ----- unit test (multiple choice grammar) -----
+  function test() {
+    const qs = shuffle(set.tests); let i = 0, score = 0;
+    const ask = () => {
+      const t = qs[i]; const s = stage(); const q = el('div', 'q');
+      q.append(el('p', 'hint', `Question ${i + 1} of ${qs.length}`), el('div', 'stem', t.q));
+      const box = el('div', 'choices');
+      shuffle(t.options).forEach(o => {
+        const b = el('button', 'opt', o);
+        b.onclick = () => {
+          box.querySelectorAll('button').forEach(x => x.disabled = true);
+          if (o === t.answer) { b.classList.add('done'); score++; }
+          else { b.classList.add('wrong'); [...box.children].find(x => x.textContent === t.answer).classList.add('done'); }
+          i++; setBar(i / qs.length);
+          setTimeout(() => i < qs.length ? ask() : finish(score, qs.length, test), 1100);
         };
         box.append(b);
       });
