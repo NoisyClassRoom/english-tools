@@ -11,11 +11,11 @@
 // ============================================================
 
 window.CLASSES = [
-  { id: "6b",  title: "6.b",   book: "Project 1",          ready: true  },
-  { id: "7a",  title: "7.a",   book: "Dream Team Starter", ready: false },
-  { id: "7bc", title: "7.b/c", book: "Project 2",          ready: false },
-  { id: "8a",  title: "8.a",   book: "Dream Team 1",       ready: false },
-  { id: "8b",  title: "8.b",   book: "Project 3",          ready: false },
-  { id: "9a",  title: "9.a",   book: "Dream Team 2",       ready: false },
-  { id: "9b",  title: "9.b",   book: "Project 4",          ready: false }
+  { id: "6b",  title: "6.b",   book: "Project 1",          ready: true },
+  { id: "7a",  title: "7.a",   book: "Dream Team Starter", ready: true },
+  { id: "7bc", title: "7.b/c", book: "Project 2",          ready: true },
+  { id: "8a",  title: "8.a",   book: "Dream Team 1",       ready: true },
+  { id: "8b",  title: "8.b",   book: "Project 3",          ready: true },
+  { id: "9a",  title: "9.a",   book: "Dream Team 2",       ready: true },
+  { id: "9b",  title: "9.b",   book: "Project 4",          ready: true }
 ];
