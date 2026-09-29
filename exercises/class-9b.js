@@ -1,0 +1,240 @@
+// ============================================================
+//  CLASS 9.b  -  PROJECT 4 (4th edition)
+// ============================================================
+
+window.CLASS_SETS = [
+  {
+    id: "p4u1", unit: "Unit 1", title: "Past and Present", icon: "🏺",
+    words: [
+      { en: "rubber",  sl: "guma" },
+      { en: "plastic", sl: "plastika" },
+      { en: "stone",   sl: "kamen",      pic: "🪨" },
+      { en: "leather", sl: "usnje" },
+      { en: "wool",    sl: "volna",      pic: "🧶" },
+      { en: "glass",   sl: "steklo" },
+      { en: "iron",    sl: "železo" },
+      { en: "cotton",  sl: "bombaž" },
+      { en: "wood",    sl: "les (material)", pic: "🪵" },
+      { en: "ancient", sl: "starodaven" },
+      { en: "century", sl: "stoletje" },
+      { en: "rival",   sl: "tekmec" }
+    ],
+    sentences: [
+      { text: "When I ___ home, it was raining. (arrive)",       answer: "arrived" },
+      { text: "She was sleeping when the phone ___.",            answer: "rang" },
+      { text: "I ___ to play football every day, but now I don't.", answer: "used" },
+      { text: "He didn't use ___ wear glasses.",                 answer: "to" },
+      { text: "This coat is ___ small for me.",                  answer: "too" },
+      { text: "The water isn't warm ___ to swim.",               answer: "enough" },
+      { text: "Last week I ___ to go to the dentist. (obligation)", answer: "had" },
+      { text: "When I was five, I ___ read. (negative ability)", answer: "couldn't", alt: ["could not"] }
+    ],
+    tests: [
+      { q: "I ___ TV when you called.", options: ["was watching", "watched", "watch"], answer: "was watching" },
+      { q: "He ___ to live in London, but now he lives in Paris.", options: ["used", "use", "was"], answer: "used" },
+      { q: "She didn't ___ to like fish.", options: ["use", "used", "uses"], answer: "use" },
+      { q: "This box is ___ heavy for me to lift.", options: ["too", "enough", "so"], answer: "too" },
+      { q: "He isn't old ___ to drive.", options: ["enough", "too", "very"], answer: "enough" },
+      { q: "Yesterday I ___ to do my homework.", options: ["had", "have", "has"], answer: "had" },
+      { q: "When I was three, I ___ read.", options: ["couldn't", "can't", "don't"], answer: "couldn't" },
+      { q: "A jumper is often made of ___.", options: ["wool", "glass", "iron"], answer: "wool" },
+      { q: "Old shoes are often made of ___.", options: ["leather", "glass", "stone"], answer: "leather" },
+      { q: "A hundred years is a ___.", options: ["century", "decade", "month"], answer: "century" }
+    ]
+  },
+  {
+    id: "p4u2", unit: "Unit 2", title: "Fame and Fortune", icon: "⭐",
+    words: [
+      { en: "fame",       sl: "slava" },
+      { en: "fortune",    sl: "bogastvo",        pic: "💰" },
+      { en: "celebrity",  sl: "slavna oseba",    pic: "🌟" },
+      { en: "biography",  sl: "življenjepis",    pic: "📖" },
+      { en: "talent",     sl: "talent" },
+      { en: "award",      sl: "nagrada",         pic: "🏆" },
+      { en: "film star",  sl: "filmska zvezda",  pic: "🎬" },
+      { en: "keyboard",   sl: "tipkovnica",      pic: "⌨️" },
+      { en: "mouse",      sl: "računalniška miška", pic: "🖱️" },
+      { en: "website",    sl: "spletna stran",   pic: "🌐" },
+      { en: "download",   sl: "prenesti (datoteko)" },
+      { en: "file",       sl: "datoteka",        pic: "📁" }
+    ],
+    sentences: [
+      { text: "He has ___ finished his homework. (a moment ago)", answer: "just" },
+      { text: "I have lived here ___ 2015.",                      answer: "since" },
+      { text: "I have lived here ___ ten years.",                 answer: "for" },
+      { text: "___ you ever met a famous person?",                answer: "Have" },
+      { text: "I've ___ to Rome. It was great! (I'm back now)",   answer: "been" },
+      { text: "He isn't at home. He has ___ to school.",          answer: "gone" },
+      { text: "You are Slovenian, ___ you?",                      answer: "aren't" },
+      { text: "He can swim, ___ he?",                             answer: "can't" }
+    ],
+    tests: [
+      { q: "I ___ this film three times.", options: ["have seen", "saw", "see"], answer: "have seen" },
+      { q: "She ___ in London in 2010.", options: ["lived", "has lived", "lives"], answer: "lived" },
+      { q: "I have known him ___ five years.", options: ["for", "since", "ago"], answer: "for" },
+      { q: "I have known him ___ Monday.", options: ["since", "for", "from"], answer: "since" },
+      { q: "Where's Ana? She has ___ to the shop. (she is not back)", options: ["gone", "been", "went"], answer: "gone" },
+      { q: "I've ___ to Rome. It was great! (I'm back)", options: ["been", "gone", "went"], answer: "been" },
+      { q: "It's cold today, ___ it?", options: ["isn't", "is", "doesn't"], answer: "isn't" },
+      { q: "You don't like fish, ___ you?", options: ["do", "don't", "are"], answer: "do" },
+      { q: "A written story of a person's life is a ___.", options: ["biography", "award", "keyboard"], answer: "biography" },
+      { q: "You use a ___ to type on a computer.", options: ["keyboard", "award", "fortune"], answer: "keyboard" }
+    ]
+  },
+  {
+    id: "p4u3", unit: "Unit 3", title: "Health and safety", icon: "🩺",
+    words: [
+      { en: "injury",      sl: "poškodba" },
+      { en: "sprain",      sl: "izvin" },
+      { en: "broken bone", sl: "zlomljena kost", pic: "🦴" },
+      { en: "bruise",      sl: "modrica" },
+      { en: "vitamin",     sl: "vitamin",       pic: "💊" },
+      { en: "mineral",     sl: "mineral" },
+      { en: "diet",        sl: "prehrana",      pic: "🥗" },
+      { en: "healthy",     sl: "zdrav" },
+      { en: "exercise",    sl: "gibanje / vaja", pic: "🏃" },
+      { en: "muscle",      sl: "mišica",        pic: "💪" },
+      { en: "shoulder",    sl: "rama" },
+      { en: "ankle",       sl: "gleženj" }
+    ],
+    sentences: [
+      { text: "You should ___ more water.",                              answer: "drink" },
+      { text: "You look tired. You ___ go to bed early.",                answer: "should" },
+      { text: "It's cloudy. It ___ rain later. (possible)",              answer: "might" },
+      { text: "The girl ___ lives next door is my friend.",              answer: "who", alt: ["that"] },
+      { text: "This is the book ___ I told you about.",                  answer: "that", alt: ["which"] },
+      { text: "I don't like cheese. — ___ do I.",                        answer: "Neither" },
+      { text: "I love pizza. — ___ do I.",                               answer: "So" },
+      { text: "A balanced ___ includes fruit, vegetables and protein.",  answer: "diet" }
+    ],
+    tests: [
+      { q: "The man ___ lives next door is a doctor.", options: ["who", "which", "what"], answer: "who" },
+      { q: "The car ___ is red is mine.", options: ["which", "who", "whose"], answer: "which" },
+      { q: "You look pale. You ___ see a doctor.", options: ["should", "might", "mustn't"], answer: "should" },
+      { q: "Take an umbrella. It ___ rain. (possible)", options: ["might", "shall", "mustn't"], answer: "might" },
+      { q: "I like tennis. — ___ do I.", options: ["So", "Neither", "Too"], answer: "So" },
+      { q: "I can't swim. — ___ can I.", options: ["Neither", "So", "Too"], answer: "Neither" },
+      { q: "Vitamin C is found in ___.", options: ["oranges", "stones", "glass"], answer: "oranges" },
+      { q: "You need a healthy ___ to stay fit.", options: ["diet", "ankle", "fame"], answer: "diet" },
+      { q: "I fell and hurt my ___. (the joint of the foot)", options: ["ankle", "vitamin", "mineral"], answer: "ankle" },
+      { q: "You should do ___ every day to stay fit.", options: ["exercise", "injury", "bruise"], answer: "exercise" }
+    ]
+  },
+  {
+    id: "p4u4", unit: "Unit 4", title: "Heroes", icon: "🦸",
+    words: [
+      { en: "knight",      sl: "vitez",      pic: "🛡️" },
+      { en: "king",        sl: "kralj",      pic: "🤴" },
+      { en: "castle",      sl: "grad",       pic: "🏰" },
+      { en: "sword",       sl: "meč",        pic: "⚔️" },
+      { en: "brave",       sl: "pogumen" },
+      { en: "burglar",     sl: "vlomilec" },
+      { en: "rescue",      sl: "rešiti" },
+      { en: "imagination", sl: "domišljija", pic: "💭" },
+      { en: "amazed",      sl: "osupel" },
+      { en: "amazing",     sl: "neverjeten / osupljiv" },
+      { en: "bored",       sl: "dolgočasi se" },
+      { en: "boring",      sl: "dolgočasen" }
+    ],
+    sentences: [
+      { text: "I enjoy ___ to music. (listen)",                    answer: "listening" },
+      { text: "She wants ___ a doctor. (be)",                      answer: "to be" },
+      { text: "He decided ___ the police. (call)",                 answer: "to call" },
+      { text: "They stopped ___ when it started to rain. (play)",  answer: "playing" },
+      { text: "The film was ___. I loved it. (amaze)",             answer: "amazing" },
+      { text: "I was very ___ by the news. (amaze)",               answer: "amazed" },
+      { text: "The lesson was ___. Everybody yawned. (bore)",      answer: "boring" },
+      { text: "He is good at ___ chess. (play)",                   answer: "playing" }
+    ],
+    tests: [
+      { q: "I enjoy ___ to music.", options: ["listening", "to listen", "listen"], answer: "listening" },
+      { q: "She wants ___ a doctor.", options: ["to be", "being", "be"], answer: "to be" },
+      { q: "He decided ___ home.", options: ["to go", "going", "go"], answer: "to go" },
+      { q: "Stop ___ so much noise!", options: ["making", "to make", "make"], answer: "making" },
+      { q: "The story was ___. I couldn't stop reading.", options: ["exciting", "excited", "excite"], answer: "exciting" },
+      { q: "I was ___ when I heard the news.", options: ["surprised", "surprising", "surprise"], answer: "surprised" },
+      { q: "We're looking forward to ___ you.", options: ["seeing", "see", "to see"], answer: "seeing" },
+      { q: "A person who steals things from houses is a ___.", options: ["burglar", "knight", "king"], answer: "burglar" },
+      { q: "A soldier from the Middle Ages who fought with a sword is a ___.", options: ["knight", "burglar", "hero"], answer: "knight" },
+      { q: "He is not afraid of anything. He is very ___.", options: ["brave", "bored", "boring"], answer: "brave" }
+    ]
+  },
+  {
+    id: "p4u5", unit: "Unit 5", title: "Our environment", icon: "🌱",
+    words: [
+      { en: "climate change",  sl: "podnebne spremembe" },
+      { en: "global warming",  sl: "globalno segrevanje", pic: "🌡️" },
+      { en: "energy",          sl: "energija",            pic: "⚡" },
+      { en: "solar power",     sl: "sončna energija",     pic: "☀️" },
+      { en: "waste",           sl: "odpadki",             pic: "🗑️" },
+      { en: "extinct",         sl: "izumrl",              pic: "🦕" },
+      { en: "protect",         sl: "zaščititi" },
+      { en: "save",            sl: "varčevati / rešiti" },
+      { en: "ice",             sl: "led",                 pic: "🧊" },
+      { en: "rainforest",      sl: "deževni gozd",        pic: "🌳" },
+      { en: "habitat",         sl: "življenjski prostor" },
+      { en: "fuel",            sl: "gorivo",              pic: "⛽" }
+    ],
+    sentences: [
+      { text: "Plastic ___ recycled in our town. (present passive)",   answer: "is" },
+      { text: "Many trees ___ cut down every year.",                   answer: "are" },
+      { text: "The window ___ broken yesterday.",                      answer: "was" },
+      { text: "The pupils ___ told about the rules last week.",        answer: "were" },
+      { text: "English ___ spoken all over the world.",                answer: "is" },
+      { text: "The rubbish ___ collected on Mondays.",                 answer: "is" },
+      { text: "This book ___ written by J. K. Rowling. (past)",        answer: "was" },
+      { text: "The Earth ___ being polluted at the moment.",           answer: "is" }
+    ],
+    tests: [
+      { q: "Paper ___ made from trees.", options: ["is", "are", "does"], answer: "is" },
+      { q: "These cars ___ made in Germany.", options: ["are", "is", "do"], answer: "are" },
+      { q: "The letter ___ sent yesterday.", options: ["was", "were", "is"], answer: "was" },
+      { q: "The Mona Lisa ___ painted by Leonardo.", options: ["was", "were", "is"], answer: "was" },
+      { q: "They built the bridge in 1900. → The bridge ___ built in 1900.", options: ["was", "is", "were"], answer: "was" },
+      { q: "People speak English in many countries. → English ___ in many countries.", options: ["is spoken", "speaks", "spoke"], answer: "is spoken" },
+      { q: "Energy from the sun is ___ power.", options: ["solar", "wind", "fossil"], answer: "solar" },
+      { q: "An animal that no longer exists is ___.", options: ["extinct", "alive", "recycled"], answer: "extinct" },
+      { q: "We must ___ the environment.", options: ["protect", "protects", "protecting"], answer: "protect" },
+      { q: "The Earth is getting warmer. This is called global ___.", options: ["warming", "cooling", "freezing"], answer: "warming" }
+    ]
+  },
+  {
+    id: "p4u6", unit: "Unit 6", title: "Relationships", icon: "🤝",
+    words: [
+      { en: "friendship",  sl: "prijateljstvo" },
+      { en: "argument",    sl: "prepir" },
+      { en: "get on with", sl: "razumeti se z" },
+      { en: "fall out",    sl: "skregati se" },
+      { en: "look after",  sl: "skrbeti za" },
+      { en: "grow up",     sl: "odraščati" },
+      { en: "generation",  sl: "generacija" },
+      { en: "teenager",    sl: "najstnik" },
+      { en: "trust",       sl: "zaupanje" },
+      { en: "respect",     sl: "spoštovanje" },
+      { en: "strict",      sl: "strog" },
+      { en: "honest",      sl: "iskren" }
+    ],
+    sentences: [
+      { text: "If it rains tomorrow, we ___ stay at home.",        answer: "will" },
+      { text: "If you study hard, you ___ pass the test.",         answer: "will" },
+      { text: "If I ___ time, I'll help you.",                     answer: "have" },
+      { text: "I ___ go out if it snows. (negative)",              answer: "won't" },
+      { text: "If she ___ late, we'll start without her.",         answer: "is" },
+      { text: "What will you do if you ___ the exam? (fail)",      answer: "fail" },
+      { text: "He gets on ___ his sister very well.",              answer: "with" },
+      { text: "Please look ___ my cat while I'm on holiday.",      answer: "after" }
+    ],
+    tests: [
+      { q: "If it rains, we ___ at home.", options: ["will stay", "stay", "would stay"], answer: "will stay" },
+      { q: "If you ___ hard, you'll pass.", options: ["study", "will study", "studied"], answer: "study" },
+      { q: "I'll call you if I ___ time.", options: ["have", "will have", "had"], answer: "have" },
+      { q: "If he ___ late, we'll go without him.", options: ["is", "will be", "was"], answer: "is" },
+      { q: "They will be angry if you ___ the rules.", options: ["break", "will break", "broke"], answer: "break" },
+      { q: "I get ___ well with my brother.", options: ["on", "in", "at"], answer: "on" },
+      { q: "Please look ___ my dog. (take care of it)", options: ["after", "at", "for"], answer: "after" },
+      { q: "Children ___ up and become adults.", options: ["grow", "get", "look"], answer: "grow" },
+      { q: "A person who tells the truth is ___.", options: ["honest", "strict", "angry"], answer: "honest" },
+      { q: "Parents who make many rules are ___.", options: ["strict", "honest", "brave"], answer: "strict" }
+    ]
+  }
+];
