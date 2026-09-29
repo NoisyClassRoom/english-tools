@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>English Exercises</title>
+<style>
+  :root {
+    --bg: #f6f4ef; --card: #ffffff; --ink: #1f2a37; --muted: #6b7280; --line: #e5e1d8;
+    --accent: #2f6fdb; --accent-soft: #e6eefc; --good: #1f9d55; --good-soft: #dcf5e6;
+    --bad: #d64545; --bad-soft: #fde4e4; --radius: 14px;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; font-size: 18px; }
+  main { max-width: 900px; margin: 0 auto; padding: 20px 16px 60px; }
+  h1 { font-size: 26px; margin: 0 0 6px; }
+  h2 { margin: 0 0 14px; font-size: 22px; }
+  .hint { color: var(--muted); font-size: 16px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 24px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px; margin-top: 16px; }
+  .tile { background: var(--card); border: 2px solid var(--line); border-radius: var(--radius); padding: 22px 12px;
+    text-align: center; cursor: pointer; font-size: 20px; font: inherit; color: inherit; }
+  .tile:hover, .tile:focus-visible { border-color: var(--accent); outline: none; }
+  .tile .ico { font-size: 52px; display: block; margin-bottom: 8px; }
+  .tile small { display: block; color: var(--muted); font-size: 15px; margin-top: 4px; }
+  button.btn { border: 1px solid var(--line); background: var(--card); color: var(--ink); padding: 12px 20px;
+    border-radius: 10px; font-size: 18px; cursor: pointer; font-family: inherit; }
+  button.btn:hover { border-color: var(--accent); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .center { justify-content: center; text-align: center; }
+  .top { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 14px; }
+  .spacer { flex: 1; }
+  .progress { height: 10px; background: var(--line); border-radius: 999px; overflow: hidden; margin: 0 0 18px; }
+  .progress > div { height: 100%; background: var(--accent); width: 0; transition: width .25s; }
+  .hidden { display: none !important; }
+
+  /* flashcard */
+  .flash { min-height: 260px; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    border: 2px solid var(--line); border-radius: var(--radius); background: var(--card); cursor: pointer; padding: 20px; user-select: none; }
+  .flash .pic { font-size: 90px; line-height: 1.1; }
+  .flash .word { font-size: 46px; font-weight: 700; margin-top: 6px; }
+  .flash .sub { color: var(--muted); margin-top: 10px; }
+
+  /* match */
+  .match { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .match .col { display: flex; flex-direction: column; gap: 10px; }
+  .opt { border: 2px solid var(--line); background: var(--card); border-radius: 12px; padding: 12px 14px; font: inherit;
+    font-size: 20px; cursor: pointer; text-align: left; color: var(--ink); }
+  .opt:hover:not(:disabled) { border-color: var(--accent); }
+  .opt.sel { border-color: var(--accent); background: var(--accent-soft); }
+  .opt.done { border-color: var(--good); background: var(--good-soft); cursor: default; }
+  .opt.wrong { border-color: var(--bad); background: var(--bad-soft); animation: shake .3s; }
+  @keyframes shake { 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
+
+  /* quiz */
+  .q { text-align: center; }
+  .q .pic { font-size: 90px; line-height: 1.1; }
+  .q .sl { font-size: 30px; font-weight: 600; margin: 6px 0 16px; }
+  .choices { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 10px; }
+  .choices .opt { text-align: center; font-size: 22px; }
+
+  /* gap fill */
+  .gap-line { font-size: 26px; line-height: 1.9; margin: 8px 0; }
+  .gap-line input { font: inherit; font-size: 24px; width: 8em; max-width: 45vw; text-align: center; padding: 4px 8px;
+    border: 2px solid var(--line); border-radius: 8px; }
+  .gap-line input.ok { border-color: var(--good); background: var(--good-soft); }
+  .gap-line input.no { border-color: var(--bad); background: var(--bad-soft); }
+  .gap-line .ans { color: var(--good); font-size: 18px; margin-left: 8px; }
+
+  .result { text-align: center; padding: 20px 0; }
+  .result .big { font-size: 64px; }
+  .result .score { font-size: 32px; font-weight: 700; margin: 6px 0 16px; }
+  @media (max-width: 560px) { .match, .choices { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<main>
+  <div id="home">
+    <h1>English Exercises</h1>
+    <p class="hint">Choose a topic.</p>
+    <div class="grid" id="setGrid"></div>
+  </div>
+
+  <div id="menu" class="hidden">
+    <div class="top"><button class="btn" id="backHome">← All topics</button></div>
+    <h1 id="menuTitle"></h1>
+    <p class="hint">Choose an activity.</p>
+    <div class="grid" id="modeGrid"></div>
+  </div>
+
+  <div id="play" class="hidden">
+    <div class="top">
+      <button class="btn" id="backMenu">← Activities</button>
+      <span class="spacer"></span>
+      <span class="hint" id="playInfo"></span>
+    </div>
+    <div class="progress"><div id="bar"></div></div>
+    <div class="card" id="stage"></div>
+  </div>
+</main>
+
+<script src="sets.js"></script>
+<script>
+(() => {
+  const $ = s => document.querySelector(s);
+  const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+  const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+  const norm = s => s.trim().toLowerCase().replace(/\s+/g, ' ');
+  const show = id => ['home', 'menu', 'play'].forEach(x => $('#' + x).classList.toggle('hidden', x !== id));
+  const setBar = f => $('#bar').style.width = Math.round(f * 100) + '%';
+
+  let set = null;
+
+  // ----- home -----
+  const SETS = window.SETS || [];
+  SETS.forEach(s => {
+    const b = el('button', 'tile');
+    b.append(el('span', 'ico', s.icon || '📘'), document.createTextNode(s.title), el('small', '', s.words.length + ' words'));
+    b.onclick = () => openSet(s);
+    $('#setGrid').append(b);
+  });
+  if (!SETS.length) $('#setGrid').textContent = 'No exercises yet.';
+  $('#backHome').onclick = () => show('home');
+  $('#backMenu').onclick = () => show('menu');
+
+  // ----- menu -----
+  const MODES = [
+    { id: 'flash', icon: '🃏', name: 'Flashcards', desc: 'Look, think, flip', run: flashcards },
+    { id: 'match', icon: '🔗', name: 'Match', desc: 'Pair words and pictures', run: match },
+    { id: 'quiz',  icon: '❓', name: 'Quiz', desc: 'Pick the right word', run: quiz },
+    { id: 'gap',   icon: '✏️', name: 'Fill the gap', desc: 'Complete the sentences', run: gap, need: s => (s.sentences || []).length }
+  ];
+  function openSet(s) {
+    set = s; $('#menuTitle').textContent = s.icon + ' ' + s.title;
+    const g = $('#modeGrid'); g.innerHTML = '';
+    MODES.filter(m => !m.need || m.need(s)).forEach(m => {
+      const b = el('button', 'tile');
+      b.append(el('span', 'ico', m.icon), document.createTextNode(m.name), el('small', '', m.desc));
+      b.onclick = () => { show('play'); $('#playInfo').textContent = s.title + ' · ' + m.name; setBar(0); m.run(); };
+      g.append(b);
+    });
+    show('menu');
+  }
+
+  const stage = () => { const s = $('#stage'); s.innerHTML = ''; return s; };
+  const finish = (score, total, again) => {
+    setBar(1);
+    const s = stage(); const r = el('div', 'result');
+    const pct = total ? score / total : 1;
+    r.append(el('div', 'big', pct === 1 ? '🏆' : pct >= .6 ? '👏' : '💪'),
+             el('div', 'score', total ? `${score} / ${total}` : 'Well done!'),
+             el('p', 'hint', pct === 1 ? 'Perfect!' : pct >= .6 ? 'Good job! Try again for a perfect score.' : 'Keep practising – you can do it!'));
+    const row = el('div', 'row center');
+    const a = el('button', 'btn primary', 'Play again'); a.onclick = again;
+    const b = el('button', 'btn', 'Other activities'); b.onclick = () => show('menu');
+    row.append(a, b); r.append(row); s.append(r);
+  };
+
+  // ----- flashcards -----
+  function flashcards() {
+    const cards = shuffle(set.words); let i = 0, flipped = false;
+    const s = stage();
+    const card = el('div', 'flash'); card.tabIndex = 0;
+    const row = el('div', 'row center'); row.style.marginTop = '16px';
+    const prev = el('button', 'btn', '← Back'), flip = el('button', 'btn primary', 'Flip'), next = el('button', 'btn', 'Next →');
+    row.append(prev, flip, next); s.append(card, row);
+    const draw = () => {
+      const w = cards[i]; card.innerHTML = '';
+      if (!flipped) { if (w.pic) card.append(el('div', 'pic', w.pic)); card.append(el('div', 'word', w.en), el('div', 'sub', 'Click to see the Slovenian word')); }
+      else { card.append(el('div', 'word', w.sl || '—'), el('div', 'sub', w.en)); }
+      setBar((i + 1) / cards.length); $('#playInfo').textContent = `${set.title} · Flashcards ${i + 1}/${cards.length}`;
+    };
+    const doFlip = () => { flipped = !flipped; draw(); };
+    card.onclick = doFlip; flip.onclick = doFlip;
+    card.onkeydown = e => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); doFlip(); } };
+    prev.onclick = () => { i = (i - 1 + cards.length) % cards.length; flipped = false; draw(); };
+    next.onclick = () => { i = (i + 1) % cards.length; flipped = false; draw(); };
+    draw();
+  }
+
+  // ----- match -----
+  function match() {
+    const words = shuffle(set.words).slice(0, 6);
+    const left = shuffle(words), right = shuffle(words);
+    let selL = null, selR = null, done = 0, mistakes = 0;
+    const s = stage(); const grid = el('div', 'match'); const cl = el('div', 'col'), cr = el('div', 'col');
+    grid.append(cl, cr); s.append(el('p', 'hint', 'Click a word on the left, then its match on the right.'), grid);
+    const mk = (w, side) => {
+      const b = el('button', 'opt', side === 'L' ? w.en : ((w.pic ? w.pic + ' ' : '') + (w.sl || '')));
+      b.onclick = () => {
+        if (b.classList.contains('done')) return;
+        if (side === 'L') { if (selL) selL.b.classList.remove('sel'); selL = { w, b }; b.classList.add('sel'); }
+        else { if (selR) selR.b.classList.remove('sel'); selR = { w, b }; b.classList.add('sel'); }
+        if (selL && selR) {
+          if (selL.w === selR.w) {
+            [selL.b, selR.b].forEach(x => { x.classList.remove('sel'); x.classList.add('done'); });
+            done++; setBar(done / words.length); selL = selR = null;
+            if (done === words.length) setTimeout(() => finish(Math.max(0, words.length - mistakes), words.length, match), 500);
+          } else {
+            mistakes++; const a = selL.b, c = selR.b; a.classList.add('wrong'); c.classList.add('wrong');
+            setTimeout(() => { [a, c].forEach(x => x.classList.remove('wrong', 'sel')); }, 400);
+            selL = selR = null;
+          }
+        }
+      };
+      return b;
+    };
+    left.forEach(w => cl.append(mk(w, 'L'))); right.forEach(w => cr.append(mk(w, 'R')));
+  }
+
+  // ----- quiz -----
+  function quiz() {
+    const qs = shuffle(set.words); let i = 0, score = 0;
+    const ask = () => {
+      const w = qs[i]; const s = stage(); const q = el('div', 'q');
+      if (w.pic) q.append(el('div', 'pic', w.pic));
+      q.append(el('div', 'sl', w.sl || ''), el('p', 'hint', 'Which English word is this?'));
+      const box = el('div', 'choices');
+      const others = shuffle(set.words.filter(x => x !== w)).slice(0, 3);
+      shuffle([w, ...others]).forEach(o => {
+        const b = el('button', 'opt', o.en);
+        b.onclick = () => {
+          box.querySelectorAll('button').forEach(x => x.disabled = true);
+          if (o === w) { b.classList.add('done'); score++; }
+          else { b.classList.add('wrong'); [...box.children].find(x => x.textContent === w.en).classList.add('done'); }
+          i++; setBar(i / qs.length);
+          setTimeout(() => i < qs.length ? ask() : finish(score, qs.length, quiz), 900);
+        };
+        box.append(b);
+      });
+      q.append(box); s.append(q);
+    };
+    ask();
+  }
+
+  // ----- gap fill -----
+  function gap() {
+    const items = shuffle(set.sentences);
+    const s = stage(); s.append(el('p', 'hint', 'Type the missing word, then press Check.'));
+    const inputs = [];
+    items.forEach(it => {
+      const line = el('div', 'gap-line'); const parts = it.text.split('___');
+      const inp = el('input'); inp.type = 'text'; inp.autocomplete = 'off'; inp.autocapitalize = 'off'; inp.spellcheck = false;
+      line.append(document.createTextNode(parts[0]), inp, document.createTextNode(parts.slice(1).join('___')));
+      s.append(line); inputs.push({ it, inp, line });
+    });
+    const row = el('div', 'row center'); row.style.marginTop = '18px';
+    const check = el('button', 'btn primary', 'Check');
+    row.append(check); s.append(row);
+    let checked = false;
+    check.onclick = () => {
+      if (checked) { gap(); return; }
+      let score = 0;
+      inputs.forEach(({ it, inp, line }) => {
+        const ok = [it.answer, ...(it.alt || [])].map(norm).includes(norm(inp.value));
+        inp.classList.add(ok ? 'ok' : 'no'); inp.readOnly = true;
+        if (ok) score++; else line.append(el('span', 'ans', '→ ' + it.answer));
+      });
+      checked = true; setBar(1);
+      const res = el('div', 'result'); res.append(el('div', 'score', `${score} / ${items.length}`));
+      const b2 = el('button', 'btn', 'Other activities'); b2.onclick = () => show('menu');
+      check.textContent = 'Try again'; row.append(b2); s.insertBefore(res, row);
+    };
+  }
+})();
+</script>
+</body>
+</html>
