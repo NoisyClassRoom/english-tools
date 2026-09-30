@@ -4,6 +4,45 @@
 
 window.CLASS_SETS = [
   {
+    id: "dt2u0", unit: "Let's remember", title: "Let's remember", icon: "🔁",
+    words: [
+      { en: "raincoat",  sl: "dežni plašč",   pic: "🧥" },
+      { en: "tracksuit", sl: "trenirka" },
+      { en: "swimsuit",  sl: "kopalke",       pic: "🩱" },
+      { en: "windy",     sl: "vetrovno",      pic: "💨" },
+      { en: "foggy",     sl: "megleno",       pic: "🌫️" },
+      { en: "storm",     sl: "nevihta",       pic: "⛈️" },
+      { en: "hall",      sl: "hodnik / veža" },
+      { en: "fireplace", sl: "kamin",         pic: "🔥" },
+      { en: "attic",     sl: "podstrešje" },
+      { en: "violin",    sl: "violina",       pic: "🎻" },
+      { en: "drums",     sl: "bobni",         pic: "🥁" },
+      { en: "trumpet",   sl: "trobenta",      pic: "🎺" }
+    ],
+    sentences: [
+      { text: "Look! It ___ raining.",                                     answer: "is" },
+      { text: "I usually ___ the bus, but today I'm walking.",             answer: "take" },
+      { text: "She ___ plays tennis on Sundays. (100%)",                   answer: "always" },
+      { text: "We ___ going to visit our grandparents at the weekend.",    answer: "are" },
+      { text: "They ___ at the cinema yesterday.",                         answer: "were" },
+      { text: "I ___ my homework last night. (finish)",                    answer: "finished" },
+      { text: "He's ___ the drums at the moment. (play)",                  answer: "playing" },
+      { text: "How ___ do you go swimming? Twice a week.",                 answer: "often" }
+    ],
+    tests: [
+      { q: "Listen! Someone ___ the violin.", options: ["is playing", "plays", "play"], answer: "is playing" },
+      { q: "My dad ___ to work by car every day.", options: ["goes", "is going", "go"], answer: "goes" },
+      { q: "She is ___ to visit Italy next summer.", options: ["going", "go", "goes"], answer: "going" },
+      { q: "They ___ on holiday last week.", options: ["were", "was", "are"], answer: "were" },
+      { q: "We ___ TV yesterday evening. (watch)", options: ["watched", "watch", "watching"], answer: "watched" },
+      { q: "He ___ never late for school.", options: ["is", "does", "has"], answer: "is" },
+      { q: "She ___ wearing a raincoat today.", options: ["is", "are", "does"], answer: "is" },
+      { q: "How often do you play tennis? — ___ a week.", options: ["Twice", "Two", "Second"], answer: "Twice" },
+      { q: "You can't see far. It is very ___ today.", options: ["foggy", "sunny", "hot"], answer: "foggy" },
+      { q: "We sit by the ___ in winter to keep warm.", options: ["fireplace", "attic", "hall"], answer: "fireplace" }
+    ]
+  },
+  {
     id: "dt2u1", unit: "Unit 1", title: "Jeff's a DJ now!", icon: "🎧",
     words: [
       { en: "motorbike",  sl: "motor",              pic: "🏍️" },
