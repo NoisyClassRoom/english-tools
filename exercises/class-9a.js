@@ -226,7 +226,7 @@ window.CLASS_SETS = [
       { en: "short", sl: "nizek" },
       { en: "slim", sl: "vitek" },
       { en: "brave", sl: "pogumen" },
-      { en: "friendly", sl: "prijazen" },
+      { en: "friendly", sl: "družaben" },
       { en: "rude", sl: "nesramen" },
       { en: "honest", sl: "iskren" },
       { en: "cheap", sl: "poceni" },
