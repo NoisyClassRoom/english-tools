@@ -4,7 +4,7 @@
 
 window.CLASS_SETS = [
   {
-    id: "dt1u0", unit: "Let's remember", title: "Let's remember", icon: "🔁",
+    id: "dt1u0", unit: "Revision", title: "Let's remember", icon: "🔁",
     words: [
       { en: "nurse",          sl: "medicinska sestra", pic: "👩‍⚕️" },
       { en: "shop assistant", sl: "prodajalec / prodajalka" },
