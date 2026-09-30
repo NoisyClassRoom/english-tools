@@ -59,7 +59,7 @@ window.CLASS_SETS = [
     words: [
       { en: "coat",       sl: "plašč",              pic: "🧥" },
       { en: "shorts",     sl: "kratke hlače",       pic: "🩳" },
-      { en: "sweatshirt", sl: "pulover" },
+      { en: "sweatshirt", sl: "športni pulover" },
       { en: "boots",      sl: "škornji",            pic: "🥾" },
       { en: "sandals",    sl: "sandali",            pic: "🩴" },
       { en: "tie",        sl: "kravata" },
