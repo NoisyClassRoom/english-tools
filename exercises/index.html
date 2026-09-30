@@ -84,10 +84,19 @@
   .match .opt { text-align: center; }
   .gap-line { text-align: center; }
   .top { justify-content: space-between; }
+
+  /* sign-in bar + save status */
+  .who { display: flex; gap: 10px; align-items: center; justify-content: center; flex-wrap: wrap;
+    min-height: 44px; margin-bottom: 10px; font-size: 16px; color: var(--muted); }
+  .who button { font-size: 15px; padding: 6px 12px; }
+  .savemsg { font-size: 16px; margin: 0 0 14px; color: var(--muted); }
+  .savemsg.ok { color: var(--good); }
+  .savemsg.warn { color: var(--bad); }
 </style>
 </head>
 <body>
 <main>
+  <div id="who" class="who hidden"></div>
   <div id="home">
     <h1 id="homeTitle">English Exercises</h1>
     <p class="hint" id="homeHint"></p>
@@ -114,6 +123,7 @@
 
 <script src="classes.js"></script>
 <script src="sets.js"></script>
+<script src="tracking.js"></script>
 <script>
 (() => {
   const $ = s => document.querySelector(s);
@@ -123,7 +133,34 @@
   const show = id => ['home', 'menu', 'play'].forEach(x => $('#' + x).classList.toggle('hidden', x !== id));
   const setBar = f => $('#bar').style.width = Math.round(f * 100) + '%';
 
-  let set = null;
+  let set = null, mode = null;
+
+  // ----- progress tracking (see tracking.js; does nothing until it is configured) -----
+  const whoBar = () => {
+    const w = $('#who'); if (!Track.enabled) return;
+    w.classList.remove('hidden'); w.innerHTML = '';
+    if (Track.email) {
+      const out = el('button', 'btn', 'Sign out'); out.onclick = () => Track.signOut();
+      w.append(document.createTextNode('✓ Saving results for ' + Track.email), out);
+    } else {
+      const box = el('span'); w.append(el('span', '', 'Sign in to save your results:'), box);
+      Track.button(box);
+    }
+  };
+  Track.onChange(whoBar);
+  Track.init(whoBar);
+  // shows "saved / sign in" under the score; safe to call for every finished activity
+  const report = (score, total, into) => {
+    if (!Track.enabled || !set || !mode) return;
+    const cls = new URLSearchParams(location.search).get('class') || '';
+    const msg = el('p', 'savemsg', 'Saving…'); into.append(msg);
+    Track.save({ cls, topic: set.title, activity: mode.name, score, total }, st => {
+      msg.className = 'savemsg ' + (st === 'saved' ? 'ok' : st === 'off' ? '' : 'warn');
+      msg.textContent = st === 'saved' ? '✓ Result saved'
+        : st === 'signin' ? 'Sign in with Google (top of the page) to save this result.'
+        : st === 'error' ? 'Could not save the result. It will be tried again after your next activity.' : '';
+    });
+  };
   const CLASSES = window.CLASSES || [];
   const SHARED = window.SETS || [];
 
@@ -195,7 +232,7 @@
     MODES.filter(m => !m.need || m.need(s)).forEach(m => {
       const b = el('button', 'tile');
       b.append(el('span', 'ico', m.icon), document.createTextNode(m.name), el('small', '', m.desc));
-      b.onclick = () => { show('play'); $('#playInfo').textContent = s.title + ' · ' + m.name; setBar(0); m.run(); };
+      b.onclick = () => { mode = m; show('play'); $('#playInfo').textContent = s.title + ' · ' + m.name; setBar(0); m.run(); };
       g.append(b);
     });
     show('menu');
@@ -209,6 +246,7 @@
     r.append(el('div', 'big', pct === 1 ? '🏆' : pct >= .6 ? '👏' : '💪'),
              el('div', 'score', total ? `${score} / ${total}` : 'Well done!'),
              el('p', 'hint', pct === 1 ? 'Perfect!' : pct >= .6 ? 'Good job! Try again for a perfect score.' : 'Keep practising – you can do it!'));
+    if (total) report(score, total, r);
     const row = el('div', 'row center');
     const a = el('button', 'btn primary', 'Play again'); a.onclick = again;
     const b = el('button', 'btn', 'Other activities'); b.onclick = () => show('menu');
@@ -340,6 +378,7 @@
       });
       checked = true; setBar(1);
       const res = el('div', 'result'); res.append(el('div', 'score', `${score} / ${items.length}`));
+      report(score, items.length, res);
       const b2 = el('button', 'btn', 'Other activities'); b2.onclick = () => show('menu');
       check.textContent = 'Try again'; row.append(b2); s.insertBefore(res, row);
     };
