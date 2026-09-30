@@ -269,7 +269,7 @@
 
   // ----- quiz -----
   function quiz() {
-    const qs = shuffle(set.words); let i = 0, score = 0;
+    const qs = shuffle(set.words).slice(0, 10); let i = 0, score = 0;
     const ask = () => {
       const w = qs[i]; const s = stage(); const q = el('div', 'q');
       if (w.pic) q.append(el('div', 'pic', w.pic));
