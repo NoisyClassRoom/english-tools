@@ -74,6 +74,16 @@
   .result .big { font-size: 64px; }
   .result .score { font-size: 32px; font-weight: 700; margin: 6px 0 16px; }
   @media (max-width: 560px) { .match, .choices { grid-template-columns: 1fr; } }
+
+  /* ---- centred layout ---- */
+  h1, h2, .hint { text-align: center; }
+  .card { text-align: center; }
+  .grid { display: flex; flex-wrap: wrap; justify-content: center; gap: 14px; }
+  .tile { width: 210px; }
+  .match, .choices { max-width: 640px; margin-left: auto; margin-right: auto; }
+  .match .opt { text-align: center; }
+  .gap-line { text-align: center; }
+  .top { justify-content: space-between; }
 </style>
 </head>
 <body>
