@@ -87,7 +87,9 @@
 
   /* sign-in bar + save status */
   .who { display: flex; gap: 10px; align-items: center; justify-content: center; flex-wrap: wrap;
-    min-height: 44px; margin-bottom: 10px; font-size: 16px; color: var(--muted); }
+    min-height: 52px; margin: 0 auto 14px; padding: 8px 14px; max-width: 640px; font-size: 16px; color: var(--ink);
+    background: var(--accent-soft); border: 1px solid #c5d6f4; border-radius: var(--radius); }
+  .who.on { background: var(--good-soft); border-color: #b4e2c6; }
   .who button { font-size: 15px; padding: 6px 12px; }
   .savemsg { font-size: 16px; margin: 0 0 14px; color: var(--muted); }
   .savemsg.ok { color: var(--good); }
@@ -138,12 +140,12 @@
   // ----- progress tracking (see tracking.js; does nothing until it is configured) -----
   const whoBar = () => {
     const w = $('#who'); if (!Track.enabled) return;
-    w.classList.remove('hidden'); w.innerHTML = '';
+    w.classList.remove('hidden'); w.classList.toggle('on', !!Track.email); w.innerHTML = '';
     if (Track.email) {
       const out = el('button', 'btn', 'Sign out'); out.onclick = () => Track.signOut();
       w.append(document.createTextNode('✓ Saving results for ' + Track.email), out);
     } else {
-      const box = el('span'); w.append(el('span', '', 'Sign in to save your results:'), box);
+      const box = el('span'); w.append(el('span', '', '💾 Sign in with your school account to save your results:'), box);
       Track.button(box);
     }
   };
