@@ -26,15 +26,23 @@ Slovenian translations and word lists were written from the year plans' topics a
 ## WordPress side (noisy.splet.arnes.si)
 
 - Plugins switched on: TablePress (teacher links table), H5P (not used), iframe (embeds).
-- Teacher pages (in the menu): Home, Classroom Tools (/tools/), Teacher Links (/links/).
-- Student pages are NOT linked anywhere; each class gets its own link:
+- Public: the front page is **Students** (class buttons + extra practice) and the seven class pages
   /6-project-1/, /7-dream-team-starter/, /7-project-2/, /8-dream-team-1/, /8-project-3/, /9-dream-team-2/, /9-project-4/
-  and /students/ (extra practice for everyone). They use the bare template "page-students" (no menu, no footer).
+  (template "page-students"). Each class page has a "← All classes" link.
+- Private (visible only when logged in as the teacher): Home (/home/), Classroom Tools (/tools/), Teacher Links (/links/).
+  Bookmark: https://noisy.splet.arnes.si/wp-login.php?redirect_to=https%3A%2F%2Fnoisy.splet.arnes.si%2Fhome%2F
+- Header menu: only Students for visitors. Home / Classroom Tools / Teacher Links are plain custom links with the CSS class
+  `teacher-only`, hidden by Additional CSS unless the visitor is logged in (private pages are hidden from block menus otherwise).
 - Adding a link for yourself: log in, open Teacher Links, press "Uredi" under the table.
 
-## Planned next: student progress tracking
+## Student progress tracking (live)
 
-Decisions so far:
+Setup steps: `apps-script/SETUP.md`. Code: `exercises/tracking.js` (browser) and `apps-script/Code.gs` (server).
+Each finished activity saves e-mail, first/last name (from the Google account), class, topic, activity and score to a private Sheet.
+The Sheet's menu "English hub" builds overview tabs (Summary, Students, Best scores, Topics, By day) and manages the Roster and school years.
+A description for the school's data-protection officer is in `DATA-PROTECTION.md`.
+
+Decisions:
 - Students have Google school accounts, so they identify themselves with "Sign in with Google" (no personal codes).
 - Results (email, unit, activity, score, date) go to a private Google Sheet through a Google Apps Script web app that verifies the Google ID token.
 - The class list (names / emails per school year) stays only in that private sheet, never in this public repo.
