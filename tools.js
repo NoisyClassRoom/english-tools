@@ -159,6 +159,7 @@
   if (!Object.keys(classes).length) classes = { ...EXAMPLE };
   let current = store.get('ct_current', Object.keys(classes)[0]);
   let absent = new Set(), picked = new Set();
+  let current2 = '';                 // optional second class, used together with the first (e.g. a joint lesson)
   const fromSheet = new Set();
   const manualKeys = () => Object.keys(classes).filter(c => !fromSheet.has(c));
   const saveClasses = () => {
@@ -181,33 +182,45 @@
     if (disp) return disp;
     const t = raw.split(/\s+/); return t.length < 2 ? raw : t[t.length - 1] + ' ' + t.slice(0, -1).join(' ');
   };
-  const present = () => (classes[current] || []).filter(e => !absent.has(nameOf(e)));
+  // every pupil of the chosen class(es): {c: class, e: entry, id: unique key}
+  const items = () => [current, current2].filter(Boolean).flatMap(c => (classes[c] || []).map(e => ({ c, e, id: c + '|' + nameOf(e) })));
+  const present = () => items().filter(it => !absent.has(it.id));
+  const label = it => show(it.e) + (current2 ? ' (' + it.c + ')' : '');   // class tag only when two classes are used
+  const clearOutput = () => { $('#pickName').textContent = '—'; $('#groupsOut').innerHTML = ''; $('#mixInfo').textContent = ''; };
 
   const renderChips = () => {
     ['#pickChips', '#groupChips'].forEach(sel => {
       const box = $(sel); box.innerHTML = '';
-      (classes[current] || []).forEach(e => {
-        const n = nameOf(e), c = document.createElement('span');
-        c.className = 'chip' + (absent.has(n) ? ' absent' : '') + (picked.has(n) ? ' picked' : '');
-        c.textContent = show(e);
-        c.title = absent.has(n) ? 'Absent — click to mark present' : 'Click to mark absent';
-        c.onclick = () => { absent.has(n) ? absent.delete(n) : absent.add(n); renderChips(); };
+      items().forEach(it => {
+        const c = document.createElement('span');
+        c.className = 'chip' + (absent.has(it.id) ? ' absent' : '') + (picked.has(it.id) ? ' picked' : '');
+        c.textContent = label(it);
+        c.title = absent.has(it.id) ? 'Absent — click to mark present' : 'Click to mark absent';
+        c.onclick = () => { absent.has(it.id) ? absent.delete(it.id) : absent.add(it.id); renderChips(); };
         box.appendChild(c);
       });
     });
   };
   const refreshSelects = () => {
     if (!classes[current]) current = Object.keys(classes)[0];
+    if (current2 && (!classes[current2] || current2 === current)) current2 = '';
     $$('.classSelect').forEach(sel => {
       sel.innerHTML = '';
       Object.keys(classes).forEach(c => sel.add(new Option(c, c, false, c === current)));
+    });
+    $$('.class2Select').forEach(sel => {
+      sel.innerHTML = '';
+      sel.add(new Option('— none —', '', false, !current2));
+      Object.keys(classes).filter(c => c !== current).forEach(c => sel.add(new Option(c, c, false, c === current2)));
     });
     $$('.orderSelect').forEach(sel => sel.value = order);
     renderChips();
   };
   $$('.classSelect').forEach(sel => sel.onchange = () => {
-    current = sel.value; absent.clear(); picked.clear(); saveClasses(); refreshSelects();
-    $('#pickName').textContent = '—'; $('#groupsOut').innerHTML = ''; $('#mixInfo').textContent = '';
+    current = sel.value; absent.clear(); picked.clear(); saveClasses(); refreshSelects(); clearOutput();
+  });
+  $$('.class2Select').forEach(sel => sel.onchange = () => {
+    current2 = sel.value; picked.clear(); refreshSelects(); clearOutput();
   });
   $$('.orderSelect').forEach(sel => sel.onchange = () => { order = sel.value; store.set('ct_order', order); refreshSelects(); });
 
@@ -244,7 +257,7 @@
   let rolling = false;
   $('#pickBtn').onclick = () => {
     if (rolling) return;
-    let pool = present().filter(e => !picked.has(nameOf(e)));
+    let pool = present().filter(it => !picked.has(it.id));
     if (!pool.length) { picked.clear(); pool = present(); }
     if (!pool.length) { $('#pickName').textContent = 'Add pupils first'; return; }
     const winner = pool[Math.floor(Math.random() * pool.length)];
@@ -252,10 +265,10 @@
     rolling = true; el.classList.add('rolling');
     let i = 0, delay = 50;
     const spin = () => {
-      el.textContent = show(all[Math.floor(Math.random() * all.length)]);
+      el.textContent = label(all[Math.floor(Math.random() * all.length)]);
       i++; delay *= 1.12;
       if (i < 15) setTimeout(spin, delay);
-      else { el.textContent = show(winner); el.classList.remove('rolling'); picked.add(nameOf(winner)); rolling = false; renderChips(); }
+      else { el.textContent = label(winner); el.classList.remove('rolling'); picked.add(winner.id); rolling = false; renderChips(); }
     };
     spin();
   };
@@ -267,15 +280,16 @@
   const pairKey = (a, b) => (a < b ? a + '|' + b : b + '|' + a);
   const shuffled = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
   const deal = (list, count) => { const g = Array.from({ length: count }, () => []); list.forEach((e, i) => g[i % count].push(e)); return g; };
-  const eachPair = (groups, fn) => groups.forEach(g => { for (let i = 0; i < g.length; i++) for (let j = i + 1; j < g.length; j++) fn(pairKey(nameOf(g[i]), nameOf(g[j]))); });
-  $('#mixForget').onclick = () => { history[current] = {}; $('#mixInfo').textContent = 'History cleared.'; };
+  const eachPair = (groups, fn) => groups.forEach(g => { for (let i = 0; i < g.length; i++) for (let j = i + 1; j < g.length; j++) fn(pairKey(g[i].id, g[j].id)); });
+  const histKey = () => current + '+' + current2;
+  $('#mixForget').onclick = () => { history[histKey()] = {}; $('#mixInfo').textContent = 'History cleared.'; };
   $('#groupBtn').onclick = () => {
     const list = present();
     const out = $('#groupsOut'); out.innerHTML = '';
     if (!list.length) { out.textContent = 'Add pupils first.'; return; }
     const n = Math.max(1, +$('#groupN').value || 1);
     const count = $('#groupMode').value === 'count' ? Math.min(n, list.length) : Math.max(1, Math.round(list.length / n));
-    const h = history[current] = history[current] || {};
+    const h = history[histKey()] = history[histKey()] || {};
     const mix = $('#mixNew').checked;
     let best = null, bestCost = Infinity;
     for (let t = 0; t < (mix ? 400 : 1); t++) {
@@ -289,7 +303,7 @@
       const d = document.createElement('div'); d.className = 'group';
       const hh = document.createElement('h3'); hh.textContent = `Group ${i + 1}`;
       const ul = document.createElement('ul');
-      g.map(show).sort((a, b) => a.localeCompare(b, 'sl')).forEach(nm => { const li = document.createElement('li'); li.textContent = nm; ul.appendChild(li); });
+      g.map(label).sort((a, b) => a.localeCompare(b, 'sl')).forEach(nm => { const li = document.createElement('li'); li.textContent = nm; ul.appendChild(li); });
       d.append(hh, ul); out.appendChild(d);
     });
   };
