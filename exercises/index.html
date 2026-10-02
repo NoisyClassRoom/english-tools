@@ -212,7 +212,20 @@
   else if (info) {
     const s = document.createElement('script');
     s.src = 'class-' + info.id + '.js';
-    s.onload = () => renderSets(window.CLASS_SETS || [], info);
+    s.onload = () => {
+      // harder unit tests live in hard-<id>.js (optional): [question, right answer, wrong, wrong, wrong]
+      const h = document.createElement('script');
+      h.src = 'hard-' + info.id + '.js';
+      const go = () => {
+        (window.CLASS_SETS || []).forEach(set => {
+          const hard = (window.HARD_TESTS || {})[set.id];
+          if (hard) set.tests2 = hard.map(([q, a, ...w]) => ({ q, options: [a, ...w], answer: a }));
+        });
+        renderSets(window.CLASS_SETS || [], info);
+      };
+      h.onload = go; h.onerror = go;
+      document.head.append(h);
+    };
     s.onerror = () => { $('#homeBody').textContent = 'Could not load the exercises for this class.'; };
     document.head.append(s);
   } else renderPicker();
@@ -226,7 +239,8 @@
     { id: 'match', icon: '🔗', name: 'Match', desc: 'Pair words and pictures', run: match },
     { id: 'quiz',  icon: '❓', name: 'Quiz', desc: 'Pick the right word', run: quiz },
     { id: 'gap',   icon: '✏️', name: 'Fill the gap', desc: 'Complete the sentences', run: gap, need: s => (s.sentences || []).length },
-    { id: 'test',  icon: '📝', name: 'Unit test', desc: 'Grammar check', run: test, need: s => (s.tests || []).length }
+    { id: 'test',  icon: '📝', name: 'Unit test', desc: 'Grammar check', run: test, need: s => (s.tests || []).length },
+    { id: 'test2', icon: '🧠', name: 'Unit test 2', desc: 'A harder test', run: () => test('tests2'), need: s => (s.tests2 || []).length }
   ];
   function openSet(s) {
     set = s; $('#menuTitle').textContent = s.icon + ' ' + s.title;
@@ -333,8 +347,8 @@
   }
 
   // ----- unit test (multiple choice grammar) -----
-  function test() {
-    const qs = shuffle(set.tests); let i = 0, score = 0;
+  function test(key = 'tests') {
+    const qs = shuffle(set[key]); let i = 0, score = 0;
     const ask = () => {
       const t = qs[i]; const s = stage(); const q = el('div', 'q');
       q.append(el('p', 'hint', `Question ${i + 1} of ${qs.length}`), el('div', 'stem', t.q));
@@ -346,7 +360,7 @@
           if (o === t.answer) { b.classList.add('done'); score++; }
           else { b.classList.add('wrong'); [...box.children].find(x => x.textContent === t.answer).classList.add('done'); }
           i++; setBar(i / qs.length);
-          setTimeout(() => i < qs.length ? ask() : finish(score, qs.length, test), 1100);
+          setTimeout(() => i < qs.length ? ask() : finish(score, qs.length, () => test(key)), 1100);
         };
         box.append(b);
       });
