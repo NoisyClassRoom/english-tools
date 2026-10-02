@@ -15,6 +15,8 @@ This repo is served by GitHub Pages and embedded in a WordPress site on Arnes Sp
 | `exercises/index.html` | The exercise app (flashcards, match, quiz, fill the gap, unit test) |
 | `exercises/classes.js` | List of classes: grade + coursebook, `ready: true` when the file exists |
 | `exercises/class-<id>.js` | One file per coursebook: units with 24 words, 8 gap sentences, 10 test questions |
+| `exercises/hard-<id>.js` | The harder test ("Unit test 2") of each unit: 10 questions |
+| `exercises/more-<id>.js` | Extra questions that make each unit's exercise bank bigger than one session (8 gap sentences, 10 easy and 10 hard test questions per unit). The page shows questions a pupil has not seen yet first, so a repeat attempt brings new ones |
 | `exercises/sets.js` | Generic "Extra practice" topics shown to every class |
 
 Class ids (internal only): 6b = Project 1, 7a = Dream Team Starter, 7bc = Project 2,
@@ -39,7 +41,7 @@ Slovenian translations and word lists were written from the year plans' topics a
 
 Setup steps: `apps-script/SETUP.md`. Code: `exercises/tracking.js` (browser) and `apps-script/Code.gs` (server).
 Each finished activity saves e-mail, first/last name (from the Google account), class, topic, activity and score to a private Sheet.
-The Sheet's menu "English hub" builds overview tabs (Summary, Students, Best scores, Topics, By day) and manages the Roster and school years.
+The Sheet's menu "English hub" builds overview tabs (Summary, Students, Difficulty, By book, Best scores, Topics, By day) and manages the Roster and school years.
 A description for the school's data-protection officer is in `DATA-PROTECTION.md`.
 
 Decisions:
