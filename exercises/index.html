@@ -176,7 +176,8 @@
     if (!Track.enabled || !set || !mode) return;
     const cls = new URLSearchParams(location.search).get('class') || '';
     const msg = el('p', 'savemsg', 'Saving…'); into.append(msg);
-    Track.save({ cls, unit: set.unit || '', topic: set.title, activity: mode.name, score, total }, st => {
+    const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);   // the same result is never stored twice, even if it is sent again
+    Track.save({ id, cls, unit: set.unit || '', topic: set.title, activity: mode.name, score, total }, st => {
       msg.className = 'savemsg ' + (st === 'saved' ? 'ok' : st === 'off' ? '' : 'warn');
       msg.textContent = st === 'saved' ? '✓ Result saved'
         : st === 'signin' ? 'Sign in with Google (top of the page) to save this result.'
