@@ -36,10 +36,12 @@ e-mail + score in a private Sheet is OK. Two things you need from the admin:
 
 ## 5. Analysis, school years, roster
 Menu **English hub** in the Sheet (appears after reloading the Sheet):
-- **Set up analysis tabs** - builds Summary (best result per pupil and topic), Students, Best scores, Topics, By day and (once) the Roster tab. Each overview tab has selectors for school year, class and book.
-- **Refresh classes from Roster** - run after you edit the Roster; puts the real class on every result row.
+- **Set up analysis tabs** - builds the overview tabs from "Results" and the hidden "Archive" tab together: Summary (best result of each pupil in each unit; the column titles contain the coursebook, e.g. "Project 4 · Unit 1 · Past and Present", so units of different books never mix and the columns are grouped by book), Students (attempts, questions answered, average, average difficulty, number of hard tests), Difficulty (how many Easy / Medium / Hard activities each pupil finished, and the average result at each level), By book, Best scores, Topics, By day, and (once) the Roster tab. Each overview tab has selectors for school year, class, book and level. Difficulty levels: 1 Easy = Match and Quiz, 2 Medium = Fill the gap and Unit test, 3 Hard = Unit test 2.
+- **Refresh classes from Roster** - run after you edit the Roster; puts the real class on every result row (Results and Archive).
 - **Start new school year (copy Roster)** - every September: copies the newest school year of the Roster to the next one, each class one grade up (7.A -> 8.A); 9th graders are not copied. Then add the new 6th graders, fix repeaters, and run "Refresh classes from Roster".
-- **Delete old results...** - removes results older than N years (asks to confirm).
+- **Move earlier school years to Archive...** - keeps "Results" short: moves every result that is not from the current school year to the hidden "Archive" tab (right-click the sheet tabs > Show hidden sheets). Nothing is deleted and the overview tabs still count the archive. Run it every September. New results are added at the top of "Results" (newest first).
+- **Remove duplicate results (save bug)...** - one-off clean-up for 2 Oct 2026, when the first collector version stored every result up to three times (see the comment in Code.gs). Asks first; the copies are moved to a hidden "Duplicates" tab, not deleted.
+- **Delete old results...** - removes results (Results and Archive) older than N years (asks to confirm).
 
 Every result gets a school year automatically (September-August, e.g. `2026-27`).
 The Roster tab (`Email (optional) | School year | Class | Name (as in eAsistent)`, e.g. `2026-27 | 7.A | Surname Firstname`) is private to your Sheet. A pupil is found by e-mail or by name (surname and first name in any order, accents and capitals ignored). Every September add the new rows, then run "Refresh classes from Roster". Never put the Roster into the public repository.
