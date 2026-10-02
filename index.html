@@ -104,6 +104,13 @@
   dialog::backdrop { background: rgba(0,0,0,.35); }
   dialog textarea { width: 100%; height: 260px; }
 
+  /* classes from the Google Sheet (teacher only) */
+  #sheetBar { display: none; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 14px;
+    padding: 10px 14px; background: var(--accent-soft); border: 1px solid #c5d6f4; border-radius: var(--radius); font-size: 16px; }
+  #sheetBar.show { display: flex; }
+  #sheetBar.ok { background: #dcf5e6; border-color: #b4e2c6; }
+  #sheetBar .btn { font-size: 16px; padding: 8px 14px; }
+
   .fs-hide { }
   body.fullscreen header { display: none; }
   body.fullscreen .fs-hide { display: none; }
@@ -124,6 +131,12 @@
 </header>
 
 <main>
+  <div id="sheetBar" class="fs-hide">
+    <span id="sheetMsg">📋 Your classes from the Google Sheet:</span>
+    <button class="btn" id="sheetBtn">Load my classes</button>
+    <span id="sheetSlot"></span>
+  </div>
+
   <!-- TIMER -->
   <section id="timer" class="active">
     <div class="card center" id="timerCard">
@@ -224,6 +237,7 @@
   </div>
 </dialog>
 
+<script src="exercises/tracking.js"></script>
 <script>
 (() => {
   const $ = s => document.querySelector(s);
@@ -240,6 +254,7 @@
     $$('#tabs button').forEach(b => b.classList.toggle('active', b.dataset.tab === id));
     $$('main section').forEach(s => s.classList.toggle('active', s.id === id));
     store.set('ct_tab', id);
+    $('#sheetBar').classList.toggle('show', window.Track && Track.enabled && (id === 'picker' || id === 'groups'));
   };
   $$('#tabs button').forEach(b => b.onclick = () => showTab(b.dataset.tab));
   showTab(store.get('ct_tab', 'timer'));
@@ -318,9 +333,15 @@
 
   // ---------- classes ----------
   let classes = store.get('ct_classes', { 'Example class': ['Ana', 'Luka', 'Maja', 'Nik', 'Eva', 'Jan', 'Zala', 'Tim', 'Lara', 'Žiga', 'Nina', 'Miha'] });
+  if (!Object.keys(classes).length) classes = { 'Example class': ['Ana', 'Luka', 'Maja', 'Nik', 'Eva', 'Jan'] };
   let current = store.get('ct_current', Object.keys(classes)[0]);
   let absent = new Set(), picked = new Set();
-  const saveClasses = () => { store.set('ct_classes', classes); store.set('ct_current', current); };
+  const fromSheet = new Set();   // classes loaded from the Google Sheet: kept in memory only, never saved in this browser
+  const manualKeys = () => Object.keys(classes).filter(c => !fromSheet.has(c));
+  const saveClasses = () => {
+    const mine = {}; manualKeys().forEach(k => mine[k] = classes[k]);
+    store.set('ct_classes', mine); store.set('ct_current', fromSheet.has(current) ? '' : current);
+  };
   const present = () => (classes[current] || []).filter(n => !absent.has(n));
 
   const refreshSelects = () => {
@@ -342,22 +363,23 @@
   const loadDlg = key => {
     dlgKey = key;
     $('#dlgClass').innerHTML = '';
-    Object.keys(classes).forEach(c => $('#dlgClass').add(new Option(c, c, false, c === key)));
+    manualKeys().forEach(c => $('#dlgClass').add(new Option(c, c, false, c === key)));
     $('#dlgName').value = key || '';
     $('#dlgNames').value = key ? (classes[key] || []).join('\n') : '';
   };
-  $$('.manageBtn').forEach(b => b.onclick = () => { loadDlg(current); dlg.showModal(); });
+  $$('.manageBtn').forEach(b => b.onclick = () => { loadDlg(fromSheet.has(current) ? manualKeys()[0] : current); dlg.showModal(); });
   $('#dlgClass').onchange = e => loadDlg(e.target.value);
   $('#dlgNew').onclick = () => { dlgKey = null; $('#dlgName').value = ''; $('#dlgNames').value = ''; $('#dlgName').focus(); };
   $('#dlgDelete').onclick = () => {
     if (!dlgKey || !confirm(`Delete class "${dlgKey}"?`)) return;
     delete classes[dlgKey];
     if (!Object.keys(classes).length) classes = { 'New class': [] };
-    saveClasses(); loadDlg(Object.keys(classes)[0]); refreshSelects();
+    saveClasses(); loadDlg(manualKeys()[0]); refreshSelects();
   };
   $('#dlgCancel').onclick = () => dlg.close();
   $('#dlgSave').onclick = () => {
     const name = $('#dlgName').value.trim() || 'Unnamed class';
+    if (fromSheet.has(name)) { alert('A class from the Sheet already has this name. Please use another name.'); return; }
     const names = $('#dlgNames').value.split('\n').map(s => s.trim()).filter(Boolean);
     if (dlgKey && dlgKey !== name) delete classes[dlgKey];
     classes[name] = names; current = name; absent.clear(); picked.clear();
@@ -459,6 +481,42 @@
     };
     loop();
   };
+
+  // ---------- classes from the Google Sheet (teacher only; names stay in memory) ----------
+  const bar = $('#sheetBar'), sheetMsg = $('#sheetMsg'), sheetBtn = $('#sheetBtn');
+  let loading = false;
+  const setBar = (text, ok) => { sheetMsg.textContent = text; bar.classList.toggle('ok', !!ok); };
+  const loadFromSheet = async () => {
+    const token = Track.token(); if (!token || loading) return;
+    loading = true; setBar('Loading your classes…');
+    try {
+      const r = await fetch(Track.config.endpoint, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'roster', token }) });
+      const j = await r.json();
+      if (!j.ok) { setBar(j.error === 'token' ? 'This Google account is not allowed to load the class lists.' : 'Could not load the classes.'); return; }
+      const names = Object.keys(j.classes);
+      if (!names.length) { setBar('The Roster in the Sheet is empty.'); return; }
+      const mine = {}; manualKeys().forEach(k => { if (!j.classes[k] && k !== 'Example class') mine[k] = classes[k]; });
+      fromSheet.clear(); classes = {};
+      names.forEach(c => { classes[c] = j.classes[c]; fromSheet.add(c); });
+      Object.assign(classes, mine);
+      if (!classes[current]) current = names[0];
+      absent.clear(); picked.clear();
+      refreshSelects(); $('#pickName').textContent = '—'; $('#groupsOut').innerHTML = '';
+      $('#sheetSlot').innerHTML = '';
+      setBar(`✓ ${names.length} classes loaded from the Sheet (${j.year}). The names stay in this window only.`, true);
+      sheetBtn.textContent = 'Reload';
+    } catch (e) { setBar('Could not reach the Sheet. Check your connection.'); }
+    finally { loading = false; }
+  };
+  sheetBtn.onclick = () => {
+    if (Track.token()) return loadFromSheet();
+    setBar('Sign in with your school Google account:'); Track.button($('#sheetSlot'));
+  };
+  if (window.Track && Track.enabled) {
+    Track.onChange(() => { if (Track.token()) loadFromSheet(); });
+    Track.init(() => { if (Track.token()) loadFromSheet(); });
+  }
 
   refreshSelects();
 })();
