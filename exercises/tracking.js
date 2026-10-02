@@ -63,7 +63,9 @@ window.TRACK_CONFIG = {
 
   window.Track = {
     enabled,
+    config: cfg,
     get email() { return email; },
+    token() { return valid(credential) ? credential : null; },   // current Google ID token, or null
     onChange: fn => { onChange = fn; },
     // save one result; cb(status) with 'saved' | 'error' | 'signin' (not signed in / session ran out)
     save(data, cb) {
