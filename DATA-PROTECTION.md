@@ -26,7 +26,7 @@ Draft for the school's data-protection officer (DPO). It describes what the tool
 
 **Access.** Only the teacher (spreadsheet owner). Teacher pages on the website are private (visible only to the teacher's account).
 
-**Retention.** Results are kept while they are useful for teaching. The teacher can delete all results older than a chosen number of years with one menu command, and can delete a pupil's rows on request. Proposed rule (to be decided by the school): results are deleted [N] years after the pupil leaves the school or when the pupil graduates from grade 9.
+**Retention.** Results are kept while they are useful for teaching. The teacher can delete all results older than a chosen number of years with one menu command, and can delete a pupil's rows on request. Retention rule (approved by the school): results are kept until two years after the pupil leaves the school (after grade 9, or earlier if the pupil changes school), then deleted.
 
 **Legal basis, information to parents, retention period, and whether consent is needed:** to be decided by the school / DPO.
 
@@ -60,7 +60,7 @@ Draft for the school's data-protection officer (DPO). It describes what the tool
 
 **Dostop.** Samo učitelj (lastnik preglednice). Učiteljske strani na spletišču so zasebne (vidne le učiteljevemu računu).
 
-**Hramba.** Rezultati se hranijo, dokler so uporabni pri pouku. Učitelj lahko z enim ukazom v meniju izbriše vse rezultate, starejše od izbranega števila let, in na zahtevo izbriše vrstice posameznega učenca. Predlagano pravilo (odloči šola): rezultati se izbrišejo [N] let po odhodu učenca iz šole oziroma po zaključku 9. razreda.
+**Hramba.** Rezultati se hranijo, dokler so uporabni pri pouku. Učitelj lahko z enim ukazom v meniju izbriše vse rezultate, starejše od izbranega števila let, in na zahtevo izbriše vrstice posameznega učenca. Pravilo hrambe (odobrila šola): rezultati se hranijo do dveh let po odhodu učenca iz šole (po 9. razredu ali prej ob prešolanju), nato se izbrišejo.
 
 **Pravna podlaga, obveščanje staršev, rok hrambe in morebitno soglasje:** določi šola / pooblaščena oseba.
 
