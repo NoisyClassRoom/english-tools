@@ -130,6 +130,26 @@
 (() => {
   const $ = s => document.querySelector(s);
   const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+  // Exercise banks are bigger than one session: pick() prefers items this browser has not shown yet
+  // (remembered per class/unit/activity in localStorage), so a repeat attempt brings new questions.
+  const idOf = x => (x.q || x.text || x.en || '') + '|' + (x.answer || '');
+  const pick = (items, n, kind) => {
+    const key = (new URLSearchParams(location.search).get('class') || '') + '/' + (set ? set.id : '') + '/' + kind;
+    let store = {}; try { store = JSON.parse(localStorage.getItem('eh.seen') || '{}'); } catch (e) {}
+    let seen = new Set(store[key] || []);
+    let fresh = shuffle(items.filter(x => !seen.has(idOf(x))));
+    let out = fresh.slice(0, n);
+    if (out.length < n) {                       // bank used up: start a new round
+      seen = new Set();
+      out = out.concat(shuffle(items.filter(x => !out.includes(x))).slice(0, n - out.length));
+      out = out.slice(0, n);
+      seen = new Set(out.slice(fresh.length).map(idOf));
+    }
+    out.forEach(x => seen.add(idOf(x)));
+    store[key] = [...seen].slice(-400);
+    try { localStorage.setItem('eh.seen', JSON.stringify(store)); } catch (e) {}
+    return shuffle(out);
+  };
   const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
   const norm = s => s.trim().toLowerCase().replace(/\s+/g, ' ');
   const show = id => ['home', 'menu', 'play'].forEach(x => $('#' + x).classList.toggle('hidden', x !== id));
@@ -156,7 +176,7 @@
     if (!Track.enabled || !set || !mode) return;
     const cls = new URLSearchParams(location.search).get('class') || '';
     const msg = el('p', 'savemsg', 'Saving…'); into.append(msg);
-    Track.save({ cls, topic: set.title, activity: mode.name, score, total }, st => {
+    Track.save({ cls, unit: set.unit || '', topic: set.title, activity: mode.name, score, total }, st => {
       msg.className = 'savemsg ' + (st === 'saved' ? 'ok' : st === 'off' ? '' : 'warn');
       msg.textContent = st === 'saved' ? '✓ Result saved'
         : st === 'signin' ? 'Sign in with Google (top of the page) to save this result.'
@@ -212,19 +232,20 @@
   else if (info) {
     const s = document.createElement('script');
     s.src = 'class-' + info.id + '.js';
-    s.onload = () => {
-      // harder unit tests live in hard-<id>.js (optional): [question, right answer, wrong, wrong, wrong]
-      const h = document.createElement('script');
-      h.src = 'hard-' + info.id + '.js';
-      const go = () => {
-        (window.CLASS_SETS || []).forEach(set => {
-          const hard = (window.HARD_TESTS || {})[set.id];
-          if (hard) set.tests2 = hard.map(([q, a, ...w]) => ({ q, options: [a, ...w], answer: a }));
-        });
-        renderSets(window.CLASS_SETS || [], info);
-      };
-      h.onload = go; h.onerror = go;
-      document.head.append(h);
+    const toTest = ([q, a, ...w]) => ({ q, options: [a, ...w], answer: a });
+    // optional files: hard-<id>.js (harder tests) and more-<id>.js (extra gap sentences, easy and hard tests)
+    const loadOpt = src => new Promise(res => { const x = document.createElement('script'); x.src = src; x.onload = x.onerror = res; document.head.append(x); });
+    s.onload = async () => {
+      await loadOpt('hard-' + info.id + '.js');
+      await loadOpt('more-' + info.id + '.js');
+      (window.CLASS_SETS || []).forEach(set => {
+        const hard = (window.HARD_TESTS || {})[set.id], more = (window.MORE_SETS || {})[set.id] || {};
+        if (hard) set.tests2 = hard.map(toTest);
+        if (more.gap) set.sentences = (set.sentences || []).concat(more.gap.map(([text, answer, ...alt]) => alt.length ? { text, answer, alt } : { text, answer }));
+        if (more.easy) set.tests = (set.tests || []).concat(more.easy.map(toTest));
+        if (more.hard) set.tests2 = (set.tests2 || []).concat(more.hard.map(toTest));
+      });
+      renderSets(window.CLASS_SETS || [], info);
     };
     s.onerror = () => { $('#homeBody').textContent = 'Could not load the exercises for this class.'; };
     document.head.append(s);
@@ -293,7 +314,7 @@
 
   // ----- match -----
   function match() {
-    const words = shuffle(set.words).slice(0, 6);
+    const words = pick(set.words, 6, 'match');
     const left = shuffle(words), right = shuffle(words);
     let selL = null, selR = null, done = 0, mistakes = 0;
     const s = stage(); const grid = el('div', 'match'); const cl = el('div', 'col'), cr = el('div', 'col');
@@ -323,7 +344,7 @@
 
   // ----- quiz -----
   function quiz() {
-    const qs = shuffle(set.words).slice(0, 10); let i = 0, score = 0;
+    const qs = pick(set.words, 10, 'quiz'); let i = 0, score = 0;
     const ask = () => {
       const w = qs[i]; const s = stage(); const q = el('div', 'q');
       if (w.pic) q.append(el('div', 'pic', w.pic));
@@ -348,7 +369,7 @@
 
   // ----- unit test (multiple choice grammar) -----
   function test(key = 'tests') {
-    const qs = shuffle(set[key]); let i = 0, score = 0;
+    const qs = pick(set[key], 10, key); let i = 0, score = 0;
     const ask = () => {
       const t = qs[i]; const s = stage(); const q = el('div', 'q');
       q.append(el('p', 'hint', `Question ${i + 1} of ${qs.length}`), el('div', 'stem', t.q));
@@ -371,7 +392,7 @@
 
   // ----- gap fill -----
   function gap() {
-    const items = shuffle(set.sentences);
+    const items = pick(set.sentences, 8, 'gap');
     const s = stage(); s.append(el('p', 'hint', 'Type the missing word, then press Check.'));
     const inputs = [];
     items.forEach(it => {
