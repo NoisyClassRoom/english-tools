@@ -64,16 +64,17 @@ function rosterReply_(d) {
 
   var sh = SpreadsheetApp.getActive().getSheetByName(ROSTER);
   if (!sh || sh.getLastRow() < 2) return out_({ ok: true, year: '', classes: {} });
-  var rows = sh.getRange(2, 1, sh.getLastRow() - 1, 4).getValues(), year = '';
+  var rows = sh.getRange(2, 1, sh.getLastRow() - 1, 6).getValues(), year = '';
   rows.forEach(function (r) { var y = String(r[1]).trim(); if (/^\d{4}-\d{2}$/.test(y) && y > year) year = y; });
   var byClass = {};
   rows.forEach(function (r) {
-    var y = String(r[1]).trim(), cls = String(r[2]).trim(), name = String(r[3]).trim();
+    // column F (optional) = the name as "Firstname Surname", for names that cannot be split automatically
+    var y = String(r[1]).trim(), cls = String(r[2]).trim(), name = String(r[3]).trim(), shown = String(r[5]).trim();
     if (y !== year || !cls || !name) return;
-    (byClass[cls] = byClass[cls] || []).push(name);
+    (byClass[cls] = byClass[cls] || []).push([name, shown]);
   });
   var classes = {};
-  Object.keys(byClass).sort().forEach(function (c) { classes[c] = byClass[c].sort(function (a, b) { return a.localeCompare(b, 'sl'); }); });
+  Object.keys(byClass).sort().forEach(function (c) { classes[c] = byClass[c].sort(function (a, b) { return a[0].localeCompare(b[0], 'sl'); }); });
   return out_({ ok: true, year: year, classes: classes });
 }
 
@@ -354,12 +355,14 @@ function rosterSheet_() {
   sh.getRange('A1:D1').setValues([['Email (optional)', 'School year', 'Class', 'Name (as in eAsistent)']]).setFontWeight('bold');
   sh.getRange('B:D').setNumberFormat('@');
   sh.getRange('E1').setValue('Class list (automatic)').setFontWeight('bold');
+  sh.getRange('F1').setValue('Display name (optional)').setFontWeight('bold');
   sh.getRange('E2').setFormula('={"All";IFERROR(SORT(UNIQUE(FILTER(C2:C,C2:C<>""))),"")}');
   sh.getRange('G1').setValue('How to use').setFontWeight('bold');
   sh.getRange('G2').setValue('One row per pupil and school year. Fill the Email and/or the Name (surname and first name as in eAsistent, any order); School year like 2026-27 (blank = every year); Class e.g. 7.B');
   sh.getRange('G3').setValue('Every September: add the new rows (or copy the old ones and change the year and class).');
   sh.getRange('G4').setValue('After editing: menu English hub > Refresh classes from Roster.');
   sh.getRange('G5').setValue('Keep this Sheet private. Do not copy this tab into the public repository.');
+  sh.getRange('G6').setValue('Display name (column F): only if the Classroom Tools show a name in the wrong order; write it as Firstname Surname.');
   sh.setFrozenRows(1);
   sh.setColumnWidth(1, 260);
   return sh;
