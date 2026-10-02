@@ -5,30 +5,52 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Classroom Tools</title>
 <style>
+  /* dark + orange is the default; body.light switches to the light theme */
   :root {
+    --bg: #141418;
+    --card: #1f1f26;
+    --ink: #f2efe9;
+    --muted: #a39f95;
+    --line: #34343e;
+    --field: #14141a;
+    --accent: #ff8a1f;
+    --accent-ink: #17171c;
+    --accent-soft: #3a2a18;
+    --good: #34c06d;
+    --warn: #f5b301;
+    --bad: #ff5a5a;
+    --flash: #5a2a2a;
+    --radius: 14px;
+    --ns: 1;                 /* name size, changed with A- / A+ */
+  }
+  body.light {
     --bg: #f6f4ef;
     --card: #ffffff;
     --ink: #1f2a37;
     --muted: #6b7280;
     --line: #e5e1d8;
-    --accent: #2f6fdb;
-    --accent-soft: #e6eefc;
+    --field: #ffffff;
+    --accent: #e8710a;
+    --accent-ink: #ffffff;
+    --accent-soft: #fdeedd;
     --good: #1f9d55;
     --warn: #e0a100;
     --bad: #d64545;
-    --radius: 14px;
+    --flash: #ffe3e3;
   }
   * { box-sizing: border-box; }
   body {
     margin: 0;
     background: var(--bg);
     color: var(--ink);
+    color-scheme: dark;
     font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
     font-size: 18px;
   }
+  body.light { color-scheme: light; }
   header {
     display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
-    padding: 14px 20px; background: var(--card); border-bottom: 1px solid var(--line);
+    padding: 14px 20px; background: var(--card); border-bottom: 3px solid var(--accent);
   }
   header h1 { font-size: 20px; margin: 0 12px 0 0; }
   nav { display: flex; gap: 6px; flex-wrap: wrap; }
@@ -36,8 +58,10 @@
     border: 0; background: transparent; padding: 10px 16px; border-radius: 999px;
     font-size: 17px; cursor: pointer; color: var(--muted);
   }
-  nav button.active { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+  nav button:hover { color: var(--ink); }
+  nav button.active { background: var(--accent); color: var(--accent-ink); font-weight: 700; }
   .spacer { flex: 1; }
+  .hdrtools { display: flex; gap: 8px; align-items: center; }
   main { max-width: 1100px; margin: 0 auto; padding: 24px 16px 60px; }
   section { display: none; }
   section.active { display: block; }
@@ -52,45 +76,51 @@
     padding: 12px 20px; border-radius: 10px; font-size: 18px; cursor: pointer;
   }
   button.btn:hover { border-color: var(--accent); }
-  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.btn.small { padding: 8px 12px; font-size: 16px; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 700; }
   button.primary:hover { filter: brightness(1.08); }
   button.big { font-size: 24px; padding: 16px 34px; }
   input, select, textarea {
     font: inherit; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px;
-    background: #fff; color: var(--ink);
+    background: var(--field); color: var(--ink);
   }
+  input[type="checkbox"], input[type="range"] { accent-color: var(--accent); }
   label { color: var(--muted); font-size: 16px; }
   .hint { color: var(--muted); font-size: 15px; }
+  details { text-align: left; margin-top: 18px; }
+  summary { cursor: pointer; color: var(--accent); font-weight: 600; }
 
   /* Timer */
+  #stepName { min-height: 1.4em; font-size: 26px; font-weight: 700; color: var(--accent); }
   #timerDisplay {
     font-size: clamp(90px, 22vw, 260px); font-weight: 700; letter-spacing: 2px;
-    font-variant-numeric: tabular-nums; line-height: 1; margin: 20px 0;
+    font-variant-numeric: tabular-nums; line-height: 1; margin: 12px 0 20px;
   }
   #timerBar { height: 14px; background: var(--line); border-radius: 999px; overflow: hidden; margin: 10px 0 24px; }
   #timerFill { height: 100%; width: 100%; background: var(--accent); transition: width .25s linear, background .3s; }
   .flash { animation: flash .6s ease-in-out 6; }
-  @keyframes flash { 50% { background: #ffe3e3; } }
-  .timer-inputs input { width: 90px; text-align: center; font-size: 22px; }
+  @keyframes flash { 50% { background: var(--flash); } }
+  .timer-inputs input[type="number"] { width: 90px; text-align: center; font-size: 22px; }
+  #planText { width: 100%; height: 130px; margin: 8px 0; }
 
   /* Picker */
   #pickName {
-    font-size: clamp(48px, 10vw, 120px); font-weight: 700; min-height: 1.3em; margin: 30px 0;
+    font-size: calc(clamp(48px, 10vw, 120px) * var(--ns)); font-weight: 700; min-height: 1.3em; margin: 30px 0; line-height: 1.1;
   }
   #pickName.rolling { color: var(--muted); }
   .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
   .chip {
-    padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line); background: #fff;
-    cursor: pointer; font-size: 16px; user-select: none;
+    padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--field);
+    cursor: pointer; font-size: calc(16px * var(--ns)); user-select: none;
   }
-  .chip.absent { text-decoration: line-through; color: var(--muted); background: #f1f1f1; }
-  .chip.picked { background: var(--accent-soft); border-color: var(--accent-soft); color: var(--accent); }
+  .chip.absent { text-decoration: line-through; color: var(--muted); opacity: .6; }
+  .chip.picked { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
 
   /* Groups */
-  #groupsOut { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; margin-top: 20px; }
-  .group { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; }
+  #groupsOut { display: grid; grid-template-columns: repeat(auto-fill, minmax(calc(220px * var(--ns)), 1fr)); gap: 14px; margin-top: 20px; }
+  .group { background: var(--bg); border: 1px solid var(--line); border-top: 4px solid var(--accent); border-radius: var(--radius); padding: 16px; }
   .group h3 { margin: 0 0 8px; font-size: 20px; color: var(--accent); }
-  .group ul { margin: 0; padding-left: 20px; font-size: 22px; line-height: 1.5; }
+  .group ul { margin: 0; padding-left: 20px; font-size: calc(22px * var(--ns)); line-height: 1.5; }
 
   /* Noise */
   #noiseFace { font-size: clamp(100px, 20vw, 220px); line-height: 1; margin: 10px 0; }
@@ -99,17 +129,17 @@
   #meterLimit { position: absolute; top: 0; bottom: 0; width: 4px; background: var(--ink); }
   #noiseMsg { font-size: 32px; font-weight: 600; min-height: 1.3em; }
 
-  /* Classes dialog */
-  dialog { border: 0; border-radius: var(--radius); padding: 24px; width: min(640px, 92vw); }
-  dialog::backdrop { background: rgba(0,0,0,.35); }
-  dialog textarea { width: 100%; height: 260px; }
-
   /* classes from the Google Sheet (teacher only) */
   #sheetBar { display: none; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 14px;
-    padding: 10px 14px; background: var(--accent-soft); border: 1px solid #c5d6f4; border-radius: var(--radius); font-size: 16px; }
+    padding: 10px 14px; background: var(--accent-soft); border: 1px solid var(--accent); border-radius: var(--radius); font-size: 16px; }
   #sheetBar.show { display: flex; }
-  #sheetBar.ok { background: #dcf5e6; border-color: #b4e2c6; }
+  #sheetBar.ok { background: var(--card); border-color: var(--good); }
   #sheetBar .btn { font-size: 16px; padding: 8px 14px; }
+
+  /* Classes dialog */
+  dialog { border: 1px solid var(--line); border-radius: var(--radius); padding: 24px; width: min(640px, 92vw); background: var(--card); color: var(--ink); }
+  dialog::backdrop { background: rgba(0,0,0,.55); }
+  dialog textarea { width: 100%; height: 260px; }
 
   .fs-hide { }
   body.fullscreen header { display: none; }
@@ -127,7 +157,12 @@
     <button data-tab="noise">🔊 Noise meter</button>
   </nav>
   <div class="spacer"></div>
-  <button class="btn" id="fsBtn" title="Full screen (Esc to exit)">⛶ Full screen</button>
+  <div class="hdrtools">
+    <button class="btn small" id="sizeDown" title="Smaller names">A−</button>
+    <button class="btn small" id="sizeUp" title="Larger names">A+</button>
+    <button class="btn small" id="themeBtn" title="Dark / light">☀</button>
+    <button class="btn" id="fsBtn" title="Full screen (Esc to exit)">⛶ Full screen</button>
+  </div>
 </header>
 
 <main>
@@ -140,14 +175,19 @@
   <!-- TIMER -->
   <section id="timer" class="active">
     <div class="card center" id="timerCard">
-      <div class="row center fs-hide">
-        <button class="btn" data-min="1">1 min</button>
-        <button class="btn" data-min="2">2 min</button>
-        <button class="btn" data-min="3">3 min</button>
-        <button class="btn" data-min="5">5 min</button>
-        <button class="btn" data-min="10">10 min</button>
-        <button class="btn" data-min="15">15 min</button>
+      <div class="row center fs-hide" id="presets">
+        <button class="btn" data-sec="30">30 s</button>
+        <button class="btn" data-sec="60">1 min</button>
+        <button class="btn" data-sec="120">2 min</button>
+        <button class="btn" data-sec="180">3 min</button>
+        <button class="btn" data-sec="300">5 min</button>
+        <button class="btn" data-sec="600">10 min</button>
+        <button class="btn" data-sec="900">15 min</button>
+        <button class="btn" data-sec="1200">20 min</button>
+        <button class="btn" data-sec="1800">30 min</button>
+        <button class="btn" data-sec="2700">45 min</button>
       </div>
+      <div id="stepName"></div>
       <div id="timerDisplay">05:00</div>
       <div id="timerBar"><div id="timerFill"></div></div>
       <div class="row center">
@@ -159,8 +199,29 @@
         <input type="number" id="tMin" min="0" max="99" value="5"> <span>min</span>
         <input type="number" id="tSec" min="0" max="59" value="0"> <span>sec</span>
         <button class="btn" id="timerSet">Set</button>
-        <label style="margin-left:16px"><input type="checkbox" id="timerSound" checked> Sound at the end</label>
       </div>
+      <div class="row center fs-hide" style="margin-top:16px">
+        <label>Sound at the end:</label>
+        <select id="soundType">
+          <option value="bell">Bell (3 beeps)</option>
+          <option value="chime">Soft chime</option>
+          <option value="buzzer">Buzzer</option>
+          <option value="none">No sound</option>
+        </select>
+        <button class="btn small" id="soundTest">▶ Test</button>
+      </div>
+      <details class="fs-hide" id="planBox">
+        <summary>📋 Lesson plan (several timed steps)</summary>
+        <p class="hint">One step per line: a name, a comma and the minutes. Example: <code>Warm-up, 5</code></p>
+        <textarea id="planText" placeholder="Warm-up, 5&#10;Reading, 10&#10;Game, 8&#10;Wrap-up, 3"></textarea>
+        <div class="row">
+          <button class="btn primary" id="planStart">Start plan</button>
+          <button class="btn" id="planPrev">◀ Previous</button>
+          <button class="btn" id="planNext">Next ▶</button>
+          <button class="btn" id="planStop">Stop plan</button>
+          <label><input type="checkbox" id="planAuto" checked> Go on to the next step by itself</label>
+        </div>
+      </details>
     </div>
   </section>
 
@@ -170,6 +231,12 @@
       <div class="row center fs-hide">
         <label>Class:</label>
         <select class="classSelect"></select>
+        <label>Names:</label>
+        <select class="orderSelect">
+          <option value="first">Firstname Surname</option>
+          <option value="short">Firstname + initial</option>
+          <option value="raw">Surname Firstname</option>
+        </select>
         <button class="btn manageBtn">Edit classes</button>
       </div>
       <div id="pickName">—</div>
@@ -188,6 +255,12 @@
       <div class="row fs-hide">
         <label>Class:</label>
         <select class="classSelect"></select>
+        <label>Names:</label>
+        <select class="orderSelect">
+          <option value="first">Firstname Surname</option>
+          <option value="short">Firstname + initial</option>
+          <option value="raw">Surname Firstname</option>
+        </select>
         <button class="btn manageBtn">Edit classes</button>
         <span class="spacer"></span>
         <select id="groupMode">
@@ -197,7 +270,13 @@
         <input type="number" id="groupN" min="1" value="4" style="width:80px">
         <button class="btn primary" id="groupBtn">Make groups</button>
       </div>
-      <p class="hint fs-hide">Pupils marked absent in “Random pupil” are left out.</p>
+      <div class="row fs-hide" style="margin-top:12px">
+        <label><input type="checkbox" id="mixNew" checked> Mix new combinations (avoid pupils who were together before)</label>
+        <button class="btn small" id="mixForget">Forget history</button>
+        <span class="hint" id="mixInfo"></span>
+      </div>
+      <p class="hint fs-hide">Click a name to mark the pupil absent (absent pupils are left out, here and in “Random pupil”).</p>
+      <div class="chips fs-hide" id="groupChips"></div>
       <div id="groupsOut"></div>
     </div>
   </section>
@@ -228,7 +307,7 @@
     <button class="btn" id="dlgNew">+ New class</button>
     <button class="btn" id="dlgDelete">Delete class</button>
   </div>
-  <p class="hint">One name per line. Saved only in this browser on this computer.</p>
+  <p class="hint">One name per line. Saved only in this browser on this computer. Classes loaded from the Sheet are not listed here: change them in the Roster tab.</p>
   <input id="dlgName" placeholder="Class name, e.g. 7.a" style="width:100%;margin-bottom:10px">
   <textarea id="dlgNames" placeholder="Ana&#10;Luka&#10;Maja&#10;..."></textarea>
   <div class="row" style="justify-content:flex-end;margin-top:14px">
@@ -238,288 +317,6 @@
 </dialog>
 
 <script src="exercises/tracking.js"></script>
-<script>
-(() => {
-  const $ = s => document.querySelector(s);
-  const $$ = s => [...document.querySelectorAll(s)];
-
-  // ---------- storage (safe) ----------
-  const store = {
-    get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } },
-    set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }
-  };
-
-  // ---------- tabs ----------
-  const showTab = id => {
-    $$('#tabs button').forEach(b => b.classList.toggle('active', b.dataset.tab === id));
-    $$('main section').forEach(s => s.classList.toggle('active', s.id === id));
-    store.set('ct_tab', id);
-    $('#sheetBar').classList.toggle('show', window.Track && Track.enabled && (id === 'picker' || id === 'groups'));
-  };
-  $$('#tabs button').forEach(b => b.onclick = () => showTab(b.dataset.tab));
-  showTab(store.get('ct_tab', 'timer'));
-
-  // ---------- full screen ----------
-  $('#fsBtn').onclick = () => {
-    document.body.classList.add('fullscreen');
-    document.documentElement.requestFullscreen?.().catch(() => {});
-  };
-  document.addEventListener('fullscreenchange', () => {
-    if (!document.fullscreenElement) document.body.classList.remove('fullscreen');
-  });
-  document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') document.body.classList.remove('fullscreen');
-  });
-
-  // ---------- sound ----------
-  let audioCtx;
-  const beep = (times = 3) => {
-    try {
-      audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
-      for (let i = 0; i < times; i++) {
-        const o = audioCtx.createOscillator(), g = audioCtx.createGain();
-        const t = audioCtx.currentTime + i * 0.45;
-        o.frequency.value = 880; o.type = 'sine';
-        g.gain.setValueAtTime(0.0001, t);
-        g.gain.exponentialRampToValueAtTime(0.4, t + 0.02);
-        g.gain.exponentialRampToValueAtTime(0.0001, t + 0.35);
-        o.connect(g).connect(audioCtx.destination);
-        o.start(t); o.stop(t + 0.4);
-      }
-    } catch {}
-  };
-
-  // ---------- timer ----------
-  let total = 300, remaining = 300, running = false, endAt = 0, tick;
-  const fmt = s => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
-  const renderTimer = () => {
-    $('#timerDisplay').textContent = fmt(Math.ceil(remaining));
-    const pct = total ? (remaining / total) * 100 : 0;
-    const fill = $('#timerFill');
-    fill.style.width = pct + '%';
-    fill.style.background = pct > 30 ? 'var(--accent)' : pct > 10 ? 'var(--warn)' : 'var(--bad)';
-    $('#timerStart').textContent = running ? 'Pause' : (remaining < total && remaining > 0 ? 'Resume' : 'Start');
-  };
-  const setTimer = secs => {
-    clearInterval(tick); running = false;
-    total = remaining = Math.max(1, secs);
-    $('#timerCard').classList.remove('flash');
-    renderTimer();
-  };
-  const finish = () => {
-    clearInterval(tick); running = false; remaining = 0; renderTimer();
-    $('#timerDisplay').textContent = "Time's up!";
-    const c = $('#timerCard'); c.classList.remove('flash'); void c.offsetWidth; c.classList.add('flash');
-    if ($('#timerSound').checked) beep(3);
-  };
-  $('#timerStart').onclick = () => {
-    if (remaining <= 0) setTimer(total);
-    if (running) { running = false; clearInterval(tick); remaining = Math.max(0, (endAt - Date.now()) / 1000); }
-    else {
-      running = true; endAt = Date.now() + remaining * 1000;
-      tick = setInterval(() => {
-        remaining = (endAt - Date.now()) / 1000;
-        if (remaining <= 0) finish(); else renderTimer();
-      }, 200);
-    }
-    renderTimer();
-  };
-  $('#timerReset').onclick = () => setTimer(total);
-  $$('[data-min]').forEach(b => b.onclick = () => {
-    const m = +b.dataset.min; $('#tMin').value = m; $('#tSec').value = 0; setTimer(m * 60);
-  });
-  $('#timerSet').onclick = () => setTimer((+$('#tMin').value || 0) * 60 + (+$('#tSec').value || 0));
-  renderTimer();
-
-  // ---------- classes ----------
-  let classes = store.get('ct_classes', { 'Example class': ['Ana', 'Luka', 'Maja', 'Nik', 'Eva', 'Jan', 'Zala', 'Tim', 'Lara', 'Žiga', 'Nina', 'Miha'] });
-  if (!Object.keys(classes).length) classes = { 'Example class': ['Ana', 'Luka', 'Maja', 'Nik', 'Eva', 'Jan'] };
-  let current = store.get('ct_current', Object.keys(classes)[0]);
-  let absent = new Set(), picked = new Set();
-  const fromSheet = new Set();   // classes loaded from the Google Sheet: kept in memory only, never saved in this browser
-  const manualKeys = () => Object.keys(classes).filter(c => !fromSheet.has(c));
-  const saveClasses = () => {
-    const mine = {}; manualKeys().forEach(k => mine[k] = classes[k]);
-    store.set('ct_classes', mine); store.set('ct_current', fromSheet.has(current) ? '' : current);
-  };
-  const present = () => (classes[current] || []).filter(n => !absent.has(n));
-
-  const refreshSelects = () => {
-    if (!classes[current]) current = Object.keys(classes)[0];
-    $$('.classSelect').forEach(sel => {
-      sel.innerHTML = '';
-      Object.keys(classes).forEach(c => sel.add(new Option(c, c, false, c === current)));
-    });
-    renderChips();
-  };
-  $$('.classSelect').forEach(sel => sel.onchange = () => {
-    current = sel.value; absent.clear(); picked.clear(); saveClasses(); refreshSelects();
-    $('#pickName').textContent = '—'; $('#groupsOut').innerHTML = '';
-  });
-
-  // dialog
-  const dlg = $('#classDialog');
-  let dlgKey = null;
-  const loadDlg = key => {
-    dlgKey = key;
-    $('#dlgClass').innerHTML = '';
-    manualKeys().forEach(c => $('#dlgClass').add(new Option(c, c, false, c === key)));
-    $('#dlgName').value = key || '';
-    $('#dlgNames').value = key ? (classes[key] || []).join('\n') : '';
-  };
-  $$('.manageBtn').forEach(b => b.onclick = () => { loadDlg(fromSheet.has(current) ? manualKeys()[0] : current); dlg.showModal(); });
-  $('#dlgClass').onchange = e => loadDlg(e.target.value);
-  $('#dlgNew').onclick = () => { dlgKey = null; $('#dlgName').value = ''; $('#dlgNames').value = ''; $('#dlgName').focus(); };
-  $('#dlgDelete').onclick = () => {
-    if (!dlgKey || !confirm(`Delete class "${dlgKey}"?`)) return;
-    delete classes[dlgKey];
-    if (!Object.keys(classes).length) classes = { 'New class': [] };
-    saveClasses(); loadDlg(manualKeys()[0]); refreshSelects();
-  };
-  $('#dlgCancel').onclick = () => dlg.close();
-  $('#dlgSave').onclick = () => {
-    const name = $('#dlgName').value.trim() || 'Unnamed class';
-    if (fromSheet.has(name)) { alert('A class from the Sheet already has this name. Please use another name.'); return; }
-    const names = $('#dlgNames').value.split('\n').map(s => s.trim()).filter(Boolean);
-    if (dlgKey && dlgKey !== name) delete classes[dlgKey];
-    classes[name] = names; current = name; absent.clear(); picked.clear();
-    saveClasses(); refreshSelects(); dlg.close();
-  };
-
-  // ---------- picker ----------
-  const renderChips = () => {
-    const box = $('#pickChips'); box.innerHTML = '';
-    (classes[current] || []).forEach(n => {
-      const c = document.createElement('span');
-      c.className = 'chip' + (absent.has(n) ? ' absent' : '') + (picked.has(n) ? ' picked' : '');
-      c.textContent = n;
-      c.title = absent.has(n) ? 'Absent — click to mark present' : 'Click to mark absent';
-      c.onclick = () => { absent.has(n) ? absent.delete(n) : absent.add(n); renderChips(); };
-      box.appendChild(c);
-    });
-  };
-  let rolling = false;
-  $('#pickBtn').onclick = () => {
-    if (rolling) return;
-    let pool = present().filter(n => !picked.has(n));
-    if (!pool.length) { picked.clear(); pool = present(); }
-    if (!pool.length) { $('#pickName').textContent = 'Add pupils first'; return; }
-    const winner = pool[Math.floor(Math.random() * pool.length)];
-    const all = present(); const el = $('#pickName');
-    rolling = true; el.classList.add('rolling');
-    let i = 0, delay = 50;
-    const spin = () => {
-      el.textContent = all[Math.floor(Math.random() * all.length)];
-      i++; delay *= 1.12;
-      if (i < 15) setTimeout(spin, delay);
-      else { el.textContent = winner; el.classList.remove('rolling'); picked.add(winner); rolling = false; renderChips(); }
-    };
-    spin();
-  };
-  $('#pickReset').onclick = () => { picked.clear(); $('#pickName').textContent = '—'; renderChips(); };
-
-  // ---------- groups ----------
-  $('#groupBtn').onclick = () => {
-    const list = present().slice();
-    for (let i = list.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [list[i], list[j]] = [list[j], list[i]]; }
-    const n = Math.max(1, +$('#groupN').value || 1);
-    const count = $('#groupMode').value === 'count' ? Math.min(n, list.length || 1) : Math.max(1, Math.round(list.length / n));
-    const groups = Array.from({ length: count }, () => []);
-    list.forEach((name, i) => groups[i % count].push(name));
-    const out = $('#groupsOut'); out.innerHTML = '';
-    groups.forEach((g, i) => {
-      const d = document.createElement('div'); d.className = 'group';
-      const h = document.createElement('h3'); h.textContent = `Group ${i + 1}`;
-      const ul = document.createElement('ul');
-      g.forEach(nm => { const li = document.createElement('li'); li.textContent = nm; ul.appendChild(li); });
-      d.append(h, ul); out.appendChild(d);
-    });
-  };
-
-  // ---------- noise meter ----------
-  let stream, analyser, raf, smooth = 0, loudSince = 0;
-  const limitEl = $('#noiseLimit');
-  const placeLimit = () => $('#meterLimit').style.left = limitEl.value + '%';
-  limitEl.oninput = () => { placeLimit(); store.set('ct_noise', +limitEl.value); };
-  limitEl.value = store.get('ct_noise', 60); placeLimit();
-
-  const stopNoise = () => {
-    cancelAnimationFrame(raf); stream?.getTracks().forEach(t => t.stop()); stream = null;
-    $('#noiseBtn').textContent = 'Start'; $('#noiseMsg').textContent = 'Press start to listen';
-    $('#meterFill').style.width = '0'; $('#noiseFace').textContent = '😊';
-  };
-  $('#noiseBtn').onclick = async () => {
-    if (stream) return stopNoise();
-    try {
-      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    } catch {
-      $('#noiseMsg').textContent = 'Microphone not available'; return;
-    }
-    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
-    analyser = audioCtx.createAnalyser(); analyser.fftSize = 1024;
-    audioCtx.createMediaStreamSource(stream).connect(analyser);
-    const data = new Float32Array(analyser.fftSize);
-    $('#noiseBtn').textContent = 'Stop';
-    const loop = () => {
-      analyser.getFloatTimeDomainData(data);
-      let sum = 0; for (const v of data) sum += v * v;
-      const db = 20 * Math.log10(Math.sqrt(sum / data.length) || 1e-8); // about -90 .. 0
-      const level = Math.min(100, Math.max(0, (db + 70) * 1.6));
-      smooth = smooth * 0.85 + level * 0.15;
-      const lim = +limitEl.value;
-      const fill = $('#meterFill'); fill.style.width = smooth + '%';
-      let face, msg, col;
-      if (smooth < lim * 0.7) { face = '😊'; msg = 'Nice and calm'; col = 'var(--good)'; loudSince = 0; }
-      else if (smooth < lim) { face = '😐'; msg = 'Getting louder…'; col = 'var(--warn)'; loudSince = 0; }
-      else {
-        col = 'var(--bad)'; loudSince = loudSince || Date.now();
-        face = '🤫'; msg = 'Too loud!';
-      }
-      fill.style.background = col;
-      $('#noiseFace').textContent = face; $('#noiseMsg').textContent = msg;
-      raf = requestAnimationFrame(loop);
-    };
-    loop();
-  };
-
-  // ---------- classes from the Google Sheet (teacher only; names stay in memory) ----------
-  const bar = $('#sheetBar'), sheetMsg = $('#sheetMsg'), sheetBtn = $('#sheetBtn');
-  let loading = false;
-  const setBar = (text, ok) => { sheetMsg.textContent = text; bar.classList.toggle('ok', !!ok); };
-  const loadFromSheet = async () => {
-    const token = Track.token(); if (!token || loading) return;
-    loading = true; setBar('Loading your classes…');
-    try {
-      const r = await fetch(Track.config.endpoint, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action: 'roster', token }) });
-      const j = await r.json();
-      if (!j.ok) { setBar(j.error === 'token' ? 'This Google account is not allowed to load the class lists.' : 'Could not load the classes.'); return; }
-      const names = Object.keys(j.classes);
-      if (!names.length) { setBar('The Roster in the Sheet is empty.'); return; }
-      const mine = {}; manualKeys().forEach(k => { if (!j.classes[k] && k !== 'Example class') mine[k] = classes[k]; });
-      fromSheet.clear(); classes = {};
-      names.forEach(c => { classes[c] = j.classes[c]; fromSheet.add(c); });
-      Object.assign(classes, mine);
-      if (!classes[current]) current = names[0];
-      absent.clear(); picked.clear();
-      refreshSelects(); $('#pickName').textContent = '—'; $('#groupsOut').innerHTML = '';
-      $('#sheetSlot').innerHTML = '';
-      setBar(`✓ ${names.length} classes loaded from the Sheet (${j.year}). The names stay in this window only.`, true);
-      sheetBtn.textContent = 'Reload';
-    } catch (e) { setBar('Could not reach the Sheet. Check your connection.'); }
-    finally { loading = false; }
-  };
-  sheetBtn.onclick = () => {
-    if (Track.token()) return loadFromSheet();
-    setBar('Sign in with your school Google account:'); Track.button($('#sheetSlot'));
-  };
-  if (window.Track && Track.enabled) {
-    Track.onChange(() => { if (Track.token()) loadFromSheet(); });
-    Track.init(() => { if (Track.token()) loadFromSheet(); });
-  }
-
-  refreshSelects();
-})();
-</script>
+<script src="tools.js"></script>
 </body>
 </html>
