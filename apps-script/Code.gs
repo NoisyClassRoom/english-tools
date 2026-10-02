@@ -3,11 +3,13 @@
  * Paste into the Apps Script project attached to the PRIVATE Google Sheet
  * (Extensions > Apps Script). Full steps: SETUP.md.
  *
- * doPost:  receives {token, cls, topic, activity, score, total}, checks the Google ID token
- *          and appends one row to "Results". E-mail and name come from the verified token,
- *          never from what the browser claims. School year and the pupil's real class
- *          (from the "Roster" tab) are added on the server.
- * Menu:    "English hub" > set up analysis tabs / refresh classes from roster / delete old results.
+ * doPost:  receives {token, cls, unit, topic, activity, score, total}, checks the Google ID token
+ *          and adds one row at the TOP of "Results" (newest first). E-mail and name come from the
+ *          verified token, never from what the browser claims. School year, the pupil's real class
+ *          (from the "Roster" tab), the book, the unit title and the difficulty level are added on the server.
+ * Archive: previous school years can be moved to the hidden "Archive" tab (menu), so "Results" stays short.
+ *          The analysis tabs always read Results + Archive together.
+ * Menu:    "English hub" > set up analysis tabs / refresh classes / new school year / archive / delete.
  */
 
 var CLIENT_ID = '723989491910-q0hi1qdpm23kag6fs11rir3o8gqkb0q5.apps.googleusercontent.com';
@@ -16,13 +18,70 @@ var TZ = 'Europe/Ljubljana';
 
 var SHEET = 'Results';
 var ROSTER = 'Roster';
+var ARCHIVE = 'Archive';
 var HEADER = ['Time', 'Email', 'First name', 'Last name', 'Class', 'Topic', 'Activity', 'Score', 'Total', 'Percent',
-              'School year', 'Class (roster)'];
+              'School year', 'Class (roster)', 'Book', 'Unit', 'Level', 'Unit title', 'Level name', 'Hard', 'Result id'];
 //             A       B        C            D            E        F        G           H        I        J
-//             K              L
+//             K              L                M       N       O        P            Q            R     S
 // "Class" (E) is the coursebook id of the exercise link (6b, 7a...), "Class (roster)" (L) the pupil's real class.
+// M-R are worked out on the server: book name, unit, difficulty (1 easy, 2 medium, 3 hard), "Book · Unit · Topic",
+// the level as text, and 1 for a hard test. S is a random id sent by the pupil's page: if the same result arrives
+// twice (a retry after a lost answer) it is saved only once. O-S are hidden helper columns.
 var BASE_COLS = 10;
+var NCOLS = HEADER.length;
 var BOOK_IDS = ['All', '6b', '7a', '7bc', '8a', '8b', '9a', '9b', 'extra'];
+var BOOKS = { '6b': 'Project 1', '7a': 'Dream Team Starter', '7bc': 'Project 2', '8a': 'Dream Team 1',
+              '8b': 'Project 3', '9a': 'Dream Team 2', '9b': 'Project 4', 'extra': 'Extra practice' };
+var LEVELS = { 1: '1 Easy', 2: '2 Medium', 3: '3 Hard' };
+var LEVEL_LIST = ['All', '1 Easy', '2 Medium', '3 Hard'];
+// Unit of each exercise topic (book id | topic title), so results saved without a unit still get one.
+var UNITS = {
+  "6b|Introduction": "Unit 1",
+  "6b|Friends and Family": "Unit 2",
+  "6b|My world": "Unit 3",
+  "6b|Time": "Unit 4",
+  "6b|Places": "Unit 5",
+  "6b|People": "Unit 6",
+  "7a|New start!": "Starter",
+  "7a|You are a good player!": "Unit 1",
+  "7a|Who's this?": "Unit 2",
+  "7a|This is a great place!": "Unit 3",
+  "7a|Charlie doesn't like shopping": "Unit 4",
+  "7a|Give the ball to me!": "Unit 5",
+  "7a|Let's have a party!": "Unit 6",
+  "7bc|My life": "Unit 1",
+  "7bc|Animals": "Unit 2",
+  "7bc|Holidays": "Unit 3",
+  "7bc|Food": "Unit 4",
+  "7bc|The world": "Unit 5",
+  "7bc|Entertainment": "Unit 6",
+  "8a|Let's remember": "Revision",
+  "8a|He's playing his guitar": "Unit 1",
+  "8a|Is Paul buying the tickets?": "Unit 2",
+  "8a|I'm having a party tomorrow!": "Unit 3",
+  "8a|I'm going to be a millionaire": "Unit 4",
+  "8a|I was terrible!": "Unit 5",
+  "8a|Did you really love me?": "Unit 6",
+  "8b|My life": "Unit 1",
+  "8b|The future": "Unit 2",
+  "8b|Times and places": "Unit 3",
+  "8b|London": "Unit 4",
+  "8b|Experiences": "Unit 5",
+  "8b|Problems": "Unit 6",
+  "9a|Let's remember": "Revision",
+  "9a|Jeff's a DJ now!": "Unit 1",
+  "9a|Ricky's question": "Unit 2",
+  "9a|Tina tells Karen the truth": "Unit 3",
+  "9a|The worst day of my life": "Unit 4",
+  "9a|We'll need a name!": "Unit 5",
+  "9a|The London Eye": "Unit 6",
+  "9b|Past and Present": "Unit 1",
+  "9b|Fame and Fortune": "Unit 2",
+  "9b|Health and safety": "Unit 3",
+  "9b|Heroes": "Unit 4",
+  "9b|Our environment": "Unit 5",
+  "9b|Relationships": "Unit 6"
+};
 
 // ---------------------------------------------------------------- saving results
 
@@ -42,11 +101,20 @@ function doPost(e) {
     lock.waitLock(20000);
     try {
       var sh = resultsSheet_();
+      var id = text_(d.id);
+      if (id && sh.getLastRow() > 1) {                      // the same result sent again (retry): already saved
+        var recent = sh.getRange(2, NCOLS, Math.min(80, sh.getLastRow() - 1), 1).getValues();
+        for (var i = 0; i < recent.length; i++) if (recent[i][0] === id) return out_({ ok: true });
+      }
       var now = new Date(), year = schoolYear_(now);
-      sh.appendRow([now, who.email, text_(who.first), text_(who.last), text_(d.cls), text_(d.topic),
-                    text_(d.activity), score, total, Math.round(100 * score / total) / 100,
-                    year, classFor_(rosterRows_(), who.email, who.first, who.last, year)]);
-    } finally { lock.release(); }
+      var cls = text_(d.cls), topic = text_(d.topic), activity = text_(d.activity);
+      var row = [now, who.email, text_(who.first), text_(who.last), cls, topic,
+                 activity, score, total, Math.round(100 * score / total) / 100,
+                 year, classFor_(rosterRows_(), who.email, who.first, who.last, year)]
+                .concat(derived_(cls, text_(d.unit), topic, activity), [id]);
+      sh.insertRowAfter(1);                                 // newest result on top
+      sh.getRange(2, 1, 1, NCOLS).setFontWeight('normal').setBackground(null).setValues([row]);
+    } finally { lock.releaseLock(); }
     return out_({ ok: true });
   } catch (err) {
     return out_({ ok: false, error: 'server' });
@@ -78,7 +146,8 @@ function rosterReply_(d) {
   return out_({ ok: true, year: year, classes: classes });
 }
 
-// The "Results" tab. An older layout is kept under another name; the two newer columns are added in place.
+// The "Results" tab (current school year, newest first). An older layout is kept under another name;
+// newer columns are added in place and the old rows get their values.
 function resultsSheet_() {
   var ss = SpreadsheetApp.getActive();
   var sh = ss.getSheetByName(SHEET);
@@ -88,20 +157,63 @@ function resultsSheet_() {
     sh = null;
   }
   if (!sh) sh = ss.insertSheet(SHEET, 0);
-  if (sh.getLastRow() === 0) {
-    sh.appendRow(HEADER); sh.setFrozenRows(1);
-    sh.getRange(1, 1, 1, HEADER.length).setFontWeight('bold');
-    sh.getRange('A:A').setNumberFormat('dd.mm.yyyy hh:mm');
-    sh.getRange('J:J').setNumberFormat('0%');
-    sh.getRange('K:L').setNumberFormat('@');           // plain text, so "2026-27" is never turned into a date
-  } else if (sh.getRange(1, 11, 1, 2).getValues()[0].join('|') !== HEADER.slice(10).join('|')) {
-    sh.getRange(1, 11, 1, 2).setValues([HEADER.slice(10)]).setFontWeight('bold');
-    sh.getRange('K:L').setNumberFormat('@');
-    fillDerived_(sh);                                  // older rows get their school year / class
+  return prepare_(sh);
+}
+
+// The hidden "Archive" tab: same columns as Results, holds earlier school years.
+function archiveSheet_() {
+  var ss = SpreadsheetApp.getActive();
+  var sh = ss.getSheetByName(ARCHIVE) || ss.insertSheet(ARCHIVE);
+  prepare_(sh);
+  if (!sh.isSheetHidden()) {
+    if (ss.getActiveSheet().getName() === ARCHIVE) ss.setActiveSheet(ss.getSheetByName(SHEET));
+    sh.hideSheet();
   }
   return sh;
 }
 
+// Makes sure a Results/Archive tab has the current header, formats and hidden helper columns.
+function prepare_(sh) {
+  if (sh.getLastRow() > 0 && sh.getRange(1, 1, 1, NCOLS).getValues()[0].join('|') === HEADER.join('|')) return sh;
+  var older = sh.getLastRow() > 1;
+  if (sh.getMaxColumns() < NCOLS) sh.insertColumnsAfter(sh.getMaxColumns(), NCOLS - sh.getMaxColumns());
+  sh.getRange(1, 1, 1, NCOLS).setValues([HEADER]).setFontWeight('bold');
+  sh.setFrozenRows(1);
+  sh.getRange('A:A').setNumberFormat('dd.mm.yyyy hh:mm');
+  sh.getRange('J:J').setNumberFormat('0%');
+  sh.getRange('K:L').setNumberFormat('@');             // plain text, so "2026-27" is never turned into a date
+  sh.getRange('O:O').setNumberFormat('0');
+  sh.getRange('R:R').setNumberFormat('0');
+  sh.hideColumns(15, 5);                               // O-S: helper columns for the analysis tabs
+  if (older) fillDerived_(sh);                         // older rows get their school year / class / book / level
+  return sh;
+}
+
+// Book, unit, level, "Book · Unit · Topic", level name, hard flag
+function derived_(cls, unit, topic, activity) {
+  var c = String(cls || '').trim();
+  var book = BOOKS[c] || c || 'Other';
+  var u = unitLabel_(unit || UNITS[c + '|' + String(topic || '').trim()]);
+  var lv = level_(activity);
+  return [book, u, lv, [book, u, String(topic || '').trim()].filter(String).join(' · '), LEVELS[lv], lv === 3 ? 1 : 0];
+}
+
+// "Unit 3" stays, "Starter"/"Revision" become "Unit 0 (...)" so they sort first.
+function unitLabel_(unit) {
+  var u = String(unit || '').trim();
+  var m = /^unit\s*(\d+)$/i.exec(u);
+  if (m) return 'Unit ' + Number(m[1]);
+  if (/^(starter|revision)$/i.test(u)) return 'Unit 0 (' + u.charAt(0).toUpperCase() + u.slice(1).toLowerCase() + ')';
+  return u;
+}
+
+// Difficulty of an activity: 1 words (match, quiz, flashcards), 2 sentences and the unit test, 3 the harder unit test.
+function level_(activity) {
+  var a = String(activity || '').trim().toLowerCase();
+  if (a === 'unit test 2') return 3;
+  if (a === 'quiz' || a === 'match' || a === 'flashcards') return 1;
+  return 2;
+}
 // "2026-27" for a date between 1 Sep 2026 and 31 Aug 2027.
 function schoolYear_(d) {
   if (!(d instanceof Date)) return '';
@@ -139,19 +251,19 @@ function classFor_(rows, email, first, last, year) {
   return any;
 }
 
-// (Re)computes columns K and L for every result row.
+// (Re)computes columns K-R (school year, class, book, level...) for every row of a Results/Archive tab.
 function fillDerived_(sh) {
   var n = sh.getLastRow() - 1;
   if (n < 1) return;
-  var times = sh.getRange(2, 1, n, 1).getValues(), who = sh.getRange(2, 2, n, 3).getValues();  // B e-mail, C first, D last
+  var v = sh.getRange(2, 1, n, 14).getValues();       // A-N
   var roster = rosterRows_(), out = [];
   for (var i = 0; i < n; i++) {
-    var y = schoolYear_(times[i][0]);
-    out.push([y, classFor_(roster, who[i][0], who[i][1], who[i][2], y)]);
+    var r = v[i], y = schoolYear_(r[0]);
+    out.push([y, classFor_(roster, r[1], r[2], r[3], y)].concat(derived_(r[4], r[13], r[5], r[6])));
   }
-  sh.getRange(2, 11, n, 2).setNumberFormat('@').setValues(out);
+  sh.getRange(2, 11, n, 2).setNumberFormat('@');
+  sh.getRange(2, 11, n, 8).setValues(out);
 }
-
 // Returns {email, first, last} from the verified token, or null.
 function verify_(token) {
   if (!token || !CLIENT_ID) return null;
@@ -185,19 +297,107 @@ function onOpen() {
     .addItem('Refresh classes from Roster', 'refreshClasses')
     .addItem('Start new school year (copy Roster)', 'startNewSchoolYear')
     .addSeparator()
+    .addItem('Move earlier school years to Archive...', 'archiveOldYears')
+    .addItem('Remove duplicate results (save bug)...', 'removeDuplicateResults')
     .addItem('Delete old results...', 'deleteOldResults')
     .addToUi();
 }
 
-// After you edit the Roster: put the right class on every result row.
+// After you edit the Roster: put the right class on every result row (Results and Archive).
 function refreshClasses() {
   var lock = LockService.getScriptLock();
   lock.waitLock(20000);
-  try { fillDerived_(resultsSheet_()); } finally { lock.release(); }
+  try { fillDerived_(resultsSheet_()); fillDerived_(archiveSheet_()); } finally { lock.releaseLock(); }
   SpreadsheetApp.getActive().toast('Classes updated from the Roster.', 'English hub', 5);
 }
 
-// Removes results older than N years (whole school years are the sensible choice: 1, 2, 3...).
+// Keeps "Results" short: moves every result that is not from the current school year to the hidden
+// "Archive" tab. Nothing is deleted, and the analysis tabs still count the archived results.
+function archiveOldYears() {
+  var ui = SpreadsheetApp.getUi();
+  var cur = schoolYear_(new Date());
+  var lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  var moved = 0;
+  try {
+    var sh = resultsSheet_(), n = sh.getLastRow() - 1;
+    if (n < 1) { ui.alert('There are no results yet.'); return; }
+    var range = sh.getRange(2, 1, n, NCOLS), values = range.getValues(), keep = [], move = [];
+    values.forEach(function (r) {
+      var y = String(r[10]).trim();
+      (y && y !== cur ? move : keep).push(r);
+    });
+    if (!move.length) { ui.alert('Nothing to move: all ' + n + ' results are from ' + cur + '.'); return; }
+    var ok = ui.alert('Move ' + move.length + ' results to the Archive?',
+      'They are from earlier school years. The ' + keep.length + ' results from ' + cur + ' stay on the Results tab. ' +
+      'Nothing is deleted; the analysis tabs still include the archive. The Archive tab is hidden (right-click the tabs > Show hidden sheets).',
+      ui.ButtonSet.YES_NO);
+    if (ok !== ui.Button.YES) return;
+    var arc = archiveSheet_(), start = Math.max(arc.getLastRow(), 1) + 1, need = start + move.length - 1;
+    if (need > arc.getMaxRows()) arc.insertRowsAfter(arc.getMaxRows(), need - arc.getMaxRows());
+    arc.getRange(start, 1, move.length, NCOLS).setValues(move);
+    range.clearContent();
+    if (keep.length) sh.getRange(2, 1, keep.length, NCOLS).setValues(keep);
+    moved = move.length;
+  } finally { lock.releaseLock(); }
+  ui.alert('Done. ' + moved + ' results moved to the Archive.');
+}
+
+// On 2 Oct 2026 the first collector version failed after saving every result (a typo in releasing the lock),
+// so the pupils' pages sent each result up to three times. This finds those extra copies among the results
+// saved before DEDUPE_BEFORE: for every group of identical results (same pupil, topic, activity, score) it keeps
+// one result per three copies (the earliest ones) and moves the rest to the hidden tab "Duplicates". Nothing is deleted.
+var DEDUPE_BEFORE = '2026-10-02T23:59:00+02:00';
+function removeDuplicateResults() { dedupe_(''); }
+
+// only = '' for all pupils (or an e-mail prefix, used for testing); auto = no dialogs, no questions (testing)
+function dedupe_(only, auto) {
+  var ui = auto ? null : SpreadsheetApp.getUi(), ss = SpreadsheetApp.getActive();
+  var say = function (m) { if (ui) ui.alert(m); else Logger.log(m); };
+  var before = new Date(DEDUPE_BEFORE);
+  var lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  var moved = 0;
+  try {
+    var sh = resultsSheet_(), n = sh.getLastRow() - 1;
+    if (n < 1) { say('There are no results yet.'); return; }
+    var values = sh.getRange(2, 1, n, NCOLS).getValues(), groups = {};
+    values.forEach(function (r, i) {                     // newest first
+      if (!(r[0] instanceof Date) || r[0] >= before || r[NCOLS - 1]) return;
+      if (only && String(r[1]).indexOf(only) !== 0) return;   // rows with a result id are never copies
+      var k = [r[1], r[4], r[5], r[6], r[7], r[8]].join('|');
+      (groups[k] = groups[k] || []).push(i);
+    });
+    var drop = {}, count = 0;
+    Object.keys(groups).forEach(function (k) {
+      var idx = groups[k], keep = Math.ceil(idx.length / 3);
+      idx.slice(0, idx.length - keep).forEach(function (i) { drop[i] = true; count++; });   // the newest copies
+    });
+    if (!count) { say('No duplicate results found.'); return; }
+    var ok = !ui ? 'auto' : ui.alert('Move ' + count + ' duplicate results to the hidden "Duplicates" tab?',
+      'The ' + (n - count) + ' other results stay on the Results tab. Identical results of the same pupil are counted in threes ' +
+      '(one real result = up to three copies); results saved after ' + Utilities.formatDate(before, TZ, 'dd.MM.yyyy HH:mm') +
+      ' are not touched. Nothing is deleted: the copies can be found on the hidden tab.', ui && ui.ButtonSet.YES_NO);
+    if (ui && ok !== ui.Button.YES) return;
+    var dup = ss.getSheetByName('Duplicates') || ss.insertSheet('Duplicates');
+    if (dup.getLastRow() === 0) { dup.appendRow(HEADER); dup.setFrozenRows(1); dup.getRange('K:L').setNumberFormat('@'); }
+    var gone = [], keepRows = [];
+    values.forEach(function (r, i) { (drop[i] ? gone : keepRows).push(r); });
+    var start = dup.getLastRow() + 1;
+    if (start + gone.length - 1 > dup.getMaxRows()) dup.insertRowsAfter(dup.getMaxRows(), start + gone.length - dup.getMaxRows());
+    dup.getRange(start, 1, gone.length, NCOLS).setValues(gone);
+    sh.getRange(2, 1, n, NCOLS).clearContent();
+    sh.getRange(2, 1, keepRows.length, NCOLS).setValues(keepRows);
+    if (!dup.isSheetHidden()) {
+      if (ss.getActiveSheet().getName() === 'Duplicates') ss.setActiveSheet(sh);
+      dup.hideSheet();
+    }
+    moved = gone.length;
+  } finally { lock.releaseLock(); }
+  say('Done. ' + moved + ' duplicate results moved to the hidden tab "Duplicates".');
+}
+// Removes results older than N years (whole school years are the sensible choice: 1, 2, 3...),
+// from Results and Archive. Always asks for confirmation first.
 function deleteOldResults() {
   var ui = SpreadsheetApp.getUi();
   var ans = ui.prompt('Delete old results',
@@ -209,23 +409,30 @@ function deleteOldResults() {
   var cutoff = new Date(); cutoff.setFullYear(cutoff.getFullYear() - years);
   var lock = LockService.getScriptLock();
   lock.waitLock(20000);
+  var gone = 0;
   try {
-    var sh = resultsSheet_(), n = sh.getLastRow() - 1;
-    if (n < 1) { ui.alert('There are no results yet.'); return; }
-    var range = sh.getRange(2, 1, n, HEADER.length), values = range.getValues();
-    var keep = values.filter(function (r) { return !(r[0] instanceof Date) || r[0] >= cutoff; });
-    var gone = n - keep.length;
+    var parts = [resultsSheet_(), archiveSheet_()].map(function (sh) {
+      var n = sh.getLastRow() - 1;
+      if (n < 1) return { sh: sh, n: 0, keep: [] };
+      var values = sh.getRange(2, 1, n, NCOLS).getValues();
+      return { sh: sh, n: n, keep: values.filter(function (r) { return !(r[0] instanceof Date) || r[0] >= cutoff; }) };
+    });
+    var total = 0;
+    parts.forEach(function (p) { total += p.n; gone += p.n - p.keep.length; });
+    if (!total) { ui.alert('There are no results yet.'); return; }
     if (!gone) { ui.alert('Nothing is older than ' + years + ' year(s).'); return; }
-    var ok = ui.alert('Delete ' + gone + ' of ' + n + ' results older than ' +
+    var ok = ui.alert('Delete ' + gone + ' of ' + total + ' results older than ' +
       Utilities.formatDate(cutoff, TZ, 'dd.MM.yyyy') + '?', 'This cannot be undone here (only via File > Version history).',
       ui.ButtonSet.YES_NO);
-    if (ok !== ui.Button.YES) return;
-    range.clearContent();
-    if (keep.length) sh.getRange(2, 1, keep.length, HEADER.length).setValues(keep);
-  } finally { lock.release(); }
-  ui.alert('Done. Deleted ' + gone + ' results.');
+    if (ok !== ui.Button.YES) { gone = 0; return; }
+    parts.forEach(function (p) {
+      if (p.n === p.keep.length) return;
+      p.sh.getRange(2, 1, p.n, NCOLS).clearContent();
+      if (p.keep.length) p.sh.getRange(2, 1, p.keep.length, NCOLS).setValues(p.keep);
+    });
+  } finally { lock.releaseLock(); }
+  if (gone) ui.alert('Done. Deleted ' + gone + ' results.');
 }
-
 // September: copies the newest school year of the Roster to the next one, moving every class up a grade
 // (7.A -> 8.A). Pupils who finished the 9th grade are not copied. Existing rows are never changed.
 function startNewSchoolYear() {
@@ -277,58 +484,91 @@ function startNewSchoolYear() {
 // ---------------------------------------------------------------- analysis tabs
 
 /**
- * Builds the Roster tab (only if missing) and four live overview tabs from "Results".
+ * Builds the Roster tab (only if missing) and the live overview tabs from "Results" + "Archive".
  * Safe to run again: the overview tabs are rebuilt, the Roster is never touched.
- * Each overview tab has three selectors in row 1: school year, class (from the Roster), coursebook.
+ * Each overview tab has four selectors in row 1: school year, class (from the Roster), coursebook, level.
+ * Columns of the data (for the Col numbers below): 1 Time, 2 Email, 3 First, 4 Last, 5 Book id, 6 Topic,
+ * 7 Activity, 8 Score, 9 Total, 10 Percent, 11 School year, 12 Class, 13 Book, 14 Unit, 15 Level (number),
+ * 16 Unit title, 17 Level name, 18 Hard (1/0).
  */
 function setupAnalysis() {
   resultsSheet_();
+  archiveSheet_();
   rosterSheet_();
-  var R = SHEET + '!$A:$L';
-  // WHERE part, driven by the selectors in B1 (school year), D1 (class), F1 (coursebook)
-  var where = '"where B is not null"' +
-    '&IF($B$1="All",""," and K = \'"&$B$1&"\'")' +
-    '&IF($D$1="All",""," and L = \'"&$D$1&"\'")' +
-    '&IF($F$1="All",""," and E = \'"&$F$1&"\'")&" ';
+  var DATA = '{' + SHEET + '!$A$1:$S;' + ARCHIVE + '!$A$2:$S}';
+  // WHERE part, driven by the selectors in B1 (school year), D1 (class), F1 (coursebook), H1 (level)
+  var where = '"where Col2 is not null"' +
+    '&IF($B$1="All",""," and Col11 = \'"&$B$1&"\'")' +
+    '&IF($D$1="All",""," and Col12 = \'"&$D$1&"\'")' +
+    '&IF($F$1="All",""," and Col5 = \'"&$F$1&"\'")' +
+    '&IF($H$1="All",""," and Col17 = \'"&$H$1&"\'")&" ';
+  var Q = function (select, rest) { return '=IFERROR(QUERY(' + DATA + ',"select ' + select + ' ' + where.slice(1) + rest + '",1),"No results yet")'; };
+  var pupil = "Col4 'Last name', Col3 'First name', Col12 'Class'";
 
-  // 0) teacher summary: one row per pupil, one column per topic, best result in each cell
-  build_('Summary', 'Best result of each pupil in each topic (best of all activities and attempts). Red = below 60 %, green = 90 % or more, empty = not practised yet.',
-    '=IFERROR(QUERY(' + R + ',"select D,C,L,max(J) ' + where.slice(1) +
-    'group by D,C,L pivot F order by D,C label D \'Last name\', C \'First name\', L \'Class\'",1),"No results yet")',
-    {}, 4);
+  // 0) teacher summary: one row per pupil, one column per unit (book included), best result in each cell
+  build_('Summary', 'Best result of each pupil in each unit (best of all activities and attempts). Columns are sorted by book and unit; use the Book selector to see one book. Red = below 60 %, green = 90 % or more, empty = not practised yet.',
+    Q('Col4,Col3,Col12,max(Col10)', "group by Col4,Col3,Col12 pivot Col16 order by Col4,Col3 label " + pupil), {}, 0);
   finishSummary_();
 
-  // 1) one row per student and school year
-  build_('Students', 'Every student and school year: how much they practised and how well. Red = average below 60 %.',
-    '=IFERROR(QUERY(' + R + ',"select B,C,D,K,L,count(J),avg(J),max(A) ' + where.slice(1) +
-    'group by B,C,D,K,L order by D,C,K label B \'Email\', C \'First name\', D \'Last name\', K \'School year\', L \'Class\', count(J) \'Attempts\', avg(J) \'Average\', max(A) \'Last practised\'",1),"No results yet")',
-    { 7: '0%', 8: 'dd.mm.yyyy hh:mm' }, 7);
+  // 1) one row per student and school year: how much (attempts, questions) and how hard (average level, hard tests)
+  build_('Students', 'Every student and school year: Attempts = finished activities, Questions = questions answered, Average = average result, Avg difficulty = average level (1 easy, 2 medium, 3 hard), Hard tests = finished "Unit test 2". Red = average below 60 %.',
+    Q('Col2,Col3,Col4,Col11,Col12,count(Col10),sum(Col9),avg(Col10),avg(Col15),sum(Col18),max(Col1)',
+      "group by Col2,Col3,Col4,Col11,Col12 order by Col4,Col3,Col11 label Col2 'Email', Col3 'First name', Col4 'Last name', Col11 'School year', Col12 'Class', count(Col10) 'Attempts', sum(Col9) 'Questions', avg(Col10) 'Average', avg(Col15) 'Avg difficulty (1-3)', sum(Col18) 'Hard tests', max(Col1) 'Last practised'"),
+    { 6: '0', 7: '0', 8: '0%', 9: '0.0', 10: '0', 11: 'dd.mm.yyyy hh:mm' }, 8);
 
-  // 2) best score per student, topic and activity
-  build_('Best scores', 'Best result of each student in each topic and activity.',
-    '=IFERROR(QUERY(' + R + ',"select B,C,D,K,L,E,F,G,max(J),count(J) ' + where.slice(1) +
-    'group by B,C,D,K,L,E,F,G order by D,C,K,F,G label B \'Email\', C \'First name\', D \'Last name\', K \'School year\', L \'Class\', E \'Book\', F \'Topic\', G \'Activity\', max(J) \'Best\', count(J) \'Attempts\'",1),"No results yet")',
-    { 9: '0%' }, 9);
+  // 2) difficulty: how many activities of each level, and how well (two blocks side by side)
+  build_('Difficulty', 'Left: how many activities each pupil finished at each level (1 Easy = Match and Quiz, 2 Medium = Fill the gap and Unit test, 3 Hard = Unit test 2). Right: the average result at each level.',
+    Q('Col4,Col3,Col12,count(Col10)', "group by Col4,Col3,Col12 pivot Col17 order by Col4,Col3 label " + pupil), { 4: '0', 5: '0', 6: '0' }, 0);
+  blockOf_('Difficulty', 'H3', Q('Col4,Col3,Col12,avg(Col10)', "group by Col4,Col3,Col12 pivot Col17 order by Col4,Col3 label " + pupil), 11, 3);
 
-  // 3) topics / activities - where the class struggles
-  build_('Topics', 'Which topics and activities are hard: a low average = needs more practice.',
-    '=IFERROR(QUERY(' + R + ',"select E,F,G,count(J),avg(J) ' + where.slice(1) +
-    'group by E,F,G order by E,F,G label E \'Book\', F \'Topic\', G \'Activity\', count(J) \'Attempts\', avg(J) \'Average\'",1),"No results yet")',
-    { 5: '0%' }, 5);
+  // 3) by book: pupils may practise units from books of other grades
+  build_('By book', 'Left: number of finished activities per pupil and coursebook. Right: the average result in each book.',
+    Q('Col4,Col3,Col12,count(Col10)', "group by Col4,Col3,Col12 pivot Col13 order by Col4,Col3 label " + pupil), {}, 0);
+  blockOf_('By book', 'N3', Q('Col4,Col3,Col12,avg(Col10)', "group by Col4,Col3,Col12 pivot Col13 order by Col4,Col3 label " + pupil), 17, 8);
+  numberFormat_('By book', 4, 8, '0');
 
-  // 4) activity over time (Col1 day, Col2 e-mail, Col5 book, Col6 percent, Col7 school year, Col8 class)
+  // 4) best score per student, unit and activity
+  build_('Best scores', 'Best result of each student in each unit and activity.',
+    Q('Col2,Col3,Col4,Col11,Col12,Col16,Col7,max(Col10),count(Col10)',
+      "group by Col2,Col3,Col4,Col11,Col12,Col16,Col7 order by Col4,Col3,Col11,Col16,Col7 label Col2 'Email', Col3 'First name', Col4 'Last name', Col11 'School year', Col12 'Class', Col16 'Unit', Col7 'Activity', max(Col10) 'Best', count(Col10) 'Attempts'"),
+    { 8: '0%', 9: '0' }, 8);
+
+  // 5) units / activities - where the class struggles
+  build_('Topics', 'Which units and activities are hard: a low average = needs more practice.',
+    Q('Col16,Col7,count(Col10),sum(Col9),avg(Col10)',
+      "group by Col16,Col7 order by Col16,Col7 label Col16 'Unit', Col7 'Activity', count(Col10) 'Attempts', sum(Col9) 'Questions', avg(Col10) 'Average'"),
+    { 3: '0', 4: '0', 5: '0%' }, 5);
+
+  // 6) activity over time
   build_('By day', 'How much practice happened each day.',
-    '=IFERROR(QUERY({ARRAYFORMULA(INT(' + SHEET + '!A2:A)),' + SHEET + '!B2:E,' + SHEET + '!J2:L},' +
-    '"select Col1,count(Col6),avg(Col6) where Col2 is not null"' +
-    '&IF($B$1="All",""," and Col7 = \'"&$B$1&"\'")' +
-    '&IF($D$1="All",""," and Col8 = \'"&$D$1&"\'")' +
-    '&IF($F$1="All",""," and Col5 = \'"&$F$1&"\'")' +
-    '&" group by Col1 order by Col1 desc label Col1 \'Day\', count(Col6) \'Attempts\', avg(Col6) \'Average\'",0),"No results yet")',
-    { 1: 'dd.mm.yyyy', 3: '0%' }, 3);
+    Q('todate(Col1),count(Col10),sum(Col9),avg(Col10)',
+      "group by todate(Col1) order by todate(Col1) desc label todate(Col1) 'Day', count(Col10) 'Attempts', sum(Col9) 'Questions', avg(Col10) 'Average'"),
+    { 1: 'dd.mm.yyyy', 2: '0', 3: '0', 4: '0%' }, 4);
 
+  var ss = SpreadsheetApp.getActive();
+  ss.setActiveSheet(ss.getSheetByName('Summary'));
+  archiveSheet_();                                      // keeps the Archive hidden after the tabs were rebuilt
   SpreadsheetApp.getActive().toast('Analysis tabs are ready.', 'English hub', 5);
 }
 
+// A second table on the same tab: formula in `cell`, number-format 0% for `nCols` columns from column `firstCol`.
+function blockOf_(name, cell, formula, firstCol, nCols) {
+  var sh = SpreadsheetApp.getActive().getSheetByName(name);
+  sh.getRange(cell).setFormula(formula);
+  sh.getRange(cell).offset(0, 0, 1, firstCol).setFontWeight('bold').setBackground('#f1efe8');
+  sh.setColumnWidths(sh.getRange(cell).getColumn(), 3, 100);
+  var col = sh.getRange(4, firstCol, sh.getMaxRows() - 3, nCols);
+  col.setNumberFormat('0%').setHorizontalAlignment('center');
+  sh.setConditionalFormatRules(sh.getConditionalFormatRules().concat([
+    SpreadsheetApp.newConditionalFormatRule().whenNumberLessThan(0.6).setBackground('#fde4e4').setRanges([col]).build(),
+    SpreadsheetApp.newConditionalFormatRule().whenNumberGreaterThanOrEqualTo(0.9).setBackground('#dcf5e6').setRanges([col]).build()
+  ]));
+}
+
+function numberFormat_(name, firstCol, nCols, fmt) {
+  var sh = SpreadsheetApp.getActive().getSheetByName(name);
+  sh.getRange(4, firstCol, sh.getMaxRows() - 3, nCols).setNumberFormat(fmt).setHorizontalAlignment('center');
+}
 // The Summary is a matrix whose width depends on the data: make room, colour every topic column, put the tab first.
 function finishSummary_() {
   var ss = SpreadsheetApp.getActive(), sh = ss.getSheetByName('Summary');
@@ -381,7 +621,7 @@ function build_(name, note, formula, formats, pctCol) {
   var sh = ss.getSheetByName(name) || ss.insertSheet(name);
   sh.clear();
   sh.getRange(1, 1, sh.getMaxRows(), sh.getMaxColumns()).clearFormat().clearDataValidations();   // clear() keeps old number formats
-  var labels = [['A1', 'School year:'], ['C1', 'Class:'], ['E1', 'Book:']];
+  var labels = [['A1', 'School year:'], ['C1', 'Class:'], ['E1', 'Book:'], ['G1', 'Level:']];
   labels.forEach(function (l) { sh.getRange(l[0]).setValue(l[1]).setFontWeight('bold').setHorizontalAlignment('right'); });
   var pick = function (cell, rule) {
     sh.getRange(cell).setNumberFormat('@').setValue('All').setDataValidation(rule)
@@ -391,17 +631,20 @@ function build_(name, note, formula, formats, pctCol) {
   pick('D1', SpreadsheetApp.newDataValidation()
     .requireValueInRange(ss.getSheetByName(ROSTER).getRange('E2:E100'), true).setAllowInvalid(false).build());
   pick('F1', SpreadsheetApp.newDataValidation().requireValueInList(BOOK_IDS, true).build());
+  pick('H1', SpreadsheetApp.newDataValidation().requireValueInList(LEVEL_LIST, true).build());
   sh.getRange('A3').setFormula(formula);
   sh.setFrozenRows(3);
   sh.getRange('A3:Z3').setFontWeight('bold').setBackground('#f1efe8');
   var rows = sh.getMaxRows() - 3;
   Object.keys(formats).forEach(function (c) { sh.getRange(4, Number(c), rows, 1).setNumberFormat(formats[c]); });
-  // colour the percentage column: red < 60 %, green >= 90 %
-  var col = sh.getRange(4, pctCol, rows, 1);
-  sh.setConditionalFormatRules([
-    SpreadsheetApp.newConditionalFormatRule().whenNumberLessThan(0.6).setBackground('#fde4e4').setRanges([col]).build(),
-    SpreadsheetApp.newConditionalFormatRule().whenNumberGreaterThanOrEqualTo(0.9).setBackground('#dcf5e6').setRanges([col]).build()
-  ]);
-  sh.autoResizeColumns(1, 10);
+  // colour the percentage column: red < 60 %, green >= 90 % (pctCol 0 = none)
+  if (pctCol) {
+    var col = sh.getRange(4, pctCol, rows, 1);
+    sh.setConditionalFormatRules([
+      SpreadsheetApp.newConditionalFormatRule().whenNumberLessThan(0.6).setBackground('#fde4e4').setRanges([col]).build(),
+      SpreadsheetApp.newConditionalFormatRule().whenNumberGreaterThanOrEqualTo(0.9).setBackground('#dcf5e6').setRanges([col]).build()
+    ]);
+  }
+  sh.autoResizeColumns(1, 12);
   sh.getRange('A2').setValue(note).setFontColor('#6b7280');   // after resizing, so a long note does not widen column A
 }
