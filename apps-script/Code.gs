@@ -29,6 +29,7 @@ var BOOK_IDS = ['All', '6b', '7a', '7bc', '8a', '8b', '9a', '9b', 'extra'];
 function doPost(e) {
   try {
     var d = JSON.parse(e.postData.contents);
+    if (d.action === 'roster') return rosterReply_(d);       // teacher-only, used by the Classroom Tools page
     var who = verify_(d.token);
     if (!who) return out_({ ok: false, error: 'token' });
 
@@ -50,6 +51,30 @@ function doPost(e) {
   } catch (err) {
     return out_({ ok: false, error: 'server' });
   }
+}
+
+// Class lists for the Classroom Tools page: names only (never e-mails), newest school year in the Roster,
+// and only for the teacher. Teacher e-mails are kept in Project Settings > Script properties (TEACHER_EMAILS),
+// so they are not in this public file.
+function rosterReply_(d) {
+  var who = verify_(d.token);
+  var allowed = String(PropertiesService.getScriptProperties().getProperty('TEACHER_EMAILS') || '')
+    .toLowerCase().split(/[\s,;]+/).filter(String);
+  if (!who || allowed.indexOf(String(who.email).toLowerCase()) < 0) return out_({ ok: false, error: 'token' });
+
+  var sh = SpreadsheetApp.getActive().getSheetByName(ROSTER);
+  if (!sh || sh.getLastRow() < 2) return out_({ ok: true, year: '', classes: {} });
+  var rows = sh.getRange(2, 1, sh.getLastRow() - 1, 4).getValues(), year = '';
+  rows.forEach(function (r) { var y = String(r[1]).trim(); if (/^\d{4}-\d{2}$/.test(y) && y > year) year = y; });
+  var byClass = {};
+  rows.forEach(function (r) {
+    var y = String(r[1]).trim(), cls = String(r[2]).trim(), name = String(r[3]).trim();
+    if (y !== year || !cls || !name) return;
+    (byClass[cls] = byClass[cls] || []).push(name);
+  });
+  var classes = {};
+  Object.keys(byClass).sort().forEach(function (c) { classes[c] = byClass[c].sort(function (a, b) { return a.localeCompare(b, 'sl'); }); });
+  return out_({ ok: true, year: year, classes: classes });
 }
 
 // The "Results" tab. An older layout is kept under another name; the two newer columns are added in place.
