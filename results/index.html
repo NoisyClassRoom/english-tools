@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Results</title>
+<style>
+  :root {
+    --bg: #141418; --card: #1f1f26; --ink: #f2efe9; --muted: #a39f95; --line: #34343e; --field: #14141a;
+    --accent: #ff8a1f; --accent-ink: #17171c; --accent-soft: #3a2a18; --good: #34c06d; --warn: #f5b301; --bad: #ff5a5a;
+    --goodbg: #1d3a2a; --badbg: #4a2424; --radius: 14px;
+  }
+  body.light {
+    --bg: #f6f4ef; --card: #ffffff; --ink: #1f2a37; --muted: #6b7280; --line: #e5e1d8; --field: #ffffff;
+    --accent: #e8710a; --accent-ink: #ffffff; --accent-soft: #fdeedd; --good: #1f9d55; --warn: #e0a100; --bad: #d64545;
+    --goodbg: #dcf5e6; --badbg: #fde4e4;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 16px; }
+  h1 { margin: 0; font-size: 22px; }
+  .top { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+  .top .sp { flex: 1; }
+  .btn, select, input[type=search] { background: var(--field); color: var(--ink); border: 1px solid var(--line); border-radius: 10px; padding: 7px 12px; font: inherit; }
+  .btn { cursor: pointer; }
+  .btn:hover { border-color: var(--accent); }
+  .btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px; margin-bottom: 14px; }
+  #login { text-align: center; padding: 40px 14px; }
+  #login p { color: var(--muted); }
+  #app { display: none; }
+  .filters { display: flex; gap: 12px; flex-wrap: wrap; align-items: end; }
+  .filters label { display: flex; flex-direction: column; gap: 3px; font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+  .filters select { min-width: 130px; font-size: 15px; text-transform: none; letter-spacing: 0; color: var(--ink); }
+  .tabs { display: flex; gap: 6px; margin: 4px 0 12px; flex-wrap: wrap; }
+  .tabs .btn.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); font-weight: 600; }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+  .tile { background: var(--field); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; }
+  .tile b { display: block; font-size: 26px; line-height: 1.15; color: var(--accent); }
+  .tile span { color: var(--muted); font-size: 13px; }
+  table { border-collapse: collapse; width: 100%; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+  th { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; cursor: pointer; white-space: nowrap; position: sticky; top: 0; background: var(--card); }
+  th.num, td.num { text-align: right; }
+  th.on::after { content: " ▼"; color: var(--accent); }
+  th.on.asc::after { content: " ▲"; }
+  tr.click { cursor: pointer; }
+  tr.click:hover td { background: var(--accent-soft); }
+  .scroll { overflow-x: auto; max-height: 560px; overflow-y: auto; }
+  .pct { display: inline-block; min-width: 52px; text-align: center; border-radius: 8px; padding: 1px 6px; }
+  .pct.lo { background: var(--badbg); color: var(--bad); }
+  .pct.hi { background: var(--goodbg); color: var(--good); }
+  .muted { color: var(--muted); }
+  .note { color: var(--muted); font-size: 13px; margin: 0 0 8px; }
+  .msg { color: var(--muted); }
+  .msg.err { color: var(--bad); }
+  svg text { fill: var(--muted); font-size: 11px; }
+  .bar { fill: var(--accent); }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 760px) { .grid2 { grid-template-columns: 1fr; } }
+  h2 { font-size: 16px; margin: 0 0 8px; }
+  .lvl-1 { color: var(--good); } .lvl-2 { color: var(--warn); } .lvl-3 { color: var(--bad); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <h1>Results</h1>
+    <span class="sp"></span>
+    <span class="muted" id="who"></span>
+    <button class="btn" id="reload" style="display:none">Reload data</button>
+    <button class="btn" id="theme">Light / dark</button>
+  </div>
+
+  <div id="login" class="card">
+    <p id="loginMsg">Sign in with your school Google account to see the results. Only the teacher account is allowed.</p>
+    <div id="slot"></div>
+  </div>
+
+  <div id="app">
+    <div class="card filters">
+      <label>School year <select id="fYear"></select></label>
+      <label>Class <select id="fClass"></select></label>
+      <label>Book <select id="fBook"></select></label>
+      <label>Level <select id="fLevel"></select></label>
+      <label>From <input type="date" id="fFrom" class="btn"></label>
+      <label>To <input type="date" id="fTo" class="btn"></label>
+      <button class="btn" id="fReset">Reset</button>
+    </div>
+    <div class="tabs" id="tabs"></div>
+    <div id="view"></div>
+  </div>
+</div>
+
+<script src="../exercises/tracking.js"></script>
+<script>
+(() => {
+  'use strict';
+  const $ = s => document.querySelector(s);
+  const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+  const BOOKS = { '6b': 'Project 1', '7a': 'Dream Team Starter', '7bc': 'Project 2', '8a': 'Dream Team 1', '8b': 'Project 3', '9a': 'Dream Team 2', '9b': 'Project 4', 'extra': 'Extra practice' };
+  const LEVELS = { 1: '1 Easy', 2: '2 Medium', 3: '3 Hard' };
+  const pct = x => Math.round(x * 100) + ' %';
+  const fmtDate = t => t ? new Date(t).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—';
+  const fmtTime = t => t ? new Date(t).toLocaleString('en-GB', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—';
+  const dayKey = t => { const d = new Date(t); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+  const badge = v => { const s = el('span', 'pct' + (v < 0.6 ? ' lo' : v >= 0.9 ? ' hi' : ''), pct(v)); return s; };
+  const avg = (a, f) => a.length ? a.reduce((s, x) => s + f(x), 0) / a.length : 0;
+
+  let rows = [], roster = [], tab = 'overview', sortKey = {}, selPupil = '';
+  const F = { year: '', cls: '', book: '', level: '', from: '', to: '' };
+
+  // ---------------------------------------------------------------- data
+  const load = async () => {
+    const token = Track.token(); if (!token) return;
+    $('#loginMsg').textContent = 'Loading the results…'; $('#login').style.display = 'block';
+    try {
+      const r = await fetch(Track.config.endpoint, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'stats', token }) });
+      const j = await r.json();
+      if (!j.ok) {
+        $('#loginMsg').textContent = j.error === 'token' ? 'This Google account is not allowed to see the results.' : 'Could not load the results.';
+        $('#loginMsg').className = 'msg err'; return;
+      }
+      rows = j.rows.map(a => ({ t: a[0], last: a[1], first: a[2], cls: a[3] || '', book: a[4], unit: a[5], act: a[6],
+                                lvl: a[7], score: a[8], total: a[9], year: a[10], p: a[9] ? a[8] / a[9] : 0, key: a[1] + '|' + a[2] }));
+      roster = j.roster.map(a => ({ year: a[0], cls: a[1], name: a[2], n: a[3], last: a[4] }));
+      $('#login').style.display = 'none'; $('#app').style.display = 'block'; $('#reload').style.display = '';
+      $('#who').textContent = 'Signed in as ' + (Track.email || '');
+      setupFilters(); render();
+    } catch (e) { $('#loginMsg').textContent = 'Could not reach the Sheet. Check your connection.'; $('#loginMsg').className = 'msg err'; }
+  };
+
+  const fill = (sel, items, label) => {
+    const cur = sel.value; sel.innerHTML = '';
+    items.forEach(([v, t]) => { const o = el('option', '', t); o.value = v; sel.append(o); });
+    sel.value = items.some(i => i[0] === cur) ? cur : items[0][0];
+  };
+  const setupFilters = () => {
+    const years = [...new Set(rows.map(r => r.year).concat(roster.map(r => r.year)))].filter(Boolean).sort().reverse();
+    if (!F.year || !years.includes(F.year)) F.year = years[0] || '';
+    fill($('#fYear'), [['', 'All years']].concat(years.map(y => [y, y])));
+    $('#fYear').value = F.year;
+    const classes = [...new Set(rows.map(r => r.cls).concat(roster.map(r => r.cls)))].filter(Boolean).sort((a, b) => a.localeCompare(b, 'sl', { numeric: true }));
+    fill($('#fClass'), [['', 'All classes']].concat(classes.map(c => [c, c])));
+    const books = [...new Set(rows.map(r => r.book))].filter(Boolean).sort();
+    fill($('#fBook'), [['', 'All books']].concat(books.map(b => [b, (BOOKS[b] || b) + ' (' + b + ')'])));
+    fill($('#fLevel'), [['', 'All levels'], ['1', LEVELS[1]], ['2', LEVELS[2]], ['3', LEVELS[3]]]);
+  };
+  ['fYear:year', 'fClass:cls', 'fBook:book', 'fLevel:level', 'fFrom:from', 'fTo:to'].forEach(p => {
+    const [id, k] = p.split(':'); $('#' + id).onchange = e => { F[k] = e.target.value; selPupil = ''; render(); };
+  });
+  $('#fReset').onclick = () => { F.cls = F.book = F.level = F.from = F.to = ''; $('#fFrom').value = $('#fTo').value = ''; setupFilters(); selPupil = ''; render(); };
+
+  const filtered = () => {
+    const from = F.from ? new Date(F.from + 'T00:00:00').getTime() : 0, to = F.to ? new Date(F.to + 'T23:59:59').getTime() : Infinity;
+    return rows.filter(r => (!F.year || r.year === F.year) && (!F.cls || r.cls === F.cls) && (!F.book || r.book === F.book) &&
+      (!F.level || String(r.lvl) === F.level) && r.t >= from && r.t <= to);
+  };
+
+  // ---------------------------------------------------------------- tabs
+  const TABS = [['overview', 'Overview'], ['pupils', 'Pupils'], ['units', 'Units'], ['quiet', 'Not practising']];
+  const render = () => {
+    const tabs = $('#tabs'); tabs.innerHTML = '';
+    TABS.forEach(([id, name]) => { const b = el('button', 'btn' + (id === tab ? ' on' : ''), name); b.onclick = () => { tab = id; render(); }; tabs.append(b); });
+    const view = $('#view'); view.innerHTML = '';
+    const data = filtered();
+    if (tab === 'overview') overview(view, data); else if (tab === 'pupils') pupils(view, data);
+    else if (tab === 'units') units(view, data); else quiet(view);
+  };
+
+  const tile = (v, label) => { const t = el('div', 'tile'); t.append(el('b', '', v), el('span', '', label)); return t; };
+
+  // sortable table: cols = [{h, k (sort value), v (cell builder), num}]
+  const table = (id, cols, items, defKey, onRow) => {
+    const st = sortKey[id] || (sortKey[id] = { k: defKey, asc: ['Level', 'Class', 'Pupil'].includes(defKey) });
+    const col = cols.find(c => c.h === st.k) || cols[0];
+    const sorted = items.slice().sort((a, b) => {
+      const x = col.k(a), y = col.k(b);
+      const c = typeof x === 'string' ? x.localeCompare(y, 'sl') : x - y; return st.asc ? c : -c;
+    });
+    const wrap = el('div', 'scroll'), tb = el('table'), thead = el('thead'), hr = el('tr');
+    cols.forEach(c => {
+      const th = el('th', (c.num ? 'num ' : '') + (c.h === st.k ? 'on' + (st.asc ? ' asc' : '') : ''), c.h);
+      th.onclick = () => { st.asc = st.k === c.h ? !st.asc : (typeof c.k(items[0] || {}) === 'string'); st.k = c.h; render(); };
+      hr.append(th);
+    });
+    thead.append(hr); tb.append(thead);
+    const body = el('tbody');
+    sorted.forEach(it => {
+      const tr = el('tr', onRow ? 'click' : '');
+      cols.forEach(c => { const td = el('td', c.num ? 'num' : ''); const v = c.v(it); if (v instanceof Node) td.append(v); else td.textContent = v; tr.append(td); });
+      if (onRow) tr.onclick = () => onRow(it);
+      body.append(tr);
+    });
+    tb.append(body); wrap.append(tb); return wrap;
+  };
+
+  // ---------------------------------------------------------------- overview
+  const overview = (view, data) => {
+    const names = new Set(data.map(r => r.key));
+    const tiles = el('div', 'tiles');
+    tiles.append(tile(data.length, 'finished activities'), tile(data.reduce((s, r) => s + r.total, 0), 'questions answered'),
+      tile(names.size, 'pupils practising'), tile(data.length ? pct(avg(data, r => r.p)) : '—', 'average result'),
+      tile(data.filter(r => r.lvl === 3).length, 'hard tests (Unit test 2)'));
+    const c1 = el('div', 'card'); c1.append(tiles); view.append(c1);
+
+    // activity per day
+    const c2 = el('div', 'card'); c2.append(el('h2', '', 'Activity per day'));
+    const days = {}; data.forEach(r => { const k = dayKey(r.t); days[k] = (days[k] || 0) + 1; });
+    const keys = Object.keys(days).sort();
+    if (!keys.length) c2.append(el('p', 'msg', 'No results for this selection.'));
+    else {
+      const first = new Date(keys[0] + 'T00:00:00'), last = new Date(keys[keys.length - 1] + 'T00:00:00'), list = [];
+      for (let d = new Date(first); d <= last && list.length < 400; d.setDate(d.getDate() + 1)) list.push(dayKey(d));
+      const max = Math.max(...Object.values(days)), W = 1040, H = 150, bw = Math.max(2, Math.min(24, (W - 40) / list.length - 2));
+      let svg = `<svg viewBox="0 0 ${W} ${H + 24}" width="100%" role="img" aria-label="Activity per day">`;
+      list.forEach((k, i) => {
+        const v = days[k] || 0, h = v / max * H, x = 30 + i * ((W - 40) / list.length);
+        svg += `<rect class="bar" x="${x.toFixed(1)}" y="${(H - h).toFixed(1)}" width="${bw}" height="${h.toFixed(1)}" rx="2"><title>${k}: ${v}</title></rect>`;
+        if (list.length <= 31 || i % Math.ceil(list.length / 12) === 0) svg += `<text x="${x.toFixed(1)}" y="${H + 14}">${k.slice(8)}.${k.slice(5, 7)}.</text>`;
+      });
+      svg += `<text x="0" y="10">${max}</text><text x="0" y="${H}">0</text></svg>`;
+      const holder = el('div'); holder.innerHTML = svg; c2.append(holder);
+    }
+    view.append(c2);
+
+    const g = el('div', 'grid2');
+    // by level
+    const c3 = el('div', 'card'); c3.append(el('h2', '', 'By difficulty'));
+    const lv = [1, 2, 3].map(l => { const a = data.filter(r => r.lvl === l); return { l, n: a.length, p: a.length ? avg(a, r => r.p) : null }; });
+    c3.append(table('lvl', [
+      { h: 'Level', k: x => x.l, v: x => { const s = el('span', 'lvl-' + x.l, LEVELS[x.l]); return s; } },
+      { h: 'Activities', k: x => x.n, v: x => x.n, num: true },
+      { h: 'Average', k: x => x.p == null ? -1 : x.p, v: x => x.p == null ? '—' : badge(x.p), num: true }], lv, 'Level'));
+    c3.lastChild.style.maxHeight = 'none';
+    const c4 = el('div', 'card'); c4.append(el('h2', '', 'By class'));
+    const byCls = {}; data.forEach(r => (byCls[r.cls || '(no class)'] = byCls[r.cls || '(no class)'] || []).push(r));
+    c4.append(table('cls', [
+      { h: 'Class', k: x => x.c, v: x => x.c },
+      { h: 'Pupils', k: x => x.pupils, v: x => x.pupils, num: true },
+      { h: 'Activities', k: x => x.n, v: x => x.n, num: true },
+      { h: 'Average', k: x => x.p, v: x => badge(x.p), num: true }],
+      Object.keys(byCls).map(c => ({ c, n: byCls[c].length, pupils: new Set(byCls[c].map(r => r.key)).size, p: avg(byCls[c], r => r.p) })), 'Class'));
+    g.append(c3, c4); view.append(g);
+  };
+
+  // ---------------------------------------------------------------- pupils
+  const pupils = (view, data) => {
+    const by = {}; data.forEach(r => (by[r.key] = by[r.key] || []).push(r));
+    const list = Object.keys(by).map(k => { const a = by[k], last = a.reduce((m, r) => r.t > m ? r.t : m, 0);
+      return { key: k, name: a[0].last + ' ' + a[0].first, cls: [...new Set(a.map(r => r.cls).filter(Boolean))].join(', '),
+               n: a.length, q: a.reduce((s, r) => s + r.total, 0), p: avg(a, r => r.p), lv: avg(a, r => r.lvl),
+               hard: a.filter(r => r.lvl === 3).length, last, rows: a }; });
+    const card = el('div', 'card');
+    const s = el('input'); s.type = 'search'; s.placeholder = 'Find a pupil…'; s.style.marginBottom = '8px';
+    const holder = el('div');
+    const draw = () => {
+      holder.innerHTML = '';
+      const q = s.value.trim().toLowerCase();
+      const items = list.filter(x => !q || x.name.toLowerCase().includes(q));
+      holder.append(table('pupils', [
+        { h: 'Pupil', k: x => x.name, v: x => x.name },
+        { h: 'Class', k: x => x.cls, v: x => x.cls },
+        { h: 'Activities', k: x => x.n, v: x => x.n, num: true },
+        { h: 'Questions', k: x => x.q, v: x => x.q, num: true },
+        { h: 'Average', k: x => x.p, v: x => badge(x.p), num: true },
+        { h: 'Avg level', k: x => x.lv, v: x => x.lv.toFixed(1), num: true },
+        { h: 'Hard tests', k: x => x.hard, v: x => x.hard, num: true },
+        { h: 'Last practised', k: x => x.last, v: x => fmtDate(x.last), num: true }], items, 'Activities', x => { selPupil = x.key; render(); }));
+    };
+    s.oninput = draw;
+    card.append(el('p', 'note', list.length + ' pupils. Click a column to sort, click a pupil for the details.'), s, holder);
+    view.append(card); draw();
+    if (selPupil && by[selPupil]) pupilDetail(view, list.find(x => x.key === selPupil));
+  };
+
+  const pupilDetail = (view, p) => {
+    const card = el('div', 'card'); card.append(el('h2', '', p.name + (p.cls ? ' · ' + p.cls : '')));
+    const tiles = el('div', 'tiles');
+    tiles.append(tile(p.n, 'activities'), tile(p.q, 'questions'), tile(pct(p.p), 'average'), tile(p.lv.toFixed(1), 'avg level'), tile(p.hard, 'hard tests'));
+    card.append(tiles);
+    const byUnit = {}; p.rows.forEach(r => (byUnit[r.unit] = byUnit[r.unit] || []).push(r));
+    const ul = Object.keys(byUnit).map(u => ({ u, n: byUnit[u].length, best: Math.max(...byUnit[u].map(r => r.p)), p: avg(byUnit[u], r => r.p), last: Math.max(...byUnit[u].map(r => r.t)) }));
+    const h = el('h2', '', 'Units'); h.style.marginTop = '14px'; card.append(h);
+    card.append(table('pu', [
+      { h: 'Unit', k: x => x.u, v: x => x.u },
+      { h: 'Activities', k: x => x.n, v: x => x.n, num: true },
+      { h: 'Best', k: x => x.best, v: x => badge(x.best), num: true },
+      { h: 'Average', k: x => x.p, v: x => badge(x.p), num: true },
+      { h: 'Last', k: x => x.last, v: x => fmtDate(x.last), num: true }], ul, 'Last'));
+    const h2 = el('h2', '', 'Latest activities'); h2.style.marginTop = '14px'; card.append(h2);
+    card.append(table('pl', [
+      { h: 'When', k: x => x.t, v: x => fmtTime(x.t) },
+      { h: 'Unit', k: x => x.unit, v: x => x.unit },
+      { h: 'Activity', k: x => x.act, v: x => x.act },
+      { h: 'Level', k: x => x.lvl, v: x => { const s = el('span', 'lvl-' + x.lvl, LEVELS[x.lvl] || x.lvl); return s; } },
+      { h: 'Score', k: x => x.p, v: x => x.score + ' / ' + x.total + '  ', num: true },
+      { h: '%', k: x => x.p, v: x => badge(x.p), num: true }], p.rows.slice().sort((a, b) => b.t - a.t).slice(0, 25), 'When'));
+    view.append(card); card.scrollIntoView({ block: 'nearest' });
+  };
+
+  // ---------------------------------------------------------------- units
+  const units = (view, data) => {
+    const by = {}; data.forEach(r => (by[r.unit || '(no unit)'] = by[r.unit || '(no unit)'] || []).push(r));
+    const list = Object.keys(by).map(u => ({ u, n: by[u].length, pupils: new Set(by[u].map(r => r.key)).size, p: avg(by[u], r => r.p),
+                                            q: by[u].reduce((s, r) => s + r.total, 0) }));
+    const card = el('div', 'card');
+    card.append(el('p', 'note', 'Units with a low average need more practice. Sort by "Average" (click twice for lowest first).'));
+    card.append(table('units', [
+      { h: 'Unit', k: x => x.u, v: x => x.u },
+      { h: 'Pupils', k: x => x.pupils, v: x => x.pupils, num: true },
+      { h: 'Activities', k: x => x.n, v: x => x.n, num: true },
+      { h: 'Questions', k: x => x.q, v: x => x.q, num: true },
+      { h: 'Average', k: x => x.p, v: x => badge(x.p), num: true }], list, 'Activities'));
+    view.append(card);
+  };
+
+  // ---------------------------------------------------------------- not practising
+  const quiet = view => {
+    const card = el('div', 'card');
+    const row = el('div'); row.style.marginBottom = '8px';
+    const sel = el('select'); [['0', 'never practised'], ['7', 'nothing in the last 7 days'], ['14', 'nothing in the last 14 days'], ['30', 'nothing in the last 30 days']]
+      .forEach(([v, t]) => { const o = el('option', '', t); o.value = v; sel.append(o); });
+    sel.value = sortKey.quietDays || '14'; row.append(el('span', 'muted', 'Show pupils with: '), sel);
+    const holder = el('div');
+    const draw = () => {
+      sortKey.quietDays = sel.value; holder.innerHTML = '';
+      const days = Number(sel.value), cutoff = Date.now() - days * 86400000;
+      const year = F.year || roster.map(r => r.year).sort().pop();
+      const items = roster.filter(r => r.year === year && (!F.cls || r.cls === F.cls) && (days === 0 ? r.n === 0 : (r.n === 0 || r.last < cutoff)));
+      holder.append(el('p', 'note', items.length + ' of ' + roster.filter(r => r.year === year && (!F.cls || r.cls === F.cls)).length + ' pupils in the Roster (' + year + ').'));
+      holder.append(table('quiet', [
+        { h: 'Pupil', k: x => x.name, v: x => x.name },
+        { h: 'Class', k: x => x.cls, v: x => x.cls },
+        { h: 'Activities this year', k: x => x.n, v: x => x.n, num: true },
+        { h: 'Last practised', k: x => x.last, v: x => fmtDate(x.last), num: true }], items, 'Pupil'));
+    };
+    sel.onchange = draw; card.append(row, holder); view.append(card); draw();
+    view.append(Object.assign(el('p', 'note', 'Pupils are matched to the Roster by e-mail or name. The Book, Level and date filters do not apply here.')));
+  };
+
+  // ---------------------------------------------------------------- start
+  $('#theme').onclick = () => { document.body.classList.toggle('light'); try { localStorage.setItem('res.light', document.body.classList.contains('light') ? '1' : ''); } catch (e) {} };
+  try { if (localStorage.getItem('res.light')) document.body.classList.add('light'); } catch (e) {}
+  $('#reload').onclick = load;
+  if (window.Track && Track.enabled) {
+    Track.onChange(() => { if (Track.token()) load(); });
+    Track.init(() => { if (Track.token()) load(); else Track.button($('#slot')); });
+  } else $('#loginMsg').textContent = 'Sign-in is not set up.';
+})();
+</script>
+</body>
+</html>
