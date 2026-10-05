@@ -79,6 +79,23 @@
   .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin: 6px 0 0; align-items: center; }
   .sw { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 4px; vertical-align: -1px; }
   .lvl-1 { color: var(--good); } .lvl-2 { color: var(--warn); } .lvl-3 { color: var(--bad); }
+  .tools { display: flex; gap: 8px; margin: 0 0 12px; flex-wrap: wrap; }
+  #printHead { display: none; }
+  @media print {
+    @page { size: A4 landscape; margin: 12mm; }
+    body, body.light { --bg: #fff; --card: #fff; --ink: #111; --muted: #555; --line: #ccc; --field: #fff; --accent: #c25a00; --accent-soft: #fde8d0;
+      --good: #13703a; --warn: #946c00; --bad: #b32020; --goodbg: #d6f0df; --badbg: #fbdcdc; }
+    body { background: #fff; font-size: 12px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .wrap { max-width: none; padding: 0; }
+    .top .btn, .top #who, #login, .filters, .tabs, .tools, #reload, #theme, .no-print { display: none !important; }
+    #printHead { display: block; margin: 0 0 10px; font-size: 13px; color: var(--muted); }
+    .scroll { max-height: none !important; overflow: visible !important; }
+    .card { break-inside: auto; border: 1px solid #ccc; padding: 8px; margin-bottom: 8px; }
+    th { position: static; }
+    tr { break-inside: avoid; }
+    .heat .name { position: static; }
+    body.print-one #view > .card:not(.one) { display: none; }
+  }
 </style>
 </head>
 <body>
@@ -107,6 +124,8 @@
       <button class="btn" id="fReset">Reset</button>
     </div>
     <div class="tabs" id="tabs"></div>
+    <div class="tools"><button class="btn" id="bCsv">Download table (CSV)</button><button class="btn" id="bRaw">Download all filtered results (CSV)</button><button class="btn" id="bPrint">Print</button></div>
+    <div id="printHead"></div>
     <div id="view"></div>
   </div>
 </div>
@@ -183,6 +202,8 @@
     const tabs = $('#tabs'); tabs.innerHTML = '';
     TABS.forEach(([id, name]) => { const b = el('button', 'btn' + (id === tab ? ' on' : ''), name); b.onclick = () => { tab = id; render(); }; tabs.append(b); });
     const view = $('#view'); view.innerHTML = '';
+    $('#printHead').textContent = 'Results · ' + [F.cls ? 'class ' + F.cls : 'all classes', F.book ? (BOOKS[F.book] || F.book) : 'all books', F.level ? LEVELS[F.level] : '', F.year || 'all years',
+      F.from || F.to ? (F.from || '…') + ' – ' + (F.to || '…') : ''].filter(Boolean).join(' · ') + ' · ' + (TABS.find(x => x[0] === tab) || [0, ''])[1] + ' · printed ' + new Date().toLocaleDateString('en-GB');
     const data = filtered();
     if (tab === 'overview') overview(view, data); else if (tab === 'heat') heat(view, data); else if (tab === 'weak') weak(view, data); else if (tab === 'progress') progress(view, data);
     else if (tab === 'pupils') pupils(view, data);
@@ -458,7 +479,9 @@
 
   const pupilDetail = (view, p) => {
     const card = el('div', 'card'); card.append(el('h2', '', p.name + (p.cls ? ' · ' + p.cls : '')));
-    const go = el('button', 'btn', 'Show progress over time'); go.style.marginBottom = '10px'; go.onclick = () => { tab = 'progress'; render(); }; card.append(go);
+    card.classList.add('one');
+    const pr = el('button', 'btn no-print', 'Print this pupil'); pr.style.cssText = 'margin:0 8px 10px 0'; pr.onclick = () => printPage(true); card.append(pr);
+    const go = el('button', 'btn no-print', 'Show progress over time'); go.style.marginBottom = '10px'; go.onclick = () => { tab = 'progress'; render(); }; card.append(go);
     const tiles = el('div', 'tiles');
     tiles.append(tile(p.n, 'activities'), tile(p.q, 'questions'), tile(pct(p.p), 'average'), tile(p.lv.toFixed(1), 'avg level'), tile(p.hard, 'hard tests'));
     card.append(tiles);
@@ -522,8 +545,40 @@
     view.append(Object.assign(el('p', 'note', 'Pupils are matched to the Roster by e-mail or name. The Book, Level and date filters do not apply here.')));
   };
 
-  // ---------------------------------------------------------------- start
-  $('#theme').onclick = () => { document.body.classList.toggle('light'); try { localStorage.setItem('res.light', document.body.classList.contains('light') ? '1' : ''); } catch (e) {} };
+  // ---------------------------------------------------------------- export and print
+  const csvCell = s => '"' + String(s == null ? '' : s).replace(/"/g, '""').replace(/\s+/g, ' ').trim() + '"';
+  const download = (name, text) => {
+    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(['\ufeff' + text], { type: 'text/csv;charset=utf-8' })); a.download = name;
+    document.body.append(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+  };
+  const stamp = () => new Date().toISOString().slice(0, 10);
+  const exportTable = () => {
+    const tables = [...$('#view').querySelectorAll('table')];
+    if (!tables.length) { alert('There is no table to download on this tab.'); return; }
+    const out = [csvCell($('#printHead').textContent)];
+    tables.forEach(tb => {
+      const h = tb.closest('.card') && tb.closest('.card').querySelector('h2'); out.push(''); if (h) out.push(csvCell(h.textContent));
+      if (tb.classList.contains('heat')) {
+        out.push(['Pupil'].concat([...tb.querySelectorAll('thead tr:nth-child(2) th.vh')].map(th => th.title)).map(csvCell).join(';'));
+        tb.querySelectorAll('tbody tr').forEach(tr => out.push([...tr.children].map(td => csvCell(td.textContent)).join(';')));
+      } else tb.querySelectorAll('tr').forEach(tr => out.push([...tr.children].map(c => csvCell(c.textContent)).join(';')));
+    });
+    download('results-' + tab + '-' + stamp() + '.csv', out.join('\r\n'));
+  };
+  const exportRaw = () => {
+    const d = filtered().slice().sort((a, b) => a.t - b.t);
+    const out = [['Date and time', 'Last name', 'First name', 'Class', 'Book', 'Unit', 'Activity', 'Level', 'Score', 'Total', 'Result %', 'School year'].map(csvCell).join(';')];
+    d.forEach(r => out.push([new Date(r.t).toLocaleString('sv-SE'), r.last, r.first, r.cls, BOOKS[r.book] || r.book, r.unit, r.act, r.lvl, r.score, r.total, Math.round(r.p * 100), r.year].map(csvCell).join(';')));
+    download('results-all-' + stamp() + '.csv', out.join('\r\n'));
+  };
+  const printPage = one => {
+    document.body.classList.toggle('print-one', !!one);
+    const done = () => { document.body.classList.remove('print-one'); window.removeEventListener('afterprint', done); };
+    window.addEventListener('afterprint', done); setTimeout(() => window.print(), 50);
+  };
+  $('#bCsv').onclick = exportTable; $('#bRaw').onclick = exportRaw; $('#bPrint').onclick = () => printPage(false);
+
+  // ---------------------------------------------------------------- start  $('#theme').onclick = () => { document.body.classList.toggle('light'); try { localStorage.setItem('res.light', document.body.classList.contains('light') ? '1' : ''); } catch (e) {} };
   try { if (localStorage.getItem('res.light')) document.body.classList.add('light'); } catch (e) {}
   $('#reload').onclick = load;
   if (window.Track && Track.enabled) {
