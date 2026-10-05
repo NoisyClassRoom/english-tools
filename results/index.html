@@ -197,7 +197,7 @@
   };
 
   // ---------------------------------------------------------------- tabs
-  const TABS = [['overview', 'Overview'], ['heat', 'Heat-map'], ['weak', 'Weak spots'], ['progress', 'Progress'], ['pupils', 'Pupils'], ['units', 'Units'], ['quiet', 'Not practising']];
+  const TABS = [['overview', 'Overview'], ['heat', 'Heat-map'], ['weak', 'Weak spots'], ['questions', 'Questions'], ['progress', 'Progress'], ['pupils', 'Pupils'], ['units', 'Units'], ['quiet', 'Not practising']];
   const render = () => {
     const tabs = $('#tabs'); tabs.innerHTML = '';
     TABS.forEach(([id, name]) => { const b = el('button', 'btn' + (id === tab ? ' on' : ''), name); b.onclick = () => { tab = id; render(); }; tabs.append(b); });
@@ -205,7 +205,7 @@
     $('#printHead').textContent = 'Results · ' + [F.cls ? 'class ' + F.cls : 'all classes', F.book ? (BOOKS[F.book] || F.book) : 'all books', F.level ? LEVELS[F.level] : '', F.year || 'all years',
       F.from || F.to ? (F.from || '…') + ' – ' + (F.to || '…') : ''].filter(Boolean).join(' · ') + ' · ' + (TABS.find(x => x[0] === tab) || [0, ''])[1] + ' · printed ' + new Date().toLocaleDateString('en-GB');
     const data = filtered();
-    if (tab === 'overview') overview(view, data); else if (tab === 'heat') heat(view, data); else if (tab === 'weak') weak(view, data); else if (tab === 'progress') progress(view, data);
+    if (tab === 'overview') overview(view, data); else if (tab === 'heat') heat(view, data); else if (tab === 'weak') weak(view, data); else if (tab === 'questions') questions(view); else if (tab === 'progress') progress(view, data);
     else if (tab === 'pupils') pupils(view, data);
     else if (tab === 'units') units(view, data); else quiet(view);
   };
@@ -397,6 +397,58 @@
       { h: 'Average', k: x => x.p, v: x => badge(x.p), num: true },
       { h: 'Weakest unit', k: x => x.worst, v: x => x.worst }], people, 'Average', x => { selPupil = x.key; tab = 'progress'; render(); }) : el('p', 'msg', 'Nobody is below 60 % in this selection.'));
     view.append(c3);
+  };
+  // ---------------------------------------------------------------- questions (which exact questions are failed)
+  let qraw = null, qState = '';
+  const ACT_LEVEL = { 'Quiz': 1, 'Match': 1, 'Fill the gap': 2, 'Unit test': 2, 'Unit test 2': 3 };
+  const loadQ = async () => {
+    const token = Track.token(); if (!token || qState === 'loading') return;
+    qState = 'loading';
+    try {
+      const r = await fetch(Track.config.endpoint, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'qstats', token }) });
+      const j = await r.json();
+      if (!j.ok) { qState = 'error'; }
+      else { qraw = j.rows.map(a => ({ year: a[0], cls: a[1], book: a[2], unit: a[3], act: a[4], q: a[5], ans: a[6], n: a[7], wrong: a[8], top: a[9] })); qState = 'ok'; }
+    } catch (e) { qState = 'error'; }
+    if (tab === 'questions') render();
+  };
+  const questions = view => {
+    const card = el('div', 'card');
+    if (qState !== 'ok') {
+      if (qState === '' ) loadQ();
+      card.append(el('p', qState === 'error' ? 'msg err' : 'msg', qState === 'error' ? 'Could not load the question data.' : 'Loading the question data…'));
+      if (qState === 'error') { const b = el('button', 'btn', 'Try again'); b.onclick = () => { qState = ''; render(); }; card.append(b); }
+      view.append(card); return;
+    }
+    const minN = Number(sortKey.qMin || 5);
+    const sel = el('select'); ['1', '3', '5', '10', '20'].forEach(v => { const o = el('option', '', v); o.value = v; sel.append(o); });
+    sel.value = String(minN); sel.onchange = () => { sortKey.qMin = sel.value; render(); };
+    const row = el('div'); row.append(el('span', 'muted', 'Only questions answered at least '), sel, el('span', 'muted', ' times'));
+    const rf = el('button', 'btn', 'Reload'); rf.style.marginLeft = '12px'; rf.onclick = () => { qState = ''; qraw = null; render(); }; row.append(rf);
+    card.append(el('p', 'note', 'The questions that pupils get wrong most often (' + (F.cls ? 'class ' + F.cls : 'all classes') + (F.book ? ', ' + (BOOKS[F.book] || F.book) : '') + (F.year ? ', ' + F.year : '') +
+      '). Question-level data is collected since 5 Oct 2026, so the numbers grow over time. The date filter does not apply here.'), row);
+    const m = {};
+    qraw.filter(r => (!F.year || r.year === F.year) && (!F.cls || r.cls === F.cls) && (!F.book || r.book === F.book) && (!F.level || String(ACT_LEVEL[r.act] || 2) === F.level)).forEach(r => {
+      const k = r.unit + '\u0001' + r.act + '\u0001' + r.q + '\u0001' + r.ans;
+      const o = m[k] = m[k] || { unit: r.unit, act: r.act, q: r.q, ans: r.ans, n: 0, wrong: 0, w: {} };
+      o.n += r.n; o.wrong += r.wrong;
+      String(r.top || '').split(' | ').forEach(s => { const mm = /^(.*) \((\d+)\)$/.exec(s); if (mm) o.w[mm[1]] = (o.w[mm[1]] || 0) + Number(mm[2]); });
+    });
+    const list = Object.values(m).filter(x => x.n >= minN).map(x => ({ ...x, p: x.wrong / x.n,
+      common: Object.keys(x.w).sort((a, b) => x.w[b] - x.w[a]).slice(0, 3).map(c => c + ' (' + x.w[c] + ')').join(' | ') }));
+    if (!list.length) card.append(el('p', 'msg', 'No question has been answered that often yet for this selection.'));
+    else {
+      const wrongBadge = v => el('span', 'pct' + (v >= 0.5 ? ' lo' : ''), pct(v));
+      card.append(table('qs', [
+        { h: 'Question', k: x => x.q, v: x => x.q },
+        { h: 'Right answer', k: x => x.ans, v: x => x.ans },
+        { h: 'Unit', k: x => x.unit, v: x => x.unit },
+        { h: 'Activity', k: x => x.act, v: x => x.act },
+        { h: 'Answers', k: x => x.n, v: x => x.n, num: true },
+        { h: 'Wrong', k: x => x.p, v: x => wrongBadge(x.p), num: true },
+        { h: 'Most common wrong answers', k: x => x.common, v: x => x.common }], list, 'Wrong'));
+    }
+    view.append(card);
   };
   // ---------------------------------------------------------------- progress over time (per week)
   const weekStart = t => { const d = new Date(t); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d.getTime(); };
