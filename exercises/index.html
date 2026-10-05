@@ -181,7 +181,8 @@
       msg.className = 'savemsg ' + (st === 'saved' ? 'ok' : st === 'off' ? '' : 'warn');
       msg.textContent = st === 'saved' ? '✓ Result saved'
         : st === 'signin' ? 'Sign in with Google (top of the page) to save this result.'
-        : st === 'error' ? 'Could not save the result. It will be tried again after your next activity.' : '';
+        : st === 'retry' ? 'Saving is taking longer than usual - trying again...'
+        : st === 'error' ? 'Could not save the result. Please tell your teacher.' : '';
     });
   };
   const CLASSES = window.CLASSES || [];
