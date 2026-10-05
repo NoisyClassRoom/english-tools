@@ -34,11 +34,11 @@ Object.assign(window.MORE_SETS, {
       ["Which sentence is correct?", "She was too tired to go out.", "She was enough tired to go out.", "She was tired too to go out.", "She was too tired for go out."],
       ["Which sentence is correct?", "He isn't strong enough to carry it.", "He isn't enough strong to carry it.", "He isn't too strong to carry it.", "He isn't strong too to carry it."],
       ["Which sentence has a past continuous and a past simple?", "I was sleeping when the alarm rang.", "I slept when the alarm was ringing.", "I was sleeping when the alarm was ringing.", "I sleep when the alarm rings."],
-      ["Which material is natural?", "wool", "plastic", "concrete", "rubber"],
+      ["Which material is natural?", "wool", "plastic", "concrete", "nylon"],
       ["Which word means 'a period of ten years'?", "decade", "century", "millennium", "month"],
       ["Which word means 'a period of one hundred years'?", "century", "decade", "week", "minute"],
       ["Which sentence is correct?", "While they were digging, they found an ancient coin.", "While they dug, they were finding an ancient coin.", "While they were dig, they found an ancient coin.", "While they digging, they found an ancient coin."],
-      ["Which sentence is correct?", "Did people use to write letters more often?", "Did people used to write letters more often?", "People did use to write letters more often?", "Did people use to wrote letters more often?"]
+      ["Which sentence is correct?", "Did people use to write letters more often?", "Did people used to write letters more often?", "People use to write letters more often?", "Did people use to wrote letters more often?"]
     ]
   },
   "p4u2": {
