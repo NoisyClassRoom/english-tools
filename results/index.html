@@ -60,6 +60,24 @@
   .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
   @media (max-width: 760px) { .grid2 { grid-template-columns: 1fr; } }
   h2 { font-size: 16px; margin: 0 0 8px; }
+  .heat { border-collapse: separate; border-spacing: 0; width: auto; }
+  .heat th, .heat td { padding: 0; border-bottom: 1px solid var(--line); }
+  .heat th { position: static; cursor: default; text-transform: none; letter-spacing: 0; font-size: 12px; background: var(--card); }
+  .heat .name { position: sticky; left: 0; background: var(--card); z-index: 1; padding: 4px 10px 4px 4px; white-space: nowrap; cursor: pointer; }
+  .heat .name:hover { color: var(--accent); }
+  .heat .book { text-align: center; border-left: 2px solid var(--line); padding: 4px 6px; color: var(--accent); }
+  .heat .vh { vertical-align: bottom; border-left: 1px solid var(--line); }
+  .heat .vh div { writing-mode: vertical-rl; transform: rotate(180deg); white-space: nowrap; padding: 6px 2px; max-height: 190px; overflow: hidden; margin: 0 auto; }
+  .heat td.c { width: 34px; min-width: 34px; height: 28px; text-align: center; font-size: 12px; border-left: 1px solid var(--line); }
+  .heat td.c.lo { background: var(--badbg); color: var(--bad); }
+  .heat td.c.mid { background: var(--accent-soft); color: var(--accent); }
+  .heat td.c.hi { background: var(--goodbg); color: var(--good); }
+  .heat td.c.cnt { background: var(--accent-soft); color: var(--ink); }
+  .bar2 { fill: var(--line); }
+  .linep { fill: none; stroke: var(--accent); stroke-width: 2.5; }
+  .dot { fill: var(--accent); }
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin: 6px 0 0; align-items: center; }
+  .sw { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 4px; vertical-align: -1px; }
   .lvl-1 { color: var(--good); } .lvl-2 { color: var(--warn); } .lvl-3 { color: var(--bad); }
 </style>
 </head>
@@ -160,13 +178,14 @@
   };
 
   // ---------------------------------------------------------------- tabs
-  const TABS = [['overview', 'Overview'], ['pupils', 'Pupils'], ['units', 'Units'], ['quiet', 'Not practising']];
+  const TABS = [['overview', 'Overview'], ['heat', 'Heat-map'], ['progress', 'Progress'], ['pupils', 'Pupils'], ['units', 'Units'], ['quiet', 'Not practising']];
   const render = () => {
     const tabs = $('#tabs'); tabs.innerHTML = '';
     TABS.forEach(([id, name]) => { const b = el('button', 'btn' + (id === tab ? ' on' : ''), name); b.onclick = () => { tab = id; render(); }; tabs.append(b); });
     const view = $('#view'); view.innerHTML = '';
     const data = filtered();
-    if (tab === 'overview') overview(view, data); else if (tab === 'pupils') pupils(view, data);
+    if (tab === 'overview') overview(view, data); else if (tab === 'heat') heat(view, data); else if (tab === 'progress') progress(view, data);
+    else if (tab === 'pupils') pupils(view, data);
     else if (tab === 'units') units(view, data); else quiet(view);
   };
 
@@ -246,6 +265,109 @@
     g.append(c3, c4); view.append(g);
   };
 
+  // ---------------------------------------------------------------- heat-map: pupils x units
+  const heat = (view, data) => {
+    const metric = sortKey.heatMetric || 'best';
+    const card = el('div', 'card');
+    const top = el('div'); top.style.marginBottom = '8px';
+    const sel = el('select'); [['best', 'Best result'], ['avg', 'Average result'], ['cnt', 'Number of activities']].forEach(([v, t]) => { const o = el('option', '', t); o.value = v; sel.append(o); });
+    sel.value = metric; sel.onchange = () => { sortKey.heatMetric = sel.value; render(); };
+    top.append(el('span', 'muted', 'Show: '), sel);
+    card.append(top);
+    if (!data.length) { card.append(el('p', 'msg', 'No results for this selection.')); view.append(card); return; }
+    const unitBook = {}; data.forEach(r => { unitBook[r.unit || '(no unit)'] = r.book; });
+    const order = Object.keys(BOOKS);
+    const ucols = Object.keys(unitBook).sort((a, b) => (order.indexOf(unitBook[a]) - order.indexOf(unitBook[b])) || a.localeCompare(b, 'sl', { numeric: true }));
+    const by = {}; data.forEach(r => (by[r.key] = by[r.key] || []).push(r));
+    const people = Object.keys(by).map(k => ({ key: k, name: by[k][0].last + ' ' + by[k][0].first, cls: [...new Set(by[k].map(r => r.cls).filter(Boolean))].join(', '), rows: by[k] }))
+      .sort((a, b) => a.cls.localeCompare(b.cls, 'sl', { numeric: true }) || a.name.localeCompare(b.name, 'sl'));
+    const wrap = el('div', 'scroll'); wrap.style.maxHeight = '640px';
+    const tb = el('table', 'heat'), thead = el('thead');
+    const r1 = el('tr'), r2 = el('tr');
+    r1.append(el('th')); const corner = el('th', 'name', people.length + ' pupils'); corner.style.cursor = 'default'; corner.style.verticalAlign = 'bottom'; r2.append(corner);
+    r1.firstChild.style.background = 'var(--card)';
+    let i = 0;
+    while (i < ucols.length) {
+      let j = i; while (j < ucols.length && unitBook[ucols[j]] === unitBook[ucols[i]]) j++;
+      const th = el('th', 'book', BOOKS[unitBook[ucols[i]]] || unitBook[ucols[i]]); th.colSpan = j - i; r1.append(th); i = j;
+    }
+    ucols.forEach(u => {
+      const parts = u.split(' · '), label = parts.length >= 3 ? parts[1].replace(/^Unit /, 'U') + ' ' + parts.slice(2).join(' · ') : parts[parts.length - 1];
+      const th = el('th', 'vh'); th.title = u; th.append(el('div', '', label)); r2.append(th);
+    });
+    thead.append(r1, r2); tb.append(thead);
+    const body = el('tbody');
+    people.forEach(p => {
+      const tr = el('tr'); const nm = el('td', 'name', p.name + (p.cls ? '  · ' + p.cls : '')); nm.onclick = () => { selPupil = p.key; tab = 'progress'; render(); }; tr.append(nm);
+      const byU = {}; p.rows.forEach(r => (byU[r.unit || '(no unit)'] = byU[r.unit || '(no unit)'] || []).push(r));
+      ucols.forEach(u => {
+        const a = byU[u], td = el('td', 'c');
+        if (a) {
+          if (metric === 'cnt') { td.classList.add('cnt'); td.textContent = a.length; }
+          else { const v = metric === 'best' ? Math.max(...a.map(r => r.p)) : avg(a, r => r.p); td.classList.add(v < 0.6 ? 'lo' : v >= 0.9 ? 'hi' : 'mid'); td.textContent = Math.round(v * 100); }
+          td.title = p.name + ' – ' + u + ': ' + a.length + ' activities, best ' + pct(Math.max(...a.map(r => r.p))) + ', average ' + pct(avg(a, r => r.p));
+        }
+        tr.append(td);
+      });
+      body.append(tr);
+    });
+    tb.append(body); wrap.append(tb); card.append(wrap);
+    const lg = el('div', 'legend');
+    lg.innerHTML = metric === 'cnt' ? '<span>Number = activities finished, empty = not practised yet</span>'
+      : '<span><i class="sw" style="background:var(--badbg)"></i>below 60 %</span><span><i class="sw" style="background:var(--accent-soft)"></i>60–89 %</span><span><i class="sw" style="background:var(--goodbg)"></i>90 % or more</span><span>empty = not practised yet</span>';
+    const tip = el('span', '', 'Click a pupil to see the progress over time. Hover a cell for details.'); lg.append(tip);
+    card.append(lg); view.append(card);
+  };
+
+  // ---------------------------------------------------------------- progress over time (per week)
+  const weekStart = t => { const d = new Date(t); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d.getTime(); };
+  const progress = (view, data) => {
+    const card = el('div', 'card');
+    const names = {}; data.forEach(r => { names[r.key] = r.last + ' ' + r.first; });
+    const sel = el('select');
+    const o0 = el('option', '', 'Whole selection (all pupils above)'); o0.value = ''; sel.append(o0);
+    Object.keys(names).sort((a, b) => names[a].localeCompare(names[b], 'sl')).forEach(k => { const o = el('option', '', names[k]); o.value = k; sel.append(o); });
+    sel.value = names[selPupil] ? selPupil : '';
+    const top = el('div'); top.style.marginBottom = '8px'; top.append(el('span', 'muted', 'Show: '), sel);
+    const holder = el('div'); card.append(top, holder); view.append(card);
+    const draw = () => {
+      selPupil = sel.value; holder.innerHTML = '';
+      const d = sel.value ? data.filter(r => r.key === sel.value) : data;
+      if (!d.length) { holder.append(el('p', 'msg', 'No results for this selection.')); return; }
+      const wk = {}; d.forEach(r => { const k = weekStart(r.t); const w = wk[k] = wk[k] || { n: 0, s: 0, pupils: new Set(), hard: 0, q: 0 }; w.n++; w.s += r.p; w.pupils.add(r.key); if (r.lvl === 3) w.hard++; w.q += r.total; });
+      const ks = Object.keys(wk).map(Number).sort((a, b) => a - b), list = [];
+      for (let w = ks[0]; w <= ks[ks.length - 1] && list.length < 200; ) { list.push(w); const n = new Date(w); n.setDate(n.getDate() + 7); w = n.getTime(); }
+      const W = 1040, H = 200, L = 40, step = (W - L - 10) / list.length, bw = Math.max(6, Math.min(40, step - 6)), maxN = Math.max(...Object.values(wk).map(w => w.n));
+      let svg = `<svg viewBox="0 -10 ${W} ${H + 40}" width="100%" role="img" aria-label="Progress per week">`;
+      [0, 0.5, 1].forEach(v => { const y = H - v * H; svg += `<line x1="${L}" x2="${W}" y1="${y}" y2="${y}" stroke="var(--line)" stroke-width="1"/><text x="0" y="${y + 4}">${v * 100} %</text>`; });
+      const pts = [];
+      list.forEach((w, i) => {
+        const x = L + i * step + step / 2, v = wk[w];
+        if (v) {
+          const h = v.n / maxN * (H * 0.5), a = v.s / v.n, y = H - a * H;
+          svg += `<rect class="bar2" x="${(x - bw / 2).toFixed(1)}" y="${(H - h).toFixed(1)}" width="${bw}" height="${h.toFixed(1)}" rx="2"><title>${fmtDate(w)}: ${v.n} activities</title></rect>`;
+          pts.push([x, y, a, v, w]);
+        }
+        if (list.length <= 20 || i % Math.ceil(list.length / 14) === 0) { const dd = new Date(w); svg += `<text x="${(x - 14).toFixed(1)}" y="${H + 16}">${String(dd.getDate()).padStart(2, '0')}.${String(dd.getMonth() + 1).padStart(2, '0')}.</text>`; }
+      });
+      svg += `<polyline class="linep" points="${pts.map(p => p[0].toFixed(1) + ',' + p[1].toFixed(1)).join(' ')}"/>`;
+      pts.forEach(p => { svg += `<circle class="dot" cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="4"><title>Week of ${fmtDate(p[4])}: average ${pct(p[2])}, ${p[3].n} activities</title></circle>`; });
+      svg += '</svg>';
+      const chart = el('div'); chart.innerHTML = svg; holder.append(chart);
+      const lg = el('div', 'legend'); lg.innerHTML = '<span><i class="sw" style="background:var(--accent)"></i>average result of the week</span><span><i class="sw" style="background:var(--line)"></i>number of activities (relative)</span><span>weeks start on Monday</span>';
+      holder.append(lg);
+      const rowsT = list.filter(w => wk[w]).map(w => ({ w, n: wk[w].n, pupils: wk[w].pupils.size, q: wk[w].q, p: wk[w].s / wk[w].n, hard: wk[w].hard }));
+      const tcols = [
+        { h: 'Week of', k: x => x.w, v: x => fmtDate(x.w) },
+        { h: 'Activities', k: x => x.n, v: x => x.n, num: true },
+        { h: 'Questions', k: x => x.q, v: x => x.q, num: true },
+        { h: 'Average', k: x => x.p, v: x => badge(x.p), num: true },
+        { h: 'Hard tests', k: x => x.hard, v: x => x.hard, num: true }];
+      if (!sel.value) tcols.splice(1, 0, { h: 'Pupils', k: x => x.pupils, v: x => x.pupils, num: true });
+      const tw = table('prog', tcols, rowsT, 'Week of'); tw.style.marginTop = '10px'; tw.style.maxHeight = '300px'; holder.append(tw);
+    };
+    sel.onchange = draw; draw();
+  };
   // ---------------------------------------------------------------- pupils
   const pupils = (view, data) => {
     const by = {}; data.forEach(r => (by[r.key] = by[r.key] || []).push(r));
@@ -278,6 +400,7 @@
 
   const pupilDetail = (view, p) => {
     const card = el('div', 'card'); card.append(el('h2', '', p.name + (p.cls ? ' · ' + p.cls : '')));
+    const go = el('button', 'btn', 'Show progress over time'); go.style.marginBottom = '10px'; go.onclick = () => { tab = 'progress'; render(); }; card.append(go);
     const tiles = el('div', 'tiles');
     tiles.append(tile(p.n, 'activities'), tile(p.q, 'questions'), tile(pct(p.p), 'average'), tile(p.lv.toFixed(1), 'avg level'), tile(p.hard, 'hard tests'));
     card.append(tiles);
