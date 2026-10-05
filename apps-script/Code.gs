@@ -90,6 +90,7 @@ function doPost(e) {
     var d = JSON.parse(e.postData.contents);
     if (d.action === 'roster') return rosterReply_(d);       // teacher-only, used by the Classroom Tools page
     if (d.action === 'stats') return statsReply_(d);         // teacher-only, used by the Results page
+    if (d.action === 'qstats') return qstatsReply_(d);       // teacher-only: question-level statistics
     var who = verify_(d.token);
     if (!who) return out_({ ok: false, error: 'token' });
 
@@ -115,6 +116,9 @@ function doPost(e) {
                 .concat(derived_(cls, text_(d.unit), topic, activity), [id]);
       sh.insertRowAfter(1);                                 // newest result on top
       sh.getRange(2, 1, 1, NCOLS).setFontWeight('normal').setBackground(null).setValues([row]);
+      if (id && d.qs instanceof Array) {                    // question details must never stop the result from being saved
+        try { saveQuestions_(now, id, cls, row[15], activity, year, row[11], d.qs); } catch (e2) {}
+      }
     } finally { lock.releaseLock(); }
     return out_({ ok: true });
   } catch (err) {
@@ -145,6 +149,67 @@ function rosterReply_(d) {
   return out_({ ok: true, year: year, classes: classes });
 }
 
+// ---------------------------------------------------------------- question-level data
+// One row per answered question (no names: the Result id links it to the row in Results).
+var QSHEET = 'Questions';
+var QHEADER = ['Time', 'Result id', 'Book', 'Unit title', 'Activity', 'Question', 'Right answer', 'Chosen / typed', 'Right', 'School year', 'Class (roster)'];
+
+function clip_(v, n) {
+  var s = String(v == null ? '' : v).replace(/\s+/g, ' ').trim().slice(0, n);
+  return /^[=+\-@]/.test(s) ? "'" + s : s;
+}
+
+function questionsSheet_() {
+  var ss = SpreadsheetApp.getActive(), sh = ss.getSheetByName(QSHEET);
+  if (!sh) {
+    sh = ss.insertSheet(QSHEET);
+    sh.appendRow(QHEADER); sh.setFrozenRows(1); sh.getRange(1, 1, 1, QHEADER.length).setFontWeight('bold');
+    sh.getRange('A:A').setNumberFormat('dd.mm.yyyy hh:mm'); sh.getRange('J:K').setNumberFormat('@');
+    if (ss.getActiveSheet().getName() === QSHEET) ss.setActiveSheet(ss.getSheetByName(SHEET));
+    sh.hideSheet();
+  }
+  return sh;
+}
+
+// qs = [[question, right answer, chosen, 1/0], ...] (at most 40)
+function saveQuestions_(time, id, book, unitTitle, activity, year, rosterClass, qs) {
+  var rows = [];
+  qs.slice(0, 40).forEach(function (q) {
+    if (!(q instanceof Array) || q.length < 4) return;
+    rows.push([time, id, clip_(book, 20), clip_(unitTitle, 120), clip_(activity, 30), clip_(q[0], 110), clip_(q[1], 60), clip_(q[2], 40),
+               Number(q[3]) ? 1 : 0, year, rosterClass]);
+  });
+  if (!rows.length) return;
+  var sh = questionsSheet_(), start = sh.getLastRow() + 1, need = start + rows.length - 1;
+  if (need > sh.getMaxRows()) sh.insertRowsAfter(sh.getMaxRows(), need - sh.getMaxRows() + 1000);
+  sh.getRange(start, 1, rows.length, QHEADER.length).setValues(rows);
+}
+
+// Aggregated per school year, class, book, unit, activity and question.
+// [year, class, book id, unit title, activity, question, right answer, answers, wrong answers, most common wrong answers]
+function questionStats_() {
+  var sh = SpreadsheetApp.getActive().getSheetByName(QSHEET);
+  if (!sh || sh.getLastRow() < 2) return [];
+  var agg = {}, order = [];
+  sh.getRange(2, 1, sh.getLastRow() - 1, QHEADER.length).getValues().forEach(function (r) {
+    if (!r[1]) return;
+    var k = [r[9], r[10], r[2], r[3], r[4], r[5], r[6]].join('\u0001'), o = agg[k];
+    if (!o) { o = agg[k] = { a: [r[9], r[10], r[2], r[3], r[4], r[5], r[6]], n: 0, wrong: 0, w: {} }; order.push(k); }
+    o.n++;
+    if (!Number(r[8])) { o.wrong++; var c = String(r[7]).trim() || '(empty)'; o.w[c] = (o.w[c] || 0) + 1; }
+  });
+  return order.map(function (k) {
+    var o = agg[k], top = Object.keys(o.w).sort(function (x, y) { return o.w[y] - o.w[x]; }).slice(0, 3)
+      .map(function (c) { return c + ' (' + o.w[c] + ')'; }).join(' | ');
+    return o.a.concat([o.n, o.wrong, top]);
+  });
+}
+
+function qstatsReply_(d) {
+  var who = verify_(d.token);
+  if (!who || !isTeacher_(who.email)) return out_({ ok: false, error: 'token' });
+  return out_({ ok: true, rows: questionStats_() });
+}
 function isTeacher_(email) {
   var allowed = String(PropertiesService.getScriptProperties().getProperty('TEACHER_EMAILS') || '')
     .toLowerCase().split(/[\s,;]+/).filter(String);
