@@ -51,14 +51,21 @@ window.TRACK_CONFIG = {
     } catch (e) { return 'error'; }
   };
 
+  let flushing = false;
   const flush = async () => {
-    while (pending.length && valid(credential)) {
-      const item = pending[0];
-      const res = await send(item);
-      if (res === 'expired') { setCredential(null); return; }
-      if (res === 'error' && ++item.tries < 3) return;   // keep it, try again on the next save
-      pending.shift(); item.done(res);
-    }
+    if (flushing) return;
+    flushing = true;
+    try {
+      while (pending.length && valid(credential)) {
+        const item = pending[0];
+        const res = await send(item);
+        if (res === 'expired') { setCredential(null); return; }
+        if (res === 'error' && ++item.tries < 3) {   // tell the pupil, try again in a few seconds (the result id makes a repeat harmless)
+          item.done('retry'); setTimeout(flush, 4000 * item.tries); return;
+        }
+        pending.shift(); item.done(res);
+      }
+    } finally { flushing = false; }
   };
 
   window.Track = {
