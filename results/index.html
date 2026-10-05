@@ -178,13 +178,13 @@
   };
 
   // ---------------------------------------------------------------- tabs
-  const TABS = [['overview', 'Overview'], ['heat', 'Heat-map'], ['progress', 'Progress'], ['pupils', 'Pupils'], ['units', 'Units'], ['quiet', 'Not practising']];
+  const TABS = [['overview', 'Overview'], ['heat', 'Heat-map'], ['weak', 'Weak spots'], ['progress', 'Progress'], ['pupils', 'Pupils'], ['units', 'Units'], ['quiet', 'Not practising']];
   const render = () => {
     const tabs = $('#tabs'); tabs.innerHTML = '';
     TABS.forEach(([id, name]) => { const b = el('button', 'btn' + (id === tab ? ' on' : ''), name); b.onclick = () => { tab = id; render(); }; tabs.append(b); });
     const view = $('#view'); view.innerHTML = '';
     const data = filtered();
-    if (tab === 'overview') overview(view, data); else if (tab === 'heat') heat(view, data); else if (tab === 'progress') progress(view, data);
+    if (tab === 'overview') overview(view, data); else if (tab === 'heat') heat(view, data); else if (tab === 'weak') weak(view, data); else if (tab === 'progress') progress(view, data);
     else if (tab === 'pupils') pupils(view, data);
     else if (tab === 'units') units(view, data); else quiet(view);
   };
@@ -193,7 +193,7 @@
 
   // sortable table: cols = [{h, k (sort value), v (cell builder), num}]
   const table = (id, cols, items, defKey, onRow) => {
-    const st = sortKey[id] || (sortKey[id] = { k: defKey, asc: ['Level', 'Class', 'Pupil'].includes(defKey) });
+    const st = sortKey[id] || (sortKey[id] = { k: defKey, asc: ['Level', 'Class', 'Pupil', 'Average'].includes(defKey) });
     const col = cols.find(c => c.h === st.k) || cols[0];
     const sorted = items.slice().sort((a, b) => {
       const x = col.k(a), y = col.k(b);
@@ -319,6 +319,64 @@
     card.append(lg); view.append(card);
   };
 
+  // ---------------------------------------------------------------- weak spots
+  const weak = (view, data) => {
+    const minN = Number(sortKey.weakMin || 3);
+    const head = el('div', 'card');
+    head.append(el('p', 'note', 'Weak spots for ' + (F.cls ? 'class ' + F.cls : 'all classes') + (F.book ? ', ' + (BOOKS[F.book] || F.book) : '') + (F.year ? ', ' + F.year : '') + '. Choose a class above to see its weak spots.'));
+    const sel = el('select'); [['1', '1'], ['3', '3'], ['5', '5'], ['10', '10']].forEach(([v, t]) => { const o = el('option', '', t); o.value = v; sel.append(o); });
+    sel.value = String(minN); sel.onchange = () => { sortKey.weakMin = sel.value; render(); };
+    const row = el('div'); row.append(el('span', 'muted', 'Only count units and pupils with at least '), sel, el('span', 'muted', ' finished activities'));
+    head.append(row); view.append(head);
+    if (!data.length) { head.append(el('p', 'msg', 'No results for this selection.')); return; }
+
+    // weakest units
+    const byU = {}; data.forEach(r => (byU[r.unit || '(no unit)'] = byU[r.unit || '(no unit)'] || []).push(r));
+    const units = Object.keys(byU).map(u => {
+      const a = byU[u], acts = {}; a.forEach(r => (acts[r.act] = acts[r.act] || []).push(r));
+      const worst = Object.keys(acts).filter(k => acts[k].length >= 2).map(k => ({ k, p: avg(acts[k], r => r.p) })).sort((x, y) => x.p - y.p)[0];
+      return { u, n: a.length, pupils: new Set(a.map(r => r.key)).size, p: avg(a, r => r.p), low: a.filter(r => r.p < 0.6).length / a.length, worst: worst ? worst.k + ' (' + pct(worst.p) + ')' : '—' };
+    }).filter(x => x.n >= minN);
+    const c1 = el('div', 'card'); c1.append(el('h2', '', 'Weakest units'));
+    c1.append(el('p', 'note', 'Lowest average first. "Below 60 %" is the share of finished activities with a result under 60 %. "Weakest activity" is the activity type with the lowest average in that unit (at least 2 attempts).'));
+    c1.append(units.length ? table('weakU', [
+      { h: 'Unit', k: x => x.u, v: x => x.u },
+      { h: 'Pupils', k: x => x.pupils, v: x => x.pupils, num: true },
+      { h: 'Activities', k: x => x.n, v: x => x.n, num: true },
+      { h: 'Average', k: x => x.p, v: x => badge(x.p), num: true },
+      { h: 'Below 60 %', k: x => x.low, v: x => pct(x.low), num: true },
+      { h: 'Weakest activity', k: x => x.worst, v: x => x.worst }], units, 'Average') : el('p', 'msg', 'No unit has that many activities yet.'));
+    view.append(c1);
+
+    // weakest activity types
+    const byA = {}; data.forEach(r => (byA[r.act] = byA[r.act] || []).push(r));
+    const acts = Object.keys(byA).map(k => ({ k, lvl: byA[k][0].lvl, n: byA[k].length, p: avg(byA[k], r => r.p), low: byA[k].filter(r => r.p < 0.6).length / byA[k].length }));
+    const c2 = el('div', 'card'); c2.append(el('h2', '', 'Activity types'));
+    c2.append(table('weakA', [
+      { h: 'Activity', k: x => x.k, v: x => x.k },
+      { h: 'Level', k: x => x.lvl, v: x => { const s = el('span', 'lvl-' + x.lvl, LEVELS[x.lvl] || x.lvl); return s; } },
+      { h: 'Activities', k: x => x.n, v: x => x.n, num: true },
+      { h: 'Average', k: x => x.p, v: x => badge(x.p), num: true },
+      { h: 'Below 60 %', k: x => x.low, v: x => pct(x.low), num: true }], acts, 'Average'));
+    c2.lastChild.style.maxHeight = 'none'; view.append(c2);
+
+    // pupils who may need help
+    const byP = {}; data.forEach(r => (byP[r.key] = byP[r.key] || []).push(r));
+    const people = Object.keys(byP).map(k => {
+      const a = byP[k], uu = {}; a.forEach(r => (uu[r.unit || '(no unit)'] = uu[r.unit || '(no unit)'] || []).push(r));
+      const wu = Object.keys(uu).map(u => ({ u, p: avg(uu[u], r => r.p) })).sort((x, y) => x.p - y.p)[0];
+      return { key: k, name: a[0].last + ' ' + a[0].first, cls: [...new Set(a.map(r => r.cls).filter(Boolean))].join(', '), n: a.length, p: avg(a, r => r.p), worst: wu ? wu.u + ' (' + pct(wu.p) + ')' : '—' };
+    }).filter(x => x.n >= minN && x.p < 0.6);
+    const c3 = el('div', 'card'); c3.append(el('h2', '', 'Pupils who may need help'));
+    c3.append(el('p', 'note', 'Average below 60 % over the selected results. Click a pupil for the progress over time.'));
+    c3.append(people.length ? table('weakP', [
+      { h: 'Pupil', k: x => x.name, v: x => x.name },
+      { h: 'Class', k: x => x.cls, v: x => x.cls },
+      { h: 'Activities', k: x => x.n, v: x => x.n, num: true },
+      { h: 'Average', k: x => x.p, v: x => badge(x.p), num: true },
+      { h: 'Weakest unit', k: x => x.worst, v: x => x.worst }], people, 'Average', x => { selPupil = x.key; tab = 'progress'; render(); }) : el('p', 'msg', 'Nobody is below 60 % in this selection.'));
+    view.append(c3);
+  };
   // ---------------------------------------------------------------- progress over time (per week)
   const weekStart = t => { const d = new Date(t); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d.getTime(); };
   const progress = (view, data) => {
