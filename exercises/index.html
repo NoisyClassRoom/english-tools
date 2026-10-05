@@ -171,13 +171,17 @@
   };
   Track.onChange(whoBar);
   Track.init(whoBar);
+  // what the pupil answered in the current activity: [question, right answer, chosen answer, 1 right / 0 wrong]
+  let detail = [];
+  const rec = (q, a, chosen, ok) => detail.push([String(q).slice(0, 110), String(a).slice(0, 60), String(chosen == null ? '' : chosen).slice(0, 40), ok ? 1 : 0]);
   // shows "saved / sign in" under the score; safe to call for every finished activity
   const report = (score, total, into) => {
+    const qs = detail; detail = [];
     if (!Track.enabled || !set || !mode) return;
     const cls = new URLSearchParams(location.search).get('class') || '';
     const msg = el('p', 'savemsg', 'Saving…'); into.append(msg);
     const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);   // the same result is never stored twice, even if it is sent again
-    Track.save({ id, cls, unit: set.unit || '', topic: set.title, activity: mode.name, score, total }, st => {
+    Track.save({ id, cls, unit: set.unit || '', topic: set.title, activity: mode.name, score, total, qs }, st => {
       msg.className = 'savemsg ' + (st === 'saved' ? 'ok' : st === 'off' ? '' : 'warn');
       msg.textContent = st === 'saved' ? '✓ Result saved'
         : st === 'signin' ? 'Sign in with Google (top of the page) to save this result.'
@@ -318,7 +322,7 @@
   function match() {
     const words = pick(set.words, 6, 'match');
     const left = shuffle(words), right = shuffle(words);
-    let selL = null, selR = null, done = 0, mistakes = 0;
+    let selL = null, selR = null, done = 0, mistakes = 0; detail = []; const wrongOf = new Map();
     const s = stage(); const grid = el('div', 'match'); const cl = el('div', 'col'), cr = el('div', 'col');
     grid.append(cl, cr); s.append(el('p', 'hint', 'Click a word on the left, then its match on the right.'), grid);
     const mk = (w, side) => {
@@ -331,9 +335,10 @@
           if (selL.w === selR.w) {
             [selL.b, selR.b].forEach(x => { x.classList.remove('sel'); x.classList.add('done'); });
             done++; setBar(done / words.length); selL = selR = null;
+            if (done === words.length) { words.forEach(w => rec(w.en, w.sl || '', (wrongOf.get(w) || []).join(' / '), !wrongOf.has(w))); }
             if (done === words.length) setTimeout(() => finish(Math.max(0, words.length - mistakes), words.length, match), 500);
           } else {
-            mistakes++; const a = selL.b, c = selR.b; a.classList.add('wrong'); c.classList.add('wrong');
+            mistakes++; wrongOf.set(selL.w, (wrongOf.get(selL.w) || []).concat(selR.w.sl || '')); const a = selL.b, c = selR.b; a.classList.add('wrong'); c.classList.add('wrong');
             setTimeout(() => { [a, c].forEach(x => x.classList.remove('wrong', 'sel')); }, 400);
             selL = selR = null;
           }
@@ -346,7 +351,7 @@
 
   // ----- quiz -----
   function quiz() {
-    const qs = pick(set.words, 10, 'quiz'); let i = 0, score = 0;
+    const qs = pick(set.words, 10, 'quiz'); let i = 0, score = 0; detail = [];
     const ask = () => {
       const w = qs[i]; const s = stage(); const q = el('div', 'q');
       if (w.pic) q.append(el('div', 'pic', w.pic));
@@ -357,6 +362,7 @@
         const b = el('button', 'opt', o.en);
         b.onclick = () => {
           box.querySelectorAll('button').forEach(x => x.disabled = true);
+          rec('"' + (w.sl || '') + '" in English', w.en, o.en, o === w);
           if (o === w) { b.classList.add('done'); score++; }
           else { b.classList.add('wrong'); [...box.children].find(x => x.textContent === w.en).classList.add('done'); }
           i++; setBar(i / qs.length);
@@ -371,7 +377,7 @@
 
   // ----- unit test (multiple choice grammar) -----
   function test(key = 'tests') {
-    const qs = pick(set[key], 10, key); let i = 0, score = 0;
+    const qs = pick(set[key], 10, key); let i = 0, score = 0; detail = [];
     const ask = () => {
       const t = qs[i]; const s = stage(); const q = el('div', 'q');
       q.append(el('p', 'hint', `Question ${i + 1} of ${qs.length}`), el('div', 'stem', t.q));
@@ -380,6 +386,7 @@
         const b = el('button', 'opt', o);
         b.onclick = () => {
           box.querySelectorAll('button').forEach(x => x.disabled = true);
+          rec(t.q, t.answer, o, o === t.answer);
           if (o === t.answer) { b.classList.add('done'); score++; }
           else { b.classList.add('wrong'); [...box.children].find(x => x.textContent === t.answer).classList.add('done'); }
           i++; setBar(i / qs.length);
@@ -394,7 +401,7 @@
 
   // ----- gap fill -----
   function gap() {
-    const items = pick(set.sentences, 8, 'gap');
+    const items = pick(set.sentences, 8, 'gap'); detail = [];
     const s = stage(); s.append(el('p', 'hint', 'Type the missing word, then press Check.'));
     const inputs = [];
     items.forEach(it => {
@@ -412,6 +419,7 @@
       let score = 0;
       inputs.forEach(({ it, inp, line }) => {
         const ok = [it.answer, ...(it.alt || [])].map(norm).includes(norm(inp.value));
+        rec(it.text, it.answer, inp.value.trim(), ok);
         inp.classList.add(ok ? 'ok' : 'no'); inp.readOnly = true;
         if (ok) score++; else line.append(el('span', 'ans', '→ ' + it.answer));
       });
