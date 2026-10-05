@@ -15,8 +15,9 @@ Draft for the school's data-protection officer (DPO). It describes what the tool
 - date and time, school year
 - exercise (coursebook, topic, activity) and score
 - the pupil's class (looked up in a class list kept by the teacher; see below)
+- since 5 Oct 2026, for each answered exercise question: the question, the right answer, what the pupil chose or typed (at most 40 characters; in the fill-the-gap activity this is a word the pupil types) and whether it was right. These question rows contain no name or e-mail address; they are linked to the pupil's result only through a random result number. They are used to find questions that many pupils get wrong.
 
-**Not collected:** passwords, photos, phone numbers, addresses, location, free-text answers, advertising or analytics cookies.
+**Not collected:** passwords, photos, phone numbers, addresses, location, advertising or analytics cookies. Free text is limited to the short word typed in a fill-the-gap exercise (see above).
 
 **Where the data is.** One private Google Sheet in the teacher's school Google Workspace account (domain os-verzej.si). It is not shared with anyone else. The class list (pupil name, school year, class; imported from the school register) is a tab in the same Sheet. Sign-in is limited to the school domain; the server rejects accounts from other domains.
 
