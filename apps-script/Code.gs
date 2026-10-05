@@ -89,6 +89,7 @@ function doPost(e) {
   try {
     var d = JSON.parse(e.postData.contents);
     if (d.action === 'roster') return rosterReply_(d);       // teacher-only, used by the Classroom Tools page
+    if (d.action === 'stats') return statsReply_(d);         // teacher-only, used by the Results page
     var who = verify_(d.token);
     if (!who) return out_({ ok: false, error: 'token' });
 
@@ -126,9 +127,7 @@ function doPost(e) {
 // so they are not in this public file.
 function rosterReply_(d) {
   var who = verify_(d.token);
-  var allowed = String(PropertiesService.getScriptProperties().getProperty('TEACHER_EMAILS') || '')
-    .toLowerCase().split(/[\s,;]+/).filter(String);
-  if (!who || allowed.indexOf(String(who.email).toLowerCase()) < 0) return out_({ ok: false, error: 'token' });
+  if (!who || !isTeacher_(who.email)) return out_({ ok: false, error: 'token' });
 
   var sh = SpreadsheetApp.getActive().getSheetByName(ROSTER);
   if (!sh || sh.getLastRow() < 2) return out_({ ok: true, year: '', classes: {} });
@@ -146,6 +145,45 @@ function rosterReply_(d) {
   return out_({ ok: true, year: year, classes: classes });
 }
 
+function isTeacher_(email) {
+  var allowed = String(PropertiesService.getScriptProperties().getProperty('TEACHER_EMAILS') || '')
+    .toLowerCase().split(/[\s,;]+/).filter(String);
+  return allowed.indexOf(String(email).toLowerCase()) >= 0;
+}
+
+// All results (Results + Archive) and the Roster with activity counts, for the private Results page. Teacher only.
+// rows:   [time ms, last name, first name, class, book id, unit title, activity, level 1-3, score, total, school year]
+// roster: [school year, class, name, attempts that year, last time ms (0 = never)]
+function statsReply_(d) {
+  var who = verify_(d.token);
+  if (!who || !isTeacher_(who.email)) return out_({ ok: false, error: 'token' });
+  var ss = SpreadsheetApp.getActive(), rows = [], byEmail = {}, byName = {};
+  [SHEET, ARCHIVE].forEach(function (n) {
+    var sh = ss.getSheetByName(n);
+    if (!sh || sh.getLastRow() < 2) return;
+    sh.getRange(2, 1, sh.getLastRow() - 1, 18).getValues().forEach(function (r) {
+      if (!(r[0] instanceof Date) || !r[1]) return;
+      var t = r[0].getTime(), y = String(r[10]);
+      rows.push([t, r[3], r[2], r[11], r[4], r[15], r[6], r[14], r[7], r[8], y]);
+      [[byEmail, y + '|' + String(r[1]).toLowerCase()], [byName, y + '|' + nameKey_(r[2] + ' ' + r[3])]].forEach(function (p) {
+        var o = p[0][p[1]] = p[0][p[1]] || { n: 0, t: 0 };
+        o.n++; if (t > o.t) o.t = t;
+      });
+    });
+  });
+  var roster = [], rs = ss.getSheetByName(ROSTER);
+  if (rs && rs.getLastRow() > 1) {
+    rs.getRange(2, 1, rs.getLastRow() - 1, 4).getValues().forEach(function (r) {
+      var email = String(r[0]).trim().toLowerCase(), y = String(r[1]).trim(), cls = String(r[2]).trim(), name = String(r[3]).trim();
+      if (!/^\d{4}-\d{2}$/.test(y) || !cls || !(email || name)) return;
+      var a = email && byEmail[y + '|' + email], b = name && byName[y + '|' + nameKey_(name)];
+      var n = (a ? a.n : 0), t = (a ? a.t : 0);
+      if (b && (!a || b.n > a.n)) { n = b.n; t = b.t; }
+      roster.push([y, cls, name || email, n, t]);
+    });
+  }
+  return out_({ ok: true, rows: rows, roster: roster });
+}
 // The "Results" tab (current school year, newest first). An older layout is kept under another name;
 // newer columns are added in place and the old rows get their values.
 function resultsSheet_() {
