@@ -27,7 +27,7 @@ Draft for the school's data-protection officer (DPO). It describes what the tool
 
 **Access.** Only the teacher (spreadsheet owner). Teacher pages on the website are private (visible only to the teacher's account).
 
-**Retention.** Results are kept while they are useful for teaching. The teacher can delete all results older than a chosen number of years with one menu command, and can delete a pupil's rows on request. Retention rule (approved by the school): results are kept until two years after the pupil leaves the school (after grade 9, or earlier if the pupil changes school), then deleted.
+**Retention.** Results are kept while they are useful for teaching. The teacher can delete all results older than a chosen number of years with one menu command, and can delete a pupil's rows on request. Retention rule (approved by the school): results are kept until two years after the pupil leaves the school (after grade 9, or earlier if the pupil changes school), then deleted. A second menu command, "Delete results of pupils who left", does this: the teacher enters the number of years (default 2), the command lists the pupils and the number of results concerned, and nothing is deleted until the teacher confirms. A pupil counts as having left when the last school year in the class list has ended; accounts that are not in the class list are never deleted by this command.
 
 **Legal basis, information to parents, retention period, and whether consent is needed:** to be decided by the school / DPO.
 
