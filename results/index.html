@@ -81,6 +81,12 @@
   .lvl-1 { color: var(--good); } .lvl-2 { color: var(--warn); } .lvl-3 { color: var(--bad); }
   .tools { display: flex; gap: 8px; margin: 0 0 12px; flex-wrap: wrap; }
   #printHead { display: none; }
+  .report h1 { font-size: 22px; margin: 0 0 2px; }
+  .report h2 { margin: 16px 0 6px; }
+  .report .sub { color: var(--muted); margin: 0 0 12px; }
+  .report .foot { color: var(--muted); font-size: 12px; margin-top: 16px; }
+  .report .tag { display: inline-block; padding: 0 7px; border-radius: 8px; font-size: 12px; background: var(--badbg); color: var(--bad); margin-right: 4px; }
+  .report .tag.q { background: var(--accent-soft); color: var(--accent); }
   @media print {
     @page { size: A4 landscape; margin: 12mm; }
     body, body.light { --bg: #fff; --card: #fff; --ink: #111; --muted: #555; --line: #ccc; --field: #fff; --accent: #c25a00; --accent-soft: #fde8d0;
@@ -95,6 +101,11 @@
     tr { break-inside: avoid; }
     .heat .name { position: static; }
     body.print-one #view > .card:not(.one) { display: none; }
+    body.rep #printHead, body.rep .top { display: none !important; }
+    @page report { size: A4 portrait; margin: 12mm; }
+    .report { page: report; }
+    .report .card { border: none; padding: 0; }
+    .report h2 { break-after: avoid; }
   }
 </style>
 </head>
@@ -197,15 +208,16 @@
   };
 
   // ---------------------------------------------------------------- tabs
-  const TABS = [['overview', 'Overview'], ['heat', 'Heat-map'], ['weak', 'Weak spots'], ['questions', 'Questions'], ['progress', 'Progress'], ['pupils', 'Pupils'], ['units', 'Units'], ['quiet', 'Not practising']];
+  const TABS = [['overview', 'Overview'], ['report', 'Class report'], ['heat', 'Heat-map'], ['weak', 'Weak spots'], ['questions', 'Questions'], ['progress', 'Progress'], ['pupils', 'Pupils'], ['units', 'Units'], ['quiet', 'Not practising']];
   const render = () => {
     const tabs = $('#tabs'); tabs.innerHTML = '';
     TABS.forEach(([id, name]) => { const b = el('button', 'btn' + (id === tab ? ' on' : ''), name); b.onclick = () => { tab = id; render(); }; tabs.append(b); });
+    document.body.classList.toggle('rep', tab === 'report');
     const view = $('#view'); view.innerHTML = '';
     $('#printHead').textContent = 'Results · ' + [F.cls ? 'class ' + F.cls : 'all classes', F.book ? (BOOKS[F.book] || F.book) : 'all books', F.level ? LEVELS[F.level] : '', F.year || 'all years',
       F.from || F.to ? (F.from || '…') + ' – ' + (F.to || '…') : ''].filter(Boolean).join(' · ') + ' · ' + (TABS.find(x => x[0] === tab) || [0, ''])[1] + ' · printed ' + new Date().toLocaleDateString('en-GB');
     const data = filtered();
-    if (tab === 'overview') overview(view, data); else if (tab === 'heat') heat(view, data); else if (tab === 'weak') weak(view, data); else if (tab === 'questions') questions(view); else if (tab === 'progress') progress(view, data);
+    if (tab === 'overview') overview(view, data); else if (tab === 'report') report(view, data); else if (tab === 'heat') heat(view, data); else if (tab === 'weak') weak(view, data); else if (tab === 'questions') questions(view); else if (tab === 'progress') progress(view, data);
     else if (tab === 'pupils') pupils(view, data);
     else if (tab === 'units') units(view, data); else quiet(view);
   };
@@ -340,6 +352,90 @@
     card.append(lg); view.append(card);
   };
 
+  // ---------------------------------------------------------------- class report (for printing)
+  const nk = s => String(s || '').toLowerCase().replace(/đ/g, 'd').normalize('NFD').replace(/[\u0300-\u036f]/g, '').split(/[^a-z0-9]+/).filter(Boolean).sort().join(' ');
+  const weeklySvg = d => {
+    const wk = {}; d.forEach(r => { const k = weekStart(r.t); const w = wk[k] = wk[k] || { n: 0, s: 0 }; w.n++; w.s += r.p; });
+    const ks = Object.keys(wk).map(Number).sort((a, b) => a - b); if (!ks.length) return '';
+    const list = []; for (let w = ks[0]; w <= ks[ks.length - 1] && list.length < 60; ) { list.push(w); const n = new Date(w); n.setDate(n.getDate() + 7); w = n.getTime(); }
+    const W = 700, H = 120, L = 34, step = (W - L - 6) / list.length, bw = Math.max(6, Math.min(34, step - 6)), maxN = Math.max(...Object.values(wk).map(w => w.n)), pts = [];
+    let svg = `<svg viewBox="0 -8 ${W} ${H + 36}" width="100%" role="img" aria-label="Activity per week">`;
+    [0, 0.5, 1].forEach(v => { const y = H - v * H; svg += `<line x1="${L}" x2="${W}" y1="${y}" y2="${y}" stroke="var(--line)"/><text x="0" y="${y + 4}">${v * 100} %</text>`; });
+    list.forEach((w, i) => { const x = L + i * step + step / 2, v = wk[w];
+      if (v) { const h = v.n / maxN * H * 0.5; svg += `<rect class="bar2" x="${(x - bw / 2).toFixed(1)}" y="${(H - h).toFixed(1)}" width="${bw}" height="${h.toFixed(1)}" rx="2"/>`; pts.push([x, H - v.s / v.n * H]); }
+      if (list.length <= 14 || i % Math.ceil(list.length / 10) === 0) { const dd = new Date(w); svg += `<text x="${(x - 14).toFixed(1)}" y="${H + 14}">${String(dd.getDate()).padStart(2, '0')}.${String(dd.getMonth() + 1).padStart(2, '0')}.</text>`; } });
+    svg += `<polyline class="linep" points="${pts.map(p => p[0].toFixed(1) + ',' + p[1].toFixed(1)).join(' ')}"/>` + pts.map(p => `<circle class="dot" cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="3.5"/>`).join('') + '</svg>';
+    return svg;
+  };
+  const report = (view, data) => {
+    const wrap = el('div', 'report');
+    const bar = el('div', 'tools no-print'); const pb = el('button', 'btn primary', 'Print report'); pb.onclick = () => printPage(false); bar.append(pb,
+      el('span', 'muted', ' Tip: choose a class (and a book) in the filters first. The report is made for A4 portrait.'));
+    view.append(bar);
+    const card = el('div', 'card'); wrap.append(card); view.append(wrap);
+    const year = F.year || roster.map(r => r.year).sort().pop() || '';
+    const what = [F.cls ? 'Class ' + F.cls : 'All classes', F.book ? (BOOKS[F.book] || F.book) : '', F.level ? LEVELS[F.level] : '', year ? 'School year ' + year : 'All school years'].filter(Boolean).join(' · ');
+    card.append(el('h1', '', 'Class report'), el('p', 'sub', what + (F.from || F.to ? ' · ' + (F.from || '…') + ' – ' + (F.to || '…') : '') + ' · printed ' + new Date().toLocaleDateString('en-GB')));
+    if (!data.length) { card.append(el('p', 'msg', 'There are no results for this selection.')); return; }
+
+    // pupils: everyone with results, plus Roster pupils of the class without any
+    const by = {}; data.forEach(r => (by[r.key] = by[r.key] || []).push(r));
+    const people = Object.keys(by).map(k => { const a = by[k], last = a.reduce((m, r) => r.t > m ? r.t : m, 0);
+      return { key: k, nk: nk(a[0].first + ' ' + a[0].last), name: a[0].last + ' ' + a[0].first, cls: [...new Set(a.map(r => r.cls).filter(Boolean))].join(', '),
+               n: a.length, q: a.reduce((s, r) => s + r.total, 0), p: avg(a, r => r.p), lv: avg(a, r => r.lvl), hard: a.filter(r => r.lvl === 3).length, last }; });
+    const have = new Set(people.map(p => p.nk));
+    roster.filter(r => r.year === year && (!F.cls || r.cls === F.cls) && !have.has(nk(r.name))).forEach(r => people.push({ key: 'r|' + r.name, name: r.name, cls: r.cls, n: 0, q: 0, p: null, lv: null, hard: 0, last: 0 }));
+    people.sort((a, b) => a.cls.localeCompare(b.cls, 'sl', { numeric: true }) || a.name.localeCompare(b.name, 'sl'));
+    const active = people.filter(p => p.n > 0), idle = Date.now() - 14 * 86400000;
+
+    const tiles = el('div', 'tiles');
+    tiles.append(tile(people.length, 'pupils in the group'), tile(active.length, 'practised'), tile(data.length, 'finished activities'),
+      tile(data.reduce((s, r) => s + r.total, 0), 'questions answered'), tile(pct(avg(data, r => r.p)), 'average result'), tile(data.filter(r => r.lvl === 3).length, 'hard tests'));
+    card.append(tiles);
+
+    const ch = weeklySvg(data);
+    if (ch) { card.append(el('h2', '', 'Activity per week')); const hold = el('div'); hold.innerHTML = ch; card.append(hold);
+      const lg = el('div', 'legend'); lg.innerHTML = '<span><i class="sw" style="background:var(--accent)"></i>average result of the week</span><span><i class="sw" style="background:var(--line)"></i>number of activities</span>'; card.append(lg); }
+
+    card.append(el('h2', '', 'Pupils'));
+    const noteOf = p => { const o = []; if (!p.n) o.push(['no practice yet', 0]); else { if (p.p < 0.6) o.push(['below 60 %', 0]); if (p.last < idle) o.push(['not practising for 14+ days', 1]); } return o; };
+    card.append(table('rep', [
+      { h: 'Pupil', k: x => x.name, v: x => x.name },
+      { h: 'Activities', k: x => x.n, v: x => x.n, num: true },
+      { h: 'Questions', k: x => x.q, v: x => x.q, num: true },
+      { h: 'Average', k: x => x.p == null ? -1 : x.p, v: x => x.p == null ? '—' : badge(x.p), num: true },
+      { h: 'Avg level', k: x => x.lv == null ? -1 : x.lv, v: x => x.lv == null ? '—' : x.lv.toFixed(1), num: true },
+      { h: 'Hard tests', k: x => x.hard, v: x => x.hard, num: true },
+      { h: 'Last practised', k: x => x.last, v: x => fmtDate(x.last), num: true },
+      { h: 'Note', k: x => noteOf(x).length, v: x => { const s = el('span'); noteOf(x).forEach(([t, q]) => s.append(el('span', 'tag' + (q ? ' q' : ''), t))); return s; } }], people, 'Pupil'));
+    card.lastChild.style.maxHeight = 'none';
+
+    // weakest units
+    const byU = {}; data.forEach(r => (byU[r.unit || '(no unit)'] = byU[r.unit || '(no unit)'] || []).push(r));
+    const units = Object.keys(byU).map(u => ({ u, n: byU[u].length, pupils: new Set(byU[u].map(r => r.key)).size, p: avg(byU[u], r => r.p) })).filter(x => x.n >= 3).sort((a, b) => a.p - b.p).slice(0, 6);
+    if (units.length) {
+      card.append(el('h2', '', 'Weakest units (at least 3 activities)'));
+      card.append(table('repU', [{ h: 'Unit', k: x => x.u, v: x => x.u }, { h: 'Pupils', k: x => x.pupils, v: x => x.pupils, num: true },
+        { h: 'Activities', k: x => x.n, v: x => x.n, num: true }, { h: 'Average', k: x => x.p, v: x => badge(x.p), num: true }], units, 'Average'));
+      card.lastChild.style.maxHeight = 'none';
+    }
+
+    // most-missed questions (needs the question data)
+    card.append(el('h2', '', 'Most-missed questions (at least 5 answers)'));
+    if (qState !== 'ok') {
+      if (qState === '') loadQ();
+      card.append(el('p', qState === 'error' ? 'msg err' : 'msg', qState === 'error' ? 'The question data could not be loaded.' : 'Loading the question data… (the report updates by itself)'));
+    } else {
+      const m = {};
+      qraw.filter(r => (!year || r.year === year) && (!F.cls || r.cls === F.cls) && (!F.book || r.book === F.book) && (!F.level || String(ACT_LEVEL[r.act] || 2) === F.level)).forEach(r => {
+        const k = r.unit + '\u0001' + r.act + '\u0001' + r.q + '\u0001' + r.ans; const o = m[k] = m[k] || { q: r.q, ans: r.ans, unit: r.unit, n: 0, wrong: 0 }; o.n += r.n; o.wrong += r.wrong; });
+      const qs = Object.values(m).filter(x => x.n >= 5).map(x => ({ ...x, p: x.wrong / x.n })).sort((a, b) => b.p - a.p).slice(0, 8);
+      if (!qs.length) card.append(el('p', 'msg', 'No question has been answered often enough yet.'));
+      else { card.append(table('repQ', [{ h: 'Question', k: x => x.q, v: x => x.q }, { h: 'Right answer', k: x => x.ans, v: x => x.ans },
+        { h: 'Answers', k: x => x.n, v: x => x.n, num: true }, { h: 'Wrong', k: x => x.p, v: x => el('span', 'pct' + (x.p >= 0.5 ? ' lo' : ''), pct(x.p)), num: true }], qs, 'Wrong')); card.lastChild.style.maxHeight = 'none'; }
+    }
+    card.append(el('p', 'foot', 'Confidential: this report contains pupils\' names. Results are the finished activities saved in NoisyClassRoom; "below 60 %" is the pupil\'s average over the selected results.'));
+  };
   // ---------------------------------------------------------------- weak spots
   const weak = (view, data) => {
     const minN = Number(sortKey.weakMin || 3);
@@ -410,7 +506,7 @@
       if (!j.ok) { qState = 'error'; }
       else { qraw = j.rows.map(a => ({ year: a[0], cls: a[1], book: a[2], unit: a[3], act: a[4], q: a[5], ans: a[6], n: a[7], wrong: a[8], top: a[9] })); qState = 'ok'; }
     } catch (e) { qState = 'error'; }
-    if (tab === 'questions') render();
+    if (tab === 'questions' || tab === 'report') render();
   };
   const questions = view => {
     const card = el('div', 'card');
