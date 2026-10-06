@@ -106,6 +106,11 @@
     .report { page: report; }
     .report .card { border: none; padding: 0; }
     .report h2 { break-after: avoid; }
+    .report .heat { font-size: 10.5px; }
+    .report .heat td.c { width: 24px; min-width: 24px; height: 22px; font-size: 10.5px; }
+    .report .heat .name { padding: 2px 8px 2px 2px; }
+    .report .heat .vh div { max-height: 170px; font-size: 10px; }
+    .report .heat tr { break-inside: avoid; }
   }
 </style>
 </head>
@@ -299,15 +304,9 @@
   };
 
   // ---------------------------------------------------------------- heat-map: pupils x units
-  const heat = (view, data) => {
-    const metric = sortKey.heatMetric || 'best';
-    const card = el('div', 'card');
-    const top = el('div'); top.style.marginBottom = '8px';
-    const sel = el('select'); [['best', 'Best result'], ['avg', 'Average result'], ['cnt', 'Number of activities']].forEach(([v, t]) => { const o = el('option', '', t); o.value = v; sel.append(o); });
-    sel.value = metric; sel.onchange = () => { sortKey.heatMetric = sel.value; render(); };
-    top.append(el('span', 'muted', 'Show: '), sel);
-    card.append(top);
-    if (!data.length) { card.append(el('p', 'msg', 'No results for this selection.')); view.append(card); return; }
+  // the pupils x units table with its legend (used by the Heat-map tab and by the class report)
+  const heatTable = (data, metric) => {
+    const out = el('div');
     const unitBook = {}; data.forEach(r => { unitBook[r.unit || '(no unit)'] = r.book; });
     const order = Object.keys(BOOKS);
     const ucols = Object.keys(unitBook).sort((a, b) => (order.indexOf(unitBook[a]) - order.indexOf(unitBook[b])) || a.localeCompare(b, 'sl', { numeric: true }));
@@ -344,14 +343,27 @@
       });
       body.append(tr);
     });
-    tb.append(body); wrap.append(tb); card.append(wrap);
+    tb.append(body); wrap.append(tb); out.append(wrap);
     const lg = el('div', 'legend');
     lg.innerHTML = metric === 'cnt' ? '<span>Number = activities finished, empty = not practised yet</span>'
       : '<span><i class="sw" style="background:var(--badbg)"></i>below 60 %</span><span><i class="sw" style="background:var(--accent-soft)"></i>60–89 %</span><span><i class="sw" style="background:var(--goodbg)"></i>90 % or more</span><span>empty = not practised yet</span>';
-    const tip = el('span', '', 'Click a pupil to see the progress over time. Hover a cell for details.'); lg.append(tip);
-    card.append(lg); view.append(card);
+    out.append(lg);
+    return out;
   };
 
+  const heat = (view, data) => {
+    const metric = sortKey.heatMetric || 'best';
+    const card = el('div', 'card');
+    const top = el('div'); top.style.marginBottom = '8px';
+    const sel = el('select'); [['best', 'Best result'], ['avg', 'Average result'], ['cnt', 'Number of activities']].forEach(([v, t]) => { const o = el('option', '', t); o.value = v; sel.append(o); });
+    sel.value = metric; sel.onchange = () => { sortKey.heatMetric = sel.value; render(); };
+    top.append(el('span', 'muted', 'Show: '), sel);
+    card.append(top);
+    if (!data.length) { card.append(el('p', 'msg', 'No results for this selection.')); view.append(card); return; }
+    card.append(heatTable(data, metric));
+    card.append(el('p', 'note', 'Click a pupil to see the progress over time. Hover a cell for details.'));
+    view.append(card);
+  };
   // ---------------------------------------------------------------- class report (for printing)
   const nk = s => String(s || '').toLowerCase().replace(/đ/g, 'd').normalize('NFD').replace(/[\u0300-\u036f]/g, '').split(/[^a-z0-9]+/).filter(Boolean).sort().join(' ');
   const weeklySvg = d => {
@@ -409,6 +421,11 @@
       { h: 'Last practised', k: x => x.last, v: x => fmtDate(x.last), num: true },
       { h: 'Note', k: x => noteOf(x).length, v: x => { const s = el('span'); noteOf(x).forEach(([t, q]) => s.append(el('span', 'tag' + (q ? ' q' : ''), t))); return s; } }], people, 'Pupil'));
     card.lastChild.style.maxHeight = 'none';
+
+    // heat-map: best result of each pupil in each unit
+    card.append(el('h2', '', 'Units: best result of each pupil'));
+    const ht = heatTable(data, 'best'); ht.firstChild.style.maxHeight = 'none'; card.append(ht);
+    if (new Set(data.map(r => r.unit)).size > 14) card.append(el('p', 'note no-print', 'Many units: for a narrower printout choose one book in the filters.'));
 
     // weakest units
     const byU = {}; data.forEach(r => (byU[r.unit || '(no unit)'] = byU[r.unit || '(no unit)'] || []).push(r));
