@@ -173,7 +173,8 @@
   Track.init(whoBar);
   // what the pupil answered in the current activity: [question, right answer, chosen answer, 1 right / 0 wrong]
   let detail = [];
-  const rec = (q, a, chosen, ok) => detail.push([String(q).slice(0, 110), String(a).slice(0, 60), String(chosen == null ? '' : chosen).slice(0, 40), ok ? 1 : 0]);
+  // lim: how many characters of the chosen / typed answer are kept (multiple choice 90, typed words 40)
+  const rec = (q, a, chosen, ok, lim = 40) => detail.push([String(q).slice(0, 110), String(a).slice(0, 90), String(chosen == null ? '' : chosen).slice(0, lim), ok ? 1 : 0]);
   // shows "saved / sign in" under the score; safe to call for every finished activity
   const report = (score, total, into) => {
     const qs = detail; detail = [];
@@ -362,7 +363,7 @@
         const b = el('button', 'opt', o.en);
         b.onclick = () => {
           box.querySelectorAll('button').forEach(x => x.disabled = true);
-          rec('"' + (w.sl || '') + '" in English', w.en, o.en, o === w);
+          rec('"' + (w.sl || '') + '" in English', w.en, o.en, o === w, 90);
           if (o === w) { b.classList.add('done'); score++; }
           else { b.classList.add('wrong'); [...box.children].find(x => x.textContent === w.en).classList.add('done'); }
           i++; setBar(i / qs.length);
@@ -386,7 +387,7 @@
         const b = el('button', 'opt', o);
         b.onclick = () => {
           box.querySelectorAll('button').forEach(x => x.disabled = true);
-          rec(t.q, t.answer, o, o === t.answer);
+          rec(t.q, t.answer, o, o === t.answer, 90);
           if (o === t.answer) { b.classList.add('done'); score++; }
           else { b.classList.add('wrong'); [...box.children].find(x => x.textContent === t.answer).classList.add('done'); }
           i++; setBar(i / qs.length);
