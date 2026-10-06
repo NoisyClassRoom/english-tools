@@ -176,7 +176,8 @@ function saveQuestions_(time, id, book, unitTitle, activity, year, rosterClass, 
   var rows = [];
   qs.slice(0, 40).forEach(function (q) {
     if (!(q instanceof Array) || q.length < 4) return;
-    rows.push([time, id, clip_(book, 20), clip_(unitTitle, 120), clip_(activity, 30), clip_(q[0], 110), clip_(q[1], 60), clip_(q[2], 40),
+    var typed = /^(Fill the gap|Match)$/.test(String(activity));          // typed words / pairs: 40 characters, multiple choice: 90
+    rows.push([time, id, clip_(book, 20), clip_(unitTitle, 120), clip_(activity, 30), clip_(q[0], 110), clip_(q[1], 90), clip_(q[2], typed ? 40 : 90),
                Number(q[3]) ? 1 : 0, year, rosterClass]);
   });
   if (!rows.length) return;
@@ -403,6 +404,7 @@ function onOpen() {
     .addItem('Move earlier school years to Archive...', 'archiveOldYears')
     .addItem('Remove duplicate results (save bug)...', 'removeDuplicateResults')
     .addItem('Delete old results...', 'deleteOldResults')
+    .addItem('Delete results of pupils who left...', 'deleteLeavers')
     .addToUi();
 }
 
@@ -498,6 +500,103 @@ function dedupe_(only, auto) {
     moved = gone.length;
   } finally { lock.releaseLock(); }
   say('Done. ' + moved + ' duplicate results moved to the hidden tab "Duplicates".');
+}
+// ---------------------------------------------------------------- pupils who left the school
+// A pupil has "left" when the last school year the Roster lists them in has ended (31 August) and that was more
+// than N years ago. Pupils without a school year in the Roster (= every year) and accounts that are not in the Roster
+// at all (teachers, anyone missed) are never counted as leavers. The Roster itself is never changed.
+
+function schoolYearEnd_(y) {
+  var m = /^(\d{4})-\d{2}$/.exec(String(y).trim());
+  return m ? new Date(Number(m[1]) + 1, 7, 31, 23, 59, 59) : null;
+}
+
+// when each pupil's last Roster year ended (ms; Infinity = no end), by e-mail and by name
+function leaverMaps_() {
+  var sh = SpreadsheetApp.getActive().getSheetByName(ROSTER), byEmail = {}, byName = {};
+  if (!sh || sh.getLastRow() < 2) return { byEmail: byEmail, byName: byName };
+  sh.getRange(2, 1, sh.getLastRow() - 1, 4).getValues().forEach(function (r) {
+    var email = String(r[0]).trim().toLowerCase(), key = nameKey_(r[3]);
+    if (!email && !key) return;
+    var end = schoolYearEnd_(r[1]), t = end ? end.getTime() : Infinity;
+    if (email) byEmail[email] = Math.max(byEmail[email] || 0, t);
+    if (key) byName[key] = Math.max(byName[key] || 0, t);
+  });
+  return { byEmail: byEmail, byName: byName };
+}
+
+// the plan: which rows of Results / Archive / Duplicates belong to pupils who left more than `years` years ago
+function findLeavers_(years) {
+  var ss = SpreadsheetApp.getActive(), maps = leaverMaps_(), cutoff = new Date();
+  cutoff.setFullYear(cutoff.getFullYear() - years);
+  var plan = { cutoff: cutoff, parts: [], pupils: {}, rows: 0, ids: {} };
+  [SHEET, ARCHIVE, 'Duplicates'].forEach(function (n) {
+    var sh = ss.getSheetByName(n);
+    if (!sh || sh.getLastRow() < 2) return;
+    var cnt = sh.getLastRow() - 1, values = sh.getRange(2, 1, cnt, NCOLS).getValues(), keep = [], gone = 0;
+    values.forEach(function (r) {
+      if (!r[1]) { keep.push(r); return; }
+      var a = maps.byEmail[String(r[1]).trim().toLowerCase()], b = maps.byName[nameKey_(r[2] + ' ' + r[3])];
+      var left = (a == null && b == null) ? null : Math.max(a || 0, b || 0);
+      if (left !== null && left < cutoff.getTime()) {
+        gone++; plan.rows++;
+        if (r[NCOLS - 1]) plan.ids[r[NCOLS - 1]] = 1;
+        var k = String(r[1]).toLowerCase(), p = plan.pupils[k] = plan.pupils[k] || { name: r[3] + ' ' + r[2], left: left, n: 0 };
+        p.n++;
+      } else keep.push(r);
+    });
+    plan.parts.push({ sh: sh, n: cnt, keep: keep, gone: gone });
+  });
+  return plan;
+}
+
+function deleteLeavers() { deleteLeavers_(null, false); }
+
+// years = null: ask. auto = true: no dialogs, delete at once (testing only)
+function deleteLeavers_(years, auto) {
+  var ui = auto ? null : SpreadsheetApp.getUi();
+  var say = function (m) { if (ui) ui.alert(m); else Logger.log(m); };
+  if (years == null) {
+    var ans = ui.prompt('Delete results of pupils who left',
+      'Delete the results of pupils who left the school more than how many years ago?\n(whole number from 0 to 20; leave empty for 2)\n' +
+      'A pupil has left when the last school year in the Roster has ended. Pupils who are not in the Roster are never deleted.', ui.ButtonSet.OK_CANCEL);
+    if (ans.getSelectedButton() !== ui.Button.OK) return;
+    var txt = String(ans.getResponseText()).trim();
+    years = txt === '' ? 2 : parseInt(txt, 10);
+    if (!(years >= 0 && years <= 20) || String(years) !== (txt === '' ? '2' : txt)) { ui.alert('Please enter a whole number between 0 and 20.'); return; }
+  }
+  var lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  var total = 0, count = 0;
+  try {
+    var plan = findLeavers_(years);
+    if (!plan.rows) { say('Nobody left the school more than ' + years + ' year(s) ago (before ' + Utilities.formatDate(plan.cutoff, TZ, 'dd.MM.yyyy') + '), so there is nothing to delete.'); return; }
+    var list = Object.keys(plan.pupils).map(function (k) { return plan.pupils[k]; }).sort(function (a, b) { return a.name.localeCompare(b.name, 'sl'); });
+    if (ui) {
+      var names = list.slice(0, 25).map(function (p) { return p.name + ' (' + p.n + ' results, last year at school ' + schoolYear_(new Date(p.left - 86400000 * 30)) + ')'; }).join('\n');
+      var ok = ui.alert('Delete ' + plan.rows + ' results of ' + list.length + ' pupils who left before ' + Utilities.formatDate(plan.cutoff, TZ, 'dd.MM.yyyy') + '?',
+        names + (list.length > 25 ? '\n... and ' + (list.length - 25) + ' more' : '') +
+        '\n\nThis also removes their rows from the Archive and the hidden Duplicates tab and the question details linked to them. ' +
+        'The Roster is not changed. This cannot be undone here (only via File > Version history).', ui.ButtonSet.YES_NO);
+      if (ok !== ui.Button.YES) return;
+    }
+    plan.parts.forEach(function (p) {
+      if (!p.gone) return;
+      p.sh.getRange(2, 1, p.n, NCOLS).clearContent();
+      if (p.keep.length) p.sh.getRange(2, 1, p.keep.length, NCOLS).setValues(p.keep);
+    });
+    var q = SpreadsheetApp.getActive().getSheetByName(QSHEET);
+    if (q && q.getLastRow() > 1 && Object.keys(plan.ids).length) {
+      var qn = q.getLastRow() - 1, qv = q.getRange(2, 1, qn, QHEADER.length).getValues();
+      var qkeep = qv.filter(function (r) { return !plan.ids[r[1]]; });
+      if (qkeep.length < qn) {
+        q.getRange(2, 1, qn, QHEADER.length).clearContent();
+        if (qkeep.length) q.getRange(2, 1, qkeep.length, QHEADER.length).setValues(qkeep);
+      }
+    }
+    total = plan.rows; count = list.length;
+  } finally { lock.releaseLock(); }
+  if (total) say('Done. Deleted ' + total + ' results of ' + count + ' pupils.');
 }
 // Removes results older than N years (whole school years are the sensible choice: 1, 2, 3...),
 // from Results and Archive. Always asks for confirmation first.
