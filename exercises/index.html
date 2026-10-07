@@ -299,12 +299,17 @@
     s.onload = async () => {
       await loadOpt('hard-' + info.id + '.js');
       await loadOpt('more-' + info.id + '.js');
+      await loadOpt('more2-' + info.id + '.js');
       (window.CLASS_SETS || []).forEach(set => {
-        const hard = (window.HARD_TESTS || {})[set.id], more = (window.MORE_SETS || {})[set.id] || {};
+        const hard = (window.HARD_TESTS || {})[set.id];
         if (hard) set.tests2 = hard.map(toTest);
-        if (more.gap) set.sentences = (set.sentences || []).concat(more.gap.map(([text, answer, ...alt]) => alt.length ? { text, answer, alt } : { text, answer }));
-        if (more.easy) set.tests = (set.tests || []).concat(more.easy.map(toTest));
-        if (more.hard) set.tests2 = (set.tests2 || []).concat(more.hard.map(toTest));
+        // more-<id>.js and more2-<id>.js: extra gap sentences, easy and hard test questions
+        [(window.MORE_SETS || {})[set.id], (window.MORE2_SETS || {})[set.id]].forEach(more => {
+          if (!more) return;
+          if (more.gap) set.sentences = (set.sentences || []).concat(more.gap.map(([text, answer, ...alt]) => alt.length ? { text, answer, alt } : { text, answer }));
+          if (more.easy) set.tests = (set.tests || []).concat(more.easy.map(toTest));
+          if (more.hard) set.tests2 = (set.tests2 || []).concat(more.hard.map(toTest));
+        });
       });
       renderSets(window.CLASS_SETS || [], info);
       autoOpen();
