@@ -44,6 +44,17 @@ Each finished activity saves e-mail, first/last name (from the Google account), 
 The Sheet's menu "English hub" builds overview tabs (Summary, Students, Difficulty, By book, Best scores, Topics, By day) and manages the Roster and school years.
 A description for the school's data-protection officer is in `DATA-PROTECTION.md`.
 
+### Results page (teacher only)
+
+`results/index.html` is a private page (WordPress page "Results", embedded by iframe; the data is only sent to a signed-in teacher account listed in the script property `TEACHER_EMAILS`). It holds no data itself.
+Filters: school year, class, accounts (pupils with a class / no class = teachers and pupils missing from the Roster / everyone), book, level, dates.
+Tabs:
+- **Overview** – totals, activity per day, difficulty.
+- **Class report** – one printable A4 page per class: key numbers, weekly chart, pupils, unit heat-map, weakest units, most-missed questions, and a free comment line (kept in this browser only).
+- **Heat-map** – pupils × units. **Weak spots** – weakest units and questions per class. **Questions** – most-missed questions with common wrong answers.
+- **Progress** – results per week for the whole selection or one pupil. **Compare classes** – all classes side by side (average result or activities per pupil, per week).
+- **Pupils**, **Units**, **Not practising** – tables; "Download table" / "Download all filtered results" export CSV, "Print" prints the current tab.
+
 Decisions:
 - Students have Google school accounts, so they identify themselves with "Sign in with Google" (no personal codes).
 - Results (email, unit, activity, score, date) go to a private Google Sheet through a Google Apps Script web app that verifies the Google ID token.
