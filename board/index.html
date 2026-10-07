@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Board</title>
+<style>
+  :root {
+    --bg: #141418; --card: #1f1f26; --ink: #f2efe9; --muted: #a39f95; --line: #34343e; --field: #14141a;
+    --accent: #ff8a1f; --accent-ink: #17171c; --accent-soft: #3a2a18; --good: #34c06d; --bad: #ff5a5a; --radius: 14px;
+    --fs: 20px;
+  }
+  body.light {
+    --bg: #f6f4ef; --card: #ffffff; --ink: #1f2a37; --muted: #6b7280; --line: #e5e1d8; --field: #ffffff;
+    --accent: #e8710a; --accent-ink: #ffffff; --accent-soft: #fdeedd; --good: #1f9d55; --bad: #d64545;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .wrap { max-width: 1300px; margin: 0 auto; padding: 14px; }
+  h1 { margin: 0; font-size: 22px; }
+  .top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+  .top .sp { flex: 1; }
+  .btn, select, input[type=search] { background: var(--field); color: var(--ink); border: 1px solid var(--line); border-radius: 10px; padding: 7px 12px; font: inherit; }
+  .btn { cursor: pointer; }
+  .btn:hover { border-color: var(--accent); }
+  .btn.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); font-weight: 600; }
+  .btn.sm { padding: 3px 10px; font-size: 13px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px; margin-bottom: 14px; }
+  #login { text-align: center; padding: 40px 14px; }
+  #login p, .muted { color: var(--muted); }
+  #app { display: none; }
+  .books { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+  .layout { display: grid; grid-template-columns: 270px 1fr; gap: 14px; align-items: start; }
+  @media (max-width: 820px) { .layout { grid-template-columns: 1fr; } #nav { max-height: 220px; } }
+  #nav { position: sticky; top: 8px; max-height: calc(100vh - 24px); overflow: auto; padding: 8px; }
+  #nav input { width: 100%; margin-bottom: 8px; }
+  #nav a { display: block; padding: 4px 8px; border-radius: 8px; color: var(--ink); text-decoration: none; cursor: pointer; font-size: 14px; }
+  #nav a:hover { background: var(--accent-soft); }
+  #nav a.l2 { padding-left: 20px; color: var(--muted); }
+  #nav a.l3, #nav a.l4 { padding-left: 32px; color: var(--muted); }
+  h2.sec { font-size: 22px; margin: 22px 0 8px; color: var(--accent); }
+  h2.sec.l2 { font-size: 18px; margin-top: 14px; }
+  .ex { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 14px 12px; margin-bottom: 10px; }
+  .exh { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 6px; }
+  .exh b { color: var(--accent); font-size: 15px; margin-right: auto; }
+  .ln { font-size: var(--fs); line-height: 1.5; padding: 1px 6px; border-radius: 6px; cursor: pointer; }
+  .ln:hover { background: var(--accent-soft); }
+  .ln.li::before { content: "•"; color: var(--accent); margin-right: 8px; }
+  .ln.off, .wh.hid { color: transparent !important; text-shadow: none !important; }
+  .ln.off { background: transparent !important; }
+  .ln.off * { color: transparent !important; }
+  .wh { cursor: pointer; border-radius: 4px; }
+  .wh.hid { background: var(--accent-soft); }
+  table.bt { border-collapse: collapse; margin: 4px 0; }
+  table.bt td { border: 1px solid var(--line); padding: 4px 10px; font-size: var(--fs); vertical-align: top; cursor: pointer; }
+  table.bt td.off, table.bt td.off * { color: transparent !important; }
+  /* board (projection) view */
+  #ov { position: fixed; inset: 0; background: var(--bg); z-index: 50; display: none; flex-direction: column; }
+  #ov.on { display: flex; }
+  #ovTop { display: flex; gap: 8px; align-items: center; padding: 8px 14px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  #ovTop .sp { flex: 1; }
+  #ovTitle { font-size: 16px; color: var(--accent); font-weight: 600; }
+  #ovBody { flex: 1; overflow: auto; padding: 18px 30px 60px; }
+  #ovBody .ln, #ovBody table.bt td { font-size: calc(var(--fs) * 1.5); }
+  #ovHelp { color: var(--muted); font-size: 12px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <h1>Board</h1>
+    <span class="sp"></span>
+    <span class="muted" id="who"></span>
+    <button class="btn" id="fs" title="Full screen">Full screen</button>
+    <button class="btn" id="theme">Light / dark</button>
+  </div>
+
+  <div id="login" class="card">
+    <p id="loginMsg">Sign in with your school Google account to open the exercise keys. Only the teacher account is allowed.</p>
+    <div id="slot"></div>
+  </div>
+
+  <div id="app">
+    <div class="books" id="books"></div>
+    <div class="card" style="padding:10px 14px">
+      <div class="top" style="margin:0">
+        <span class="muted">All exercises:</span>
+        <button class="btn sm" id="gWhite">White parts: hidden</button>
+        <button class="btn sm" id="gHide">Hide all lines</button>
+        <button class="btn sm" id="gShow">Show all lines</button>
+        <span class="sp"></span>
+        <span class="muted">Text size:</span>
+        <button class="btn sm" id="fsDown">A−</button><button class="btn sm" id="fsUp">A+</button>
+      </div>
+      <p class="muted" style="margin:6px 0 0;font-size:13px">Click a line, a word that was white in Word, or a table cell to hide or show it. “▶ Board” opens one exercise full screen for the projector (keys: ← → next exercise, W white parts, H hide lines, S show lines, Esc close).</p>
+    </div>
+    <div class="layout">
+      <div class="card" id="nav"><input type="search" id="q" placeholder="Find a section or exercise (e.g. 43/3)…"><div id="navList"></div></div>
+      <div id="main"></div>
+    </div>
+  </div>
+</div>
+
+<div id="ov">
+  <div id="ovTop">
+    <button class="btn sm" id="ovPrev">← Previous</button>
+    <button class="btn sm" id="ovNext">Next →</button>
+    <span id="ovTitle"></span>
+    <span class="sp"></span>
+    <button class="btn sm" id="ovWhite">White parts</button>
+    <button class="btn sm" id="ovHide">Hide lines</button>
+    <button class="btn sm" id="ovShow">Show lines</button>
+    <button class="btn sm" id="ovDown">A−</button><button class="btn sm" id="ovUp">A+</button>
+    <button class="btn sm" id="ovClose">Close (Esc)</button>
+  </div>
+  <div id="ovBody"></div>
+</div>
+
+<script src="../exercises/tracking.js"></script>
+<script>
+(() => {
+  'use strict';
+  const $ = s => document.querySelector(s);
+  const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+  const BOOKS = { '6b': 'Project 1 · grade 6', '7a': 'Dream Team Starter · grade 7', '7bc': 'Project 2 · grade 7', '8a': 'Dream Team 1 · grade 8', '8b': 'Project 3 · grade 8', '9a': 'Dream Team 2 · grade 9', '9b': 'Project 4 · grade 9' };
+  const ORDER = ['6b', '7a', '7bc', '8a', '8b', '9a', '9b'];
+  let bookList = [], cache = {}, cur = '', exercises = [], whiteHidden = true, fs = 20, ovIdx = -1;
+
+  const api = async (action, extra) => {
+    const token = Track.token(); if (!token) throw new Error('token');
+    const r = await fetch(Track.config.endpoint, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(Object.assign({ action, token }, extra || {})) });
+    return r.json();
+  };
+
+  // text with {{W:...}} -> nodes; the white parts become clickable spans
+  const textNodes = (txt, hideWhite) => {
+    const f = document.createDocumentFragment(), re = /\{\{W:([\s\S]*?)\}\}/g; let i = 0, m;
+    while ((m = re.exec(txt))) {
+      if (m.index > i) f.append(document.createTextNode(txt.slice(i, m.index)));
+      const s = el('span', 'wh' + (hideWhite ? ' hid' : ''), m[1] === '' ? ' ' : m[1]);
+      s.onclick = e => { e.stopPropagation(); s.classList.toggle('hid'); };
+      f.append(s); i = m.index + m[0].length;
+    }
+    if (i < txt.length) f.append(document.createTextNode(txt.slice(i)));
+    return f;
+  };
+  const lineEl = (b, hideWhite) => {
+    const d = el('div', 'ln ' + (b.t === 'li' ? 'li' : 'p'));
+    d.append(textNodes(b.x, hideWhite)); d.onclick = () => d.classList.toggle('off'); return d;
+  };
+  const tableEl = (b, hideWhite) => {
+    const t = el('table', 'bt'), tb = el('tbody');
+    b.rows.forEach(r => { const tr = el('tr'); r.forEach(c => { const td = el('td'); td.append(textNodes(c, hideWhite)); td.onclick = () => td.classList.toggle('off'); tr.append(td); }); tb.append(tr); });
+    t.append(tb); return t;
+  };
+  const bodyEls = (ex, hideWhite) => ex.blocks.map(b => b.t === 'tbl' ? tableEl(b, hideWhite) : lineEl(b, hideWhite));
+  const scope = (root, what, on) => {
+    if (what === 'white') root.querySelectorAll('.wh').forEach(s => s.classList.toggle('hid', on));
+    else root.querySelectorAll('.ln, table.bt td').forEach(x => x.classList.toggle('off', on));
+  };
+
+  // sections -> exercises (a new one starts at every "Book p.x/y" label)
+  const buildExercises = secs => {
+    const out = [];
+    secs.forEach((s, si) => {
+      let cur = null;
+      s.blocks.forEach(b => {
+        if (b.t === 'ref') { cur = { si, h: s.h, ref: b.x, blocks: [] }; out.push(cur); }
+        else { if (!cur) { cur = { si, h: s.h, ref: '', blocks: [] }; out.push(cur); } cur.blocks.push(b); }
+      });
+    });
+    return out;
+  };
+
+  const renderBook = () => {
+    const secs = cache[cur] || [], main = $('#main'), nav = $('#navList');
+    main.innerHTML = ''; nav.innerHTML = '';
+    exercises = buildExercises(secs);
+    let lastSi = -1;
+    exercises.forEach((ex, idx) => {
+      if (ex.si !== lastSi) {
+        lastSi = ex.si; const s = secs[ex.si];
+        const h = el('h2', 'sec' + (s.lvl > 1 ? ' l2' : ''), s.h || '(start)'); h.id = 's' + ex.si; main.append(h);
+      }
+      const card = el('div', 'ex'), hd = el('div', 'exh');
+      hd.append(el('b', '', ex.ref || 'Text'));
+      const bBoard = el('button', 'btn sm', '▶ Board'), bW = el('button', 'btn sm', 'White parts'), bH = el('button', 'btn sm', 'Hide lines'), bS = el('button', 'btn sm', 'Show lines');
+      bBoard.onclick = () => openOv(idx);
+      bW.onclick = () => { const any = [...card.querySelectorAll('.wh')].some(s => !s.classList.contains('hid')); scope(card, 'white', any); };
+      bH.onclick = () => scope(card, 'lines', true); bS.onclick = () => scope(card, 'lines', false);
+      hd.append(bBoard); if (/\{\{W:/.test(JSON.stringify(ex.blocks))) hd.append(bW); hd.append(bH, bS);
+      card.append(hd); bodyEls(ex, whiteHidden).forEach(n => card.append(n)); card.dataset.i = idx; main.append(card);
+    });
+    secs.forEach((s, si) => {
+      const n = exercises.filter(e => e.si === si).length; if (!n && !s.h) return;
+      const a = el('a', 'l' + Math.min(s.lvl || 1, 4), (s.h || '(start)')); a.dataset.si = si;
+      a.dataset.t = (s.h + ' ' + exercises.filter(e => e.si === si).map(e => e.ref).join(' ')).toLowerCase();
+      a.onclick = () => { const t = document.getElementById('s' + si); if (t) t.scrollIntoView({ behavior: 'smooth', block: 'start' }); };
+      nav.append(a);
+    });
+    $('#q').value = '';
+  };
+  $('#q').oninput = e => { const q = e.target.value.trim().toLowerCase(); document.querySelectorAll('#navList a').forEach(a => { a.style.display = !q || a.dataset.t.includes(q) ? '' : 'none'; }); };
+
+  const loadBook = async id => {
+    cur = id; document.querySelectorAll('#books .btn').forEach(b => b.classList.toggle('on', b.dataset.id === id));
+    if (!cache[id]) {
+      $('#main').innerHTML = ''; $('#main').append(el('p', 'muted', 'Loading ' + (BOOKS[id] || id) + '…'));
+      try { const j = await api('board', { book: id }); if (!j.ok) throw 0; cache[id] = j.sections; } catch (e) { $('#main').innerHTML = ''; $('#main').append(el('p', 'muted', 'Could not load this book.')); return; }
+    }
+    renderBook();
+  };
+
+  // ---- full-screen board view of one exercise
+  const ovRender = () => {
+    const ex = exercises[ovIdx]; if (!ex) return;
+    $('#ovTitle').textContent = (BOOKS[cur] || cur) + ' · ' + (ex.h || '') + (ex.ref ? ' · ' + ex.ref : '') + '   (' + (ovIdx + 1) + '/' + exercises.length + ')';
+    const b = $('#ovBody'); b.innerHTML = ''; bodyEls(ex, whiteHidden).forEach(n => b.append(n)); b.scrollTop = 0;
+  };
+  const openOv = i => { ovIdx = i; $('#ov').classList.add('on'); ovRender(); };
+  const closeOv = () => { $('#ov').classList.remove('on'); const c = document.querySelector('.ex[data-i="' + ovIdx + '"]'); if (c) c.scrollIntoView({ block: 'center' }); };
+  const step = d => { const n = ovIdx + d; if (n >= 0 && n < exercises.length) { ovIdx = n; ovRender(); } };
+  const ovToggleWhite = () => { const b = $('#ovBody'); const any = [...b.querySelectorAll('.wh')].some(s => !s.classList.contains('hid')); scope(b, 'white', any); };
+  $('#ovPrev').onclick = () => step(-1); $('#ovNext').onclick = () => step(1); $('#ovClose').onclick = closeOv;
+  $('#ovWhite').onclick = ovToggleWhite; $('#ovHide').onclick = () => scope($('#ovBody'), 'lines', true); $('#ovShow').onclick = () => scope($('#ovBody'), 'lines', false);
+  const setFs = v => { fs = Math.max(12, Math.min(60, v)); document.documentElement.style.setProperty('--fs', fs + 'px'); try { localStorage.setItem('board.fs', String(fs)); } catch (e) {} };
+  $('#ovUp').onclick = $('#fsUp').onclick = () => setFs(fs + 2); $('#ovDown').onclick = $('#fsDown').onclick = () => setFs(fs - 2);
+  document.addEventListener('keydown', e => {
+    if (!$('#ov').classList.contains('on') || /input|textarea|select/i.test((e.target || {}).tagName || '')) return;
+    if (e.key === 'ArrowRight' || e.key === 'PageDown') { step(1); e.preventDefault(); }
+    else if (e.key === 'ArrowLeft' || e.key === 'PageUp') { step(-1); e.preventDefault(); }
+    else if (e.key === 'Escape') closeOv();
+    else if (e.key === 'w' || e.key === 'W') ovToggleWhite();
+    else if (e.key === 'h' || e.key === 'H') scope($('#ovBody'), 'lines', true);
+    else if (e.key === 's' || e.key === 'S') scope($('#ovBody'), 'lines', false);
+    else if (e.key === '+' || e.key === '=') setFs(fs + 2);
+    else if (e.key === '-') setFs(fs - 2);
+  });
+
+  // ---- global buttons
+  $('#gWhite').onclick = () => { whiteHidden = !whiteHidden; $('#gWhite').textContent = 'White parts: ' + (whiteHidden ? 'hidden' : 'shown'); scope($('#main'), 'white', whiteHidden); };
+  $('#gHide').onclick = () => scope($('#main'), 'lines', true);
+  $('#gShow').onclick = () => scope($('#main'), 'lines', false);
+  $('#theme').onclick = () => { document.body.classList.toggle('light'); try { localStorage.setItem('board.light', document.body.classList.contains('light') ? '1' : ''); } catch (e) {} };
+  $('#fs').onclick = () => { const d = document.documentElement; if (document.fullscreenElement) document.exitFullscreen(); else if (d.requestFullscreen) d.requestFullscreen().catch(() => {}); };
+
+  const load = async () => {
+    if (!Track.token()) return;
+    $('#loginMsg').textContent = 'Loading…'; $('#login').style.display = 'block';
+    try {
+      const j = await api('board');
+      if (!j.ok) { $('#loginMsg').textContent = j.error === 'token' ? 'This Google account is not allowed to open the board.' : 'Could not load the board.'; return; }
+      bookList = j.books.map(b => b[0]).sort((a, b) => ORDER.indexOf(a) - ORDER.indexOf(b));
+      if (!bookList.length) { $('#loginMsg').textContent = 'No exercise keys have been loaded into the Sheet yet.'; return; }
+      $('#login').style.display = 'none'; $('#app').style.display = 'block'; $('#who').textContent = 'Signed in as ' + (Track.email || '');
+      const bx = $('#books'); bx.innerHTML = '';
+      bookList.forEach(id => { const b = el('button', 'btn', BOOKS[id] || id); b.dataset.id = id; b.onclick = () => loadBook(id); bx.append(b); });
+      loadBook(cur && bookList.includes(cur) ? cur : bookList[0]);
+    } catch (e) { $('#loginMsg').textContent = 'Could not reach the Sheet. Check your connection.'; }
+  };
+
+  try { if (localStorage.getItem('board.light')) document.body.classList.add('light'); const f = Number(localStorage.getItem('board.fs')); if (f) setFs(f); } catch (e) {}
+  if (window.Track && Track.enabled) {
+    Track.onChange(() => { if (Track.token() && !bookList.length) load(); });
+    Track.init(() => { if (Track.token()) load(); else Track.button($('#slot')); });
+  } else $('#loginMsg').textContent = 'Sign-in is not set up.';
+})();
+</script>
+</body>
+</html>
