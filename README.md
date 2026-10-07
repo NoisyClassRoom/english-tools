@@ -17,6 +17,7 @@ This repo is served by GitHub Pages and embedded in a WordPress site on Arnes Sp
 | `exercises/class-<id>.js` | One file per coursebook: units with 24 words, 8 gap sentences, 10 test questions |
 | `exercises/hard-<id>.js` | The harder test ("Unit test 2") of each unit: 10 questions |
 | `exercises/more-<id>.js` | Extra questions that make each unit's exercise bank bigger than one session (8 gap sentences, 10 easy and 10 hard test questions per unit). The page shows questions a pupil has not seen yet first, so a repeat attempt brings new ones |
+| `exercises/more2-<id>.js` | A second set of the same kind (10 gap sentences, 10 easy and 10 hard questions per unit), written on 7 Oct 2026 from the teacher's own exercise notes for each coursebook (original sentences, not copied from the books). Global `MORE2_SETS`; merged into the unit banks by `exercises/index.html` exactly like `more-<id>.js` |
 | `exercises/sets.js` | Generic "Extra practice" topics shown to every class |
 
 Class ids (internal only): 6b = Project 1, 7a = Dream Team Starter, 7bc = Project 2,
