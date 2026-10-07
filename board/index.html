@@ -86,14 +86,14 @@
     <div class="card" style="padding:10px 14px">
       <div class="top" style="margin:0">
         <span class="muted">All exercises:</span>
-        <button class="btn sm" id="gWhite">White parts: hidden</button>
+        <button class="btn sm" id="gWhite">Marked parts: hidden</button>
         <button class="btn sm" id="gHide">Hide all lines</button>
         <button class="btn sm" id="gShow">Show all lines</button>
         <span class="sp"></span>
         <span class="muted">Text size:</span>
         <button class="btn sm" id="fsDown">A−</button><button class="btn sm" id="fsUp">A+</button>
       </div>
-      <p class="muted" style="margin:6px 0 0;font-size:13px">Click a line, a word that was white in Word, or a table cell to hide or show it. “▶ Board” opens one exercise full screen for the projector (keys: ← → next exercise, W white parts, H hide lines, S show lines, Esc close).</p>
+      <p class="muted" style="margin:6px 0 0;font-size:13px">Click a line, a table cell or a marked word to hide or show it. “Marked parts” are the words that are <b>bold, underlined or white</b> in your Word files (usually the answers). “▶ Board” opens one exercise full screen for the projector (keys: ← → next exercise, W marked parts, H hide lines, S show lines, Esc close).</p>
     </div>
     <div class="layout">
       <div class="card" id="nav"><input type="search" id="q" placeholder="Find a section or exercise (e.g. 43/3)…"><div id="navList"></div></div>
@@ -108,7 +108,7 @@
     <button class="btn sm" id="ovNext">Next →</button>
     <span id="ovTitle"></span>
     <span class="sp"></span>
-    <button class="btn sm" id="ovWhite">White parts</button>
+    <button class="btn sm" id="ovWhite">Marked parts</button>
     <button class="btn sm" id="ovHide">Hide lines</button>
     <button class="btn sm" id="ovShow">Show lines</button>
     <button class="btn sm" id="ovDown">A−</button><button class="btn sm" id="ovUp">A+</button>
@@ -133,9 +133,9 @@
     return r.json();
   };
 
-  // text with {{W:...}} -> nodes; the white parts become clickable spans
+  // text with {{W:..}} {{B:..}} {{U:..}} {{BU:..}} (white / bold / underlined / both in Word) -> nodes; those parts become clickable spans
   const textNodes = (txt, hideWhite) => {
-    const f = document.createDocumentFragment(), re = /\{\{W:([\s\S]*?)\}\}/g; let i = 0, m;
+    const f = document.createDocumentFragment(), re = /\{\{(?:W|B|U|BU):([\s\S]*?)\}\}/g; let i = 0, m;
     while ((m = re.exec(txt))) {
       if (m.index > i) f.append(document.createTextNode(txt.slice(i, m.index)));
       const s = el('span', 'wh' + (hideWhite ? ' hid' : ''), m[1] === '' ? ' ' : m[1]);
@@ -185,11 +185,11 @@
       }
       const card = el('div', 'ex'), hd = el('div', 'exh');
       hd.append(el('b', '', ex.ref || 'Text'));
-      const bBoard = el('button', 'btn sm', '▶ Board'), bW = el('button', 'btn sm', 'White parts'), bH = el('button', 'btn sm', 'Hide lines'), bS = el('button', 'btn sm', 'Show lines');
+      const bBoard = el('button', 'btn sm', '▶ Board'), bW = el('button', 'btn sm', 'Marked parts'), bH = el('button', 'btn sm', 'Hide lines'), bS = el('button', 'btn sm', 'Show lines');
       bBoard.onclick = () => openOv(idx);
       bW.onclick = () => { const any = [...card.querySelectorAll('.wh')].some(s => !s.classList.contains('hid')); scope(card, 'white', any); };
       bH.onclick = () => scope(card, 'lines', true); bS.onclick = () => scope(card, 'lines', false);
-      hd.append(bBoard); if (/\{\{W:/.test(JSON.stringify(ex.blocks))) hd.append(bW); hd.append(bH, bS);
+      hd.append(bBoard); if (/\{\{(?:W|B|U|BU):/.test(JSON.stringify(ex.blocks))) hd.append(bW); hd.append(bH, bS);
       card.append(hd); bodyEls(ex, whiteHidden).forEach(n => card.append(n)); card.dataset.i = idx; main.append(card);
     });
     secs.forEach((s, si) => {
@@ -239,7 +239,7 @@
   });
 
   // ---- global buttons
-  $('#gWhite').onclick = () => { whiteHidden = !whiteHidden; $('#gWhite').textContent = 'White parts: ' + (whiteHidden ? 'hidden' : 'shown'); scope($('#main'), 'white', whiteHidden); };
+  $('#gWhite').onclick = () => { whiteHidden = !whiteHidden; $('#gWhite').textContent = 'Marked parts: ' + (whiteHidden ? 'hidden' : 'shown'); scope($('#main'), 'white', whiteHidden); };
   $('#gHide').onclick = () => scope($('#main'), 'lines', true);
   $('#gShow').onclick = () => scope($('#main'), 'lines', false);
   $('#theme').onclick = () => { document.body.classList.toggle('light'); try { localStorage.setItem('board.light', document.body.classList.contains('light') ? '1' : ''); } catch (e) {} };
