@@ -222,7 +222,7 @@
   };
 
   // ---------------------------------------------------------------- tabs
-  const TABS = [['overview', 'Overview'], ['report', 'Class report'], ['heat', 'Heat-map'], ['weak', 'Weak spots'], ['questions', 'Questions'], ['progress', 'Progress'], ['compare', 'Compare classes'], ['pupils', 'Pupils'], ['units', 'Units'], ['quiet', 'Not practising']];
+  const TABS = [['overview', 'Overview'], ['report', 'Class report'], ['homework', 'Homework'], ['heat', 'Heat-map'], ['weak', 'Weak spots'], ['questions', 'Questions'], ['progress', 'Progress'], ['compare', 'Compare classes'], ['pupils', 'Pupils'], ['units', 'Units'], ['quiet', 'Not practising']];
   const render = () => {
     const tabs = $('#tabs'); tabs.innerHTML = '';
     TABS.forEach(([id, name]) => { const b = el('button', 'btn' + (id === tab ? ' on' : ''), name); b.onclick = () => { tab = id; render(); }; tabs.append(b); });
@@ -234,6 +234,7 @@
     const hidden = F.cls || F.who === 'all' ? 0 : rows.filter(r => (!F.year || r.year === F.year) && !whoOk(r.cls)).length;
     $('#whoNote').textContent = hidden ? hidden + (hidden === 1 ? ' result from ' : ' results from ') + (F.who === 'n' ? 'accounts with a class' : 'accounts without a class (teachers, or pupils missing from the Roster)') + ' are not shown. Change "Accounts" to see them.' : '';
     if (tab === 'compare') { compare(view, filtered(true)); return; }
+    if (tab === 'homework') { homework(view); return; }
     if (tab === 'overview') overview(view, data); else if (tab === 'report') report(view, data); else if (tab === 'heat') heat(view, data); else if (tab === 'weak') weak(view, data); else if (tab === 'questions') questions(view); else if (tab === 'progress') progress(view, data);
     else if (tab === 'pupils') pupils(view, data);
     else if (tab === 'units') units(view, data); else quiet(view);
@@ -631,6 +632,122 @@
       const tw = table('prog', tcols, rowsT, 'Week of'); tw.style.marginTop = '10px'; tw.style.maxHeight = '300px'; holder.append(tw);
     };
     sel.onchange = draw; draw();
+  };
+  // ---------------------------------------------------------------- homework (assign, then check who has done it)
+  let hwData = null, hwState = '', hwForm = false;
+  const unitCache = {};
+  const HW_ACTS = [['match', 'Match'], ['quiz', 'Quiz'], ['gap', 'Fill the gap'], ['test', 'Unit test'], ['test2', 'Unit test 2']];
+  const api = async (action, extra) => {
+    const token = Track.token(); if (!token) throw new Error('token');
+    const r = await fetch(Track.config.endpoint, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(Object.assign({ action, token }, extra || {})) });
+    return r.json();
+  };
+  const loadHw = async () => {
+    if (hwState === 'loading') return; hwState = 'loading';
+    try { const j = await api('hwlist'); if (j.ok) { hwData = j; hwState = 'ok'; } else hwState = 'error'; } catch (e) { hwState = 'error'; }
+    if (tab === 'homework') render();
+  };
+  // the units of a book come from the public exercise files (no pupil data in them)
+  const loadUnits = book => new Promise(res => {
+    if (unitCache[book]) return res(unitCache[book]);
+    const s = document.createElement('script'); s.src = book === 'extra' ? '../exercises/sets.js' : '../exercises/class-' + book + '.js';
+    s.onload = () => { const list = (book === 'extra' ? window.SETS : window.CLASS_SETS) || []; res(unitCache[book] = list.map(x => ({ id: x.id, title: x.title, unit: x.unit || '' }))); };
+    s.onerror = () => res([]); document.head.append(s);
+  });
+  const hwForm_ = () => {
+    const card = el('div', 'card'); card.append(el('h2', '', 'New homework'));
+    const year = roster.reduce((m, r) => r.year > m ? r.year : m, '');
+    const classes = [...new Set(roster.filter(r => r.year === year).map(r => r.cls))].sort((a, b) => a.localeCompare(b, 'sl', { numeric: true }));
+    const field = (label, node) => { const l = el('label'); l.style.cssText = 'display:block;margin:0 0 10px'; l.append(el('span', 'muted', label + ' '), node); return l; };
+    const sel = (items) => { const s = el('select'); items.forEach(([v, t]) => { const o = el('option', '', t); o.value = v; s.append(o); }); return s; };
+    const sCls = sel(classes.map(c => [c, c])), sBook = sel(Object.keys(BOOKS).map(b => [b, BOOKS[b] + ' (' + b + ')'])), sUnit = sel([['', 'Loading…']]);
+    const actBox = el('div'); actBox.style.cssText = 'display:flex;gap:12px;flex-wrap:wrap;margin:0 0 10px';
+    HW_ACTS.forEach(([id, name]) => { const l = el('label'); const c = el('input'); c.type = 'checkbox'; c.value = id; l.append(c, document.createTextNode(' ' + name)); actBox.append(l); });
+    const min = el('input'); min.type = 'number'; min.min = 0; min.max = 100; min.placeholder = 'none'; min.style.width = '70px';
+    const due = el('input'); due.type = 'date'; due.className = 'btn'; { const d = new Date(); d.setDate(d.getDate() + 7); due.value = dayKey(d.getTime()); }
+    const note = el('input'); note.type = 'text'; note.placeholder = 'optional, shown to the pupils'; note.maxLength = 300; note.style.width = 'min(420px, 100%)';
+    const whole = el('input'); whole.type = 'checkbox'; whole.checked = true;
+    const pBox = el('div'); pBox.style.cssText = 'display:none;columns:2 220px;margin:0 0 10px';
+    const fillPupils = () => {
+      pBox.innerHTML = '';
+      roster.filter(r => r.year === year && r.cls === sCls.value).sort((a, b) => a.name.localeCompare(b.name, 'sl')).forEach(r => {
+        const l = el('label'); l.style.display = 'block'; const c = el('input'); c.type = 'checkbox'; c.value = r.name; c.checked = true; l.append(c, document.createTextNode(' ' + r.name)); pBox.append(l);
+      });
+    };
+    const fillUnits = async () => {
+      sUnit.innerHTML = ''; const o = el('option', '', 'Loading…'); o.value = ''; sUnit.append(o);
+      const list = await loadUnits(sBook.value); sUnit.innerHTML = '';
+      list.forEach((u, i) => { const o2 = el('option', '', [u.unit, u.title].filter(Boolean).join(' · ')); o2.value = String(i); sUnit.append(o2); });
+      if (!list.length) { const o3 = el('option', '', 'No units found'); o3.value = ''; sUnit.append(o3); }
+    };
+    sCls.onchange = fillPupils; sBook.onchange = fillUnits;
+    whole.onchange = () => { pBox.style.display = whole.checked ? 'none' : 'block'; };
+    const wrapW = el('label'); wrapW.append(whole, document.createTextNode(' Whole class (untick to choose pupils)'));
+    wrapW.style.cssText = 'display:block;margin:0 0 6px';
+    const msg = el('p', 'msg');
+    const save = el('button', 'btn on', 'Assign homework'), cancel = el('button', 'btn', 'Cancel');
+    cancel.style.marginLeft = '8px'; cancel.onclick = () => { hwForm = false; render(); };
+    save.onclick = async () => {
+      const acts = [...actBox.querySelectorAll('input:checked')].map(c => c.value);
+      const units = unitCache[sBook.value] || [], u = units[Number(sUnit.value)];
+      const chosen = [...pBox.querySelectorAll('input:checked')].map(c => c.value);
+      if (!sCls.value || !u || !acts.length || !due.value) { msg.className = 'msg err'; msg.textContent = 'Choose a class, a unit, at least one activity and a due date.'; return; }
+      if (!whole.checked && !chosen.length) { msg.className = 'msg err'; msg.textContent = 'Tick at least one pupil, or choose the whole class.'; return; }
+      save.disabled = true; msg.className = 'msg'; msg.textContent = 'Saving…';
+      try {
+        const j = await api('hwsave', { hw: { cls: sCls.value, book: sBook.value, set: u.id, topic: u.title, unit: u.unit, acts, min: min.value === '' ? 0 : Number(min.value), due: due.value,
+          note: note.value, pupils: whole.checked ? [] : chosen } });
+        if (!j.ok) throw new Error('save');
+        hwForm = false; hwState = ''; hwData = null; render();
+      } catch (e) { save.disabled = false; msg.className = 'msg err'; msg.textContent = 'Could not save the homework. Try again.'; }
+    };
+    card.append(field('Class', sCls), field('Book', sBook), field('Unit', sUnit), el('div', 'muted', 'Activities'), actBox,
+      field('Minimum score in each activity (%)', min), field('Due date', due), field('Note', note), wrapW, pBox, msg, save, cancel);
+    fillPupils(); fillUnits();
+    return card;
+  };
+  const homework = view => {
+    const top = el('div', 'card');
+    top.append(el('p', 'note', 'Assign an exercise to a class (or to chosen pupils) and see who has done it. A pupil sees the homework on the exercise page after signing in. An activity counts as done when the pupil saved a result for it after you assigned it (best attempt, at least the minimum score if you set one). The filters above do not apply here.'));
+    const nb = el('button', 'btn' + (hwForm ? ' on' : ''), hwForm ? 'Close the form' : 'New homework'); nb.onclick = () => { hwForm = !hwForm; render(); };
+    const rb = el('button', 'btn', 'Reload'); rb.style.marginLeft = '8px'; rb.onclick = () => { hwState = ''; hwData = null; render(); };
+    top.append(nb, rb); view.append(top);
+    if (hwForm) view.append(hwForm_());
+    if (hwState !== 'ok') {
+      if (hwState === '') loadHw();
+      const c = el('div', 'card'); c.append(el('p', hwState === 'error' ? 'msg err' : 'msg', hwState === 'error' ? 'Could not load the homework. (If you just redeployed the web app, check that it is the newest version.)' : 'Loading the homework…'));
+      if (hwState === 'error') { const b = el('button', 'btn', 'Try again'); b.onclick = () => { hwState = ''; render(); }; c.append(b); }
+      view.append(c); return;
+    }
+    if (!hwData.items.length) { view.append(el('div', 'card', 'No homework assigned yet this school year (' + hwData.year + ').')); return; }
+    const now = Date.now();
+    hwData.items.forEach(it => {
+      const card = el('div', 'card');
+      const names = it.acts.map(id => (HW_ACTS.find(a => a[0] === id) || [0, id])[1]);
+      const pup = it.pupils.map(p => ({ name: p[0], per: p[1], doneAt: p[2], late: !!p[3], ok: p[4], any: p[1].some(v => v != null) }));
+      pup.forEach(p => { p.status = p.doneAt ? (p.late ? 'Done late' : 'Done') : now > it.dueEnd && it.dueEnd ? 'Missing' : p.any ? 'In progress' : 'Not done'; });
+      const nDone = pup.filter(p => p.doneAt).length, nLate = pup.filter(p => p.late).length;
+      card.append(el('h2', '', (BOOKS[it.book] || it.book) + ' · ' + [it.unit, it.topic].filter(Boolean).join(' · ')));
+      card.append(el('p', 'note', 'Class ' + it.cls + (it.all ? ' (whole class)' : ' (' + pup.length + ' chosen pupils)') + ' · ' + names.join(', ') + (it.min ? ' · at least ' + it.min + ' %' : '') +
+        ' · due ' + fmtDate(it.dueEnd || 0) + ' · assigned ' + fmtDate(it.created) + (it.note ? ' · “' + it.note + '”' : '')));
+      const tiles = el('div', 'tiles'); tiles.append(tile(nDone + ' / ' + pup.length, 'done' + (nLate ? ' (' + nLate + ' late)' : '')), tile(pup.length - nDone, 'not finished'));
+      card.append(tiles);
+      if (pup.length) {
+        const cols = [{ h: 'Pupil', k: x => x.name, v: x => x.name }];
+        names.forEach((n, i) => cols.push({ h: n, k: x => x.per[i] == null ? -1 : x.per[i], num: true, v: x => x.per[i] == null ? '—' : (x.ok[i] ? '✓ ' : '') + pct(x.per[i]) }));
+        const rank = { Missing: 0, 'Not done': 1, 'In progress': 2, 'Done late': 3, Done: 4 };
+        cols.push({ h: 'Status', k: x => rank[x.status], v: x => el('span', 'pct' + (x.status === 'Done' ? ' hi' : x.status === 'Missing' || x.status === 'Not done' ? ' lo' : ''), x.status) });
+        card.append(table('hw' + it.id, cols, pup, 'Status'));
+      }
+      const row = el('div', 'tools'); row.style.marginTop = '10px';
+      const todo = pup.filter(p => !p.doneAt).map(p => p.name);
+      if (todo.length) { const cp = el('button', 'btn no-print', 'Copy names of pupils who have not finished (' + todo.length + ')'); cp.onclick = () => { navigator.clipboard.writeText(todo.join('\n')).then(() => { cp.textContent = 'Copied ✓'; }, () => { cp.textContent = todo.join(', '); }); }; row.append(cp); }
+      const del = el('button', 'btn no-print', 'Delete this homework'); del.onclick = async () => {
+        if (!confirm('Delete this homework? Pupils will no longer see it (results are not affected).')) return;
+        try { const j = await api('hwdelete', { id: it.id }); if (!j.ok) throw 0; hwState = ''; hwData = null; render(); } catch (e) { del.textContent = 'Could not delete'; }
+      };
+      row.append(del); card.append(row); view.append(card);
+    });
   };
   // ---------------------------------------------------------------- compare classes (weekly lines, one per class)
   const COLORS = ['#e8710a', '#2b8a3e', '#1c7ed6', '#ae3ec9', '#c92a2a', '#0c8599', '#e6a700', '#5c940d', '#d6336c', '#7048e8'];
