@@ -91,6 +91,10 @@ function doPost(e) {
     if (d.action === 'roster') return rosterReply_(d);       // teacher-only, used by the Classroom Tools page
     if (d.action === 'stats') return statsReply_(d);         // teacher-only, used by the Results page
     if (d.action === 'qstats') return qstatsReply_(d);       // teacher-only: question-level statistics
+    if (d.action === 'homework') return homeworkReply_(d);   // a pupil: own open homework
+    if (d.action === 'hwlist') return hwListReply_(d);       // teacher-only: assignments with every pupil's progress
+    if (d.action === 'hwsave') return hwSaveReply_(d);       // teacher-only: new assignment
+    if (d.action === 'hwdelete') return hwDeleteReply_(d);   // teacher-only: remove an assignment
     var who = verify_(d.token);
     if (!who) return out_({ ok: false, error: 'token' });
 
@@ -215,6 +219,171 @@ function isTeacher_(email) {
   var allowed = String(PropertiesService.getScriptProperties().getProperty('TEACHER_EMAILS') || '')
     .toLowerCase().split(/[\s,;]+/).filter(String);
   return allowed.indexOf(String(email).toLowerCase()) >= 0;
+}
+
+// ---------------------------------------------------------------- homework
+// Tab "Homework": one row per assignment. Class = Roster class (teaching group); Pupils blank = the whole class,
+// otherwise the chosen Roster names separated by ";". An activity counts as done when the pupil saved a result for
+// that book + topic + activity after the assignment was created (best attempt; at least Min % when set).
+var HWSHEET = 'Homework';
+var HWHEADER = ['Id', 'Created', 'Class', 'Book', 'Set', 'Topic', 'Unit', 'Activities', 'Min %', 'Due', 'Note', 'Pupils', 'School year', 'Deleted'];
+var HW_ACTS = { match: 'Match', quiz: 'Quiz', gap: 'Fill the gap', test: 'Unit test', test2: 'Unit test 2' };
+
+function hwSheet_() {
+  var ss = SpreadsheetApp.getActive(), sh = ss.getSheetByName(HWSHEET);
+  if (!sh) {
+    sh = ss.insertSheet(HWSHEET);
+    sh.appendRow(HWHEADER); sh.setFrozenRows(1); sh.getRange(1, 1, 1, HWHEADER.length).setFontWeight('bold');
+    sh.getRange('B:B').setNumberFormat('dd.mm.yyyy hh:mm');
+    sh.getRange('A:A').setNumberFormat('@'); sh.getRange('C:G').setNumberFormat('@'); sh.getRange('H:H').setNumberFormat('@');
+    sh.getRange('J:M').setNumberFormat('@');
+    var first = ss.getSheets().filter(function (s) { return s.getName() !== HWSHEET; })[0];
+    if (first) ss.setActiveSheet(first);
+    sh.hideSheet();
+  }
+  return sh;
+}
+
+function hwDay_(v) { return v instanceof Date ? Utilities.formatDate(v, TZ, 'yyyy-MM-dd') : String(v || '').trim(); }
+
+// all assignments that are not deleted: created = ms, due = 'yyyy-MM-dd', dueEnd = ms (end of that day)
+function hwAll_() {
+  var sh = hwSheet_();
+  if (sh.getLastRow() < 2) return [];
+  var out = [];
+  sh.getRange(2, 1, sh.getLastRow() - 1, HWHEADER.length).getValues().forEach(function (r) {
+    if (!r[0] || Number(r[13]) === 1 || !(r[1] instanceof Date)) return;
+    var due = hwDay_(r[9]), acts = String(r[7]).split(',').filter(function (a) { return HW_ACTS[a]; });
+    if (!acts.length) return;
+    var names = String(r[11]).split(';').map(function (s) { return s.trim(); }).filter(String);
+    out.push({ id: String(r[0]), created: r[1].getTime(), cls: String(r[2]), book: String(r[3]), set: String(r[4]), topic: String(r[5]),
+      unit: String(r[6]), acts: acts, min: Number(r[8]) || 0, due: due,
+      dueEnd: /^\d{4}-\d{2}-\d{2}$/.test(due) ? new Date(due + 'T23:59:59' + Utilities.formatDate(new Date(due + 'T12:00:00Z'), TZ, 'XXX')).getTime() : 0,
+      note: String(r[10]), names: names, keys: names.map(nameKey_), year: String(r[12]) });
+  });
+  return out;
+}
+
+// finished results (Results tab only: homework is about the current school year): [time ms, email, first, last, book, topic, activity, score, total]
+function hwResults_() {
+  var sh = SpreadsheetApp.getActive().getSheetByName(SHEET);
+  if (!sh || sh.getLastRow() < 2) return [];
+  var out = [];
+  sh.getRange(2, 1, sh.getLastRow() - 1, 9).getValues().forEach(function (r) {
+    if (r[0] instanceof Date && r[8] > 0) out.push({ t: r[0].getTime(), email: String(r[1]).toLowerCase(), nk: null, first: r[2], last: r[3],
+      book: String(r[4]), topic: String(r[5]), act: String(r[6]), p: r[7] / r[8] });
+  });
+  return out;
+}
+
+// progress of ONE person on one assignment: per activity best percent (null = not tried) and when it was first done properly
+function hwProgress_(a, results, email, keys) {
+  var names = a.acts.map(function (id) { return HW_ACTS[id]; });
+  var per = names.map(function () { return { pct: null, at: null }; });
+  email = String(email || '').toLowerCase();
+  results.forEach(function (r) {
+    if (r.book !== a.book || r.topic !== a.topic || r.t < a.created) return;
+    var i = names.indexOf(r.act); if (i < 0) return;
+    var mine = email && r.email === email;
+    if (!mine) { if (r.nk === null) r.nk = nameKey_(r.first + ' ' + r.last); mine = keys.indexOf(r.nk) >= 0; }
+    if (!mine) return;
+    var o = per[i];
+    if (o.pct === null || r.p > o.pct) o.pct = r.p;
+    if (r.p * 100 >= a.min - 1e-9 && (o.at === null || r.t < o.at)) o.at = r.t;
+  });
+  var done = per.every(function (o) { return o.at !== null; });
+  var doneAt = done ? Math.max.apply(null, per.map(function (o) { return o.at; })) : null;
+  return { per: per, done: done, doneAt: doneAt, late: done && a.dueEnd > 0 && doneAt > a.dueEnd };
+}
+
+// A pupil asks for their own homework (any signed-in school account; returns nothing for accounts without a class).
+function homeworkReply_(d) {
+  var who = verify_(d.token);
+  if (!who) return out_({ ok: false, error: 'token' });
+  var year = schoolYear_(new Date()), roster = rosterRows_(), cls = classFor_(roster, who.email, who.first, who.last, year);
+  if (!cls) return out_({ ok: true, items: [] });
+  var gk = nameKey_(who.first + ' ' + who.last), keys = [gk], email = String(who.email).toLowerCase();
+  roster.forEach(function (r) {                       // the Roster name of this pupil (it may differ from the Google name)
+    if ((r.year === year || !r.year) && ((r.email && r.email === email) || (r.name && r.name === gk)) && r.name) keys.push(r.name);
+  });
+  var list = hwAll_().filter(function (a) {
+    return a.cls === cls && a.year === year && (!a.keys.length || a.keys.some(function (k) { return keys.indexOf(k) >= 0; }));
+  });
+  if (!list.length) return out_({ ok: true, items: [] });
+  var results = hwResults_(), now = Date.now(), items = [];
+  list.forEach(function (a) {
+    var p = hwProgress_(a, results, who.email, keys);
+    if (p.done && now - p.doneAt > 14 * 86400000) return;            // finished long ago: stop showing it
+    items.push({ id: a.id, book: a.book, set: a.set, topic: a.topic, unit: a.unit, due: a.due, min: a.min, note: a.note, created: a.created,
+      done: p.done, late: p.late,
+      acts: a.acts.map(function (id, i) { return { id: id, name: HW_ACTS[id], pct: p.per[i].pct, ok: p.per[i].at !== null }; }) });
+  });
+  items.sort(function (x, y) { return (x.done - y.done) || (x.due < y.due ? -1 : x.due > y.due ? 1 : 0); });
+  return out_({ ok: true, items: items });
+}
+
+// Teacher: every assignment of the school year with all pupils of the class (or the chosen ones).
+// assignment: {id, created, cls, book, set, topic, unit, acts:[ids], min, due, note, all: true if the whole class, pupils:[[name, [pct|null ...], doneAt|null, late]]}
+function hwListReply_(d) {
+  var who = verify_(d.token);
+  if (!who || !isTeacher_(who.email)) return out_({ ok: false, error: 'token' });
+  var year = schoolYear_(new Date()), rs = SpreadsheetApp.getActive().getSheetByName(ROSTER), people = [];
+  if (rs && rs.getLastRow() > 1) {
+    rs.getRange(2, 1, rs.getLastRow() - 1, 4).getValues().forEach(function (r) {
+      var y = String(r[1]).trim(), cls = String(r[2]).trim(), name = String(r[3]).trim(), email = String(r[0]).trim().toLowerCase();
+      if ((y === year || !y) && cls && (name || email)) people.push({ cls: cls, name: name || email, email: email, key: nameKey_(name) });
+    });
+  }
+  var results = hwResults_(), items = [];
+  hwAll_().filter(function (a) { return a.year === year; }).sort(function (x, y) { return y.created - x.created; }).forEach(function (a) {
+    var pupils = people.filter(function (p) { return p.cls === a.cls && (!a.keys.length || a.keys.indexOf(p.key) >= 0); }).map(function (p) {
+      var pr = hwProgress_(a, results, p.email, p.key ? [p.key] : []);
+      return [p.name, pr.per.map(function (o) { return o.pct; }), pr.doneAt, pr.late ? 1 : 0, pr.per.map(function (o) { return o.at !== null ? 1 : 0; })];
+    });
+    items.push({ id: a.id, created: a.created, cls: a.cls, book: a.book, set: a.set, topic: a.topic, unit: a.unit, acts: a.acts, min: a.min,
+      due: a.due, dueEnd: a.dueEnd, note: a.note, all: !a.keys.length, pupils: pupils });
+  });
+  return out_({ ok: true, year: year, items: items });
+}
+
+function hwSaveReply_(d) {
+  var who = verify_(d.token);
+  if (!who || !isTeacher_(who.email)) return out_({ ok: false, error: 'token' });
+  var a = d.hw || {};
+  var acts = (a.acts instanceof Array ? a.acts : []).filter(function (x) { return HW_ACTS[x]; });
+  var due = String(a.due || ''), min = Math.round(Number(a.min) || 0);
+  if (!clip_(a.cls, 40) || !clip_(a.book, 20) || !clip_(a.set, 60) || !clip_(a.topic, 80) || !acts.length || !/^\d{4}-\d{2}-\d{2}$/.test(due) || min < 0 || min > 100) {
+    return out_({ ok: false, error: 'data' });
+  }
+  var names = (a.pupils instanceof Array ? a.pupils : []).slice(0, 60).map(function (n) { return clip_(n, 60).replace(/;/g, ' '); }).filter(String);
+  var lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    var sh = hwSheet_(), now = new Date(), id = 'hw' + Utilities.formatDate(now, TZ, 'yyMMddHHmmss') + Math.floor(Math.random() * 90 + 10);
+    var row = [id, now, clip_(a.cls, 40), clip_(a.book, 20), clip_(a.set, 60), clip_(a.topic, 80), clip_(a.unit, 30), acts.join(','), min, due,
+               clip_(a.note, 300), names.join('; '), schoolYear_(now), 0];
+    sh.appendRow(row);
+    sh.getRange(sh.getLastRow(), 1, 1, HWHEADER.length).setNumberFormat('@');
+    sh.getRange(sh.getLastRow(), 2).setNumberFormat('dd.mm.yyyy hh:mm'); sh.getRange(sh.getLastRow(), 9).setNumberFormat('0'); sh.getRange(sh.getLastRow(), 14).setNumberFormat('0');
+    sh.getRange(sh.getLastRow(), 1, 1, HWHEADER.length).setValues([row]);
+  } finally { lock.releaseLock(); }
+  return out_({ ok: true });
+}
+
+function hwDeleteReply_(d) {
+  var who = verify_(d.token);
+  if (!who || !isTeacher_(who.email)) return out_({ ok: false, error: 'token' });
+  var id = String(d.id || ''), found = false;
+  var lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    var sh = hwSheet_();
+    if (sh.getLastRow() > 1) {
+      var ids = sh.getRange(2, 1, sh.getLastRow() - 1, 1).getValues();
+      for (var i = 0; i < ids.length; i++) if (String(ids[i][0]) === id) { sh.getRange(i + 2, 14).setValue(1); found = true; break; }
+    }
+  } finally { lock.releaseLock(); }
+  return out_({ ok: found });
 }
 
 // All results (Results + Archive) and the Roster with activity counts, for the private Results page. Teacher only.
