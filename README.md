@@ -52,6 +52,7 @@ Tabs:
 - **Overview** – totals, activity per day, difficulty.
 - **Class report** – one printable A4 page per class: key numbers, weekly chart, pupils, unit heat-map, weakest units, most-missed questions, and a free comment line (kept in this browser only).
 - **Heat-map** – pupils × units. **Weak spots** – weakest units and questions per class. **Questions** – most-missed questions with common wrong answers.
+- **Homework** – assign a unit and activities to a class (or to chosen pupils) with a due date, an optional minimum score and a note; see per pupil who has done it (best attempt after the assignment; done / done late / missing), copy the names of those who have not finished, delete an assignment. Assignments live in the hidden Sheet tab "Homework". Pupils see their open homework on the exercise page after signing in, with buttons that open the exercise directly (`?class=<book>&set=<unit id>&mode=<activity>`).
 - **Progress** – results per week for the whole selection or one pupil. **Compare classes** – all classes side by side (average result or activities per pupil, per week).
 - **Pupils**, **Units**, **Not practising** – tables; "Download table" / "Download all filtered results" export CSV, "Print" prints the current tab.
 
