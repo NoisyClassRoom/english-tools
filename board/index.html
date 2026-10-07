@@ -44,12 +44,13 @@
   .ex { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 14px 12px; margin-bottom: 10px; }
   .exh { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 6px; }
   .exh b { color: var(--accent); font-size: 15px; margin-right: auto; }
-  .ln { font-size: var(--fs); line-height: 1.5; padding: 1px 6px; border-radius: 6px; cursor: pointer; }
+  .ln { display: flex; gap: .45em; font-size: var(--fs); line-height: 1.5; padding: 1px 6px; border-radius: 6px; cursor: pointer; }
   .ln:hover { background: var(--accent-soft); }
-  .ln.li::before { content: "•"; color: var(--accent); margin-right: 8px; }
-  .ln.off, .wh.hid { color: transparent !important; text-shadow: none !important; }
-  .ln.off { background: transparent !important; }
-  .ln.off * { color: transparent !important; }
+  .lb { flex: none; min-width: 1.5em; color: var(--accent); }
+  .tx { min-width: 0; }
+  .wh.hid { color: transparent !important; text-shadow: none !important; }
+  .ln.off .tx, .ln.off .tx * { color: transparent !important; text-shadow: none !important; }
+  .ln.off:hover { background: var(--accent-soft); }
   .wh { cursor: pointer; border-radius: 4px; }
   .wh.hid { background: var(--accent-soft); }
   table.bt { border-collapse: collapse; margin: 4px 0; }
@@ -147,7 +148,9 @@
   };
   const lineEl = (b, hideWhite) => {
     const d = el('div', 'ln ' + (b.t === 'li' ? 'li' : 'p'));
-    d.append(textNodes(b.x, hideWhite)); d.onclick = () => d.classList.toggle('off'); return d;
+    if (b.t === 'li') { d.style.marginLeft = ((Number(b.l) || 0) * 1.7) + 'em'; if (b.n) d.append(el('span', 'lb', b.n)); }   // nesting level and number / bullet as in Word
+    const tx = el('span', 'tx'); tx.append(textNodes(b.x, hideWhite)); d.append(tx);
+    d.onclick = () => d.classList.toggle('off'); return d;
   };
   const tableEl = (b, hideWhite) => {
     const t = el('table', 'bt'), tb = el('tbody');
@@ -170,6 +173,12 @@
         else { if (!cur) { cur = { si, h: s.h, ref: '', blocks: [] }; out.push(cur); } cur.blocks.push(b); }
       });
     });
+    // a short title line right before the next "Book p.x/y" label belongs to that next exercise
+    const isTitle = b => b.t === 'p' && b.x.length < 48 && !/[.?!:;,]\s*$/.test(b.x);
+    for (let i = 0; i < out.length - 1; i++) {
+      const nx = out[i + 1];
+      while (nx.ref && out[i].si === nx.si && out[i].blocks.length > 1 && isTitle(out[i].blocks[out[i].blocks.length - 1])) nx.blocks.unshift(out[i].blocks.pop());
+    }
     return out;
   };
 
