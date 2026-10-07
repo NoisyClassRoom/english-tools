@@ -29,7 +29,7 @@ Draft for the school's data-protection officer (DPO). It describes what the tool
 
 **Access.** Only the teacher (spreadsheet owner). Teacher pages on the website are private (visible only to the teacher's account).
 
-**Retention.** Results are kept while they are useful for teaching. The teacher can delete all results older than a chosen number of years with one menu command, and can delete a pupil's rows on request. Retention rule (approved by the school): results are kept until two years after the pupil leaves the school (after grade 9, or earlier if the pupil changes school), then deleted. A second menu command, "Delete results of pupils who left", does this: the teacher enters the number of years (default 2), the command lists the pupils and the number of results concerned, and nothing is deleted until the teacher confirms. A pupil counts as having left when the last school year in the class list has ended; accounts that are not in the class list are never deleted by this command.
+**Retention.** Results are kept while they are useful for teaching. The teacher can delete all results older than a chosen number of years with one menu command, and can delete a pupil's rows on request. Retention rule (approved by the school): results are kept until two years after the pupil leaves the school (after grade 9, or earlier if the pupil changes school), then deleted. A second menu command, "Delete results of pupils who left", does this: the teacher enters the number of years (default 2), the command lists the pupils and the number of results concerned, and nothing is deleted until the teacher confirms. A pupil counts as having left when the last school year in the class list has ended; accounts that are not in the class list are never deleted by this command. The same command also removes the names of those pupils from the hidden Homework tab (an assignment given only to pupils who left is deleted), and deleting a homework in the Results page removes its row completely.
 
 **Legal basis, information to parents, retention period, and whether consent is needed:** to be decided by the school / DPO.
 
@@ -64,7 +64,7 @@ Draft for the school's data-protection officer (DPO). It describes what the tool
 
 **Dostop.** Samo učitelj (lastnik preglednice). Učiteljske strani na spletišču so zasebne (vidne le učiteljevemu računu).
 
-**Hramba.** Rezultati se hranijo, dokler so uporabni pri pouku. Učitelj lahko z enim ukazom v meniju izbriše vse rezultate, starejše od izbranega števila let, in na zahtevo izbriše vrstice posameznega učenca. Pravilo hrambe (odobrila šola): rezultati se hranijo do dveh let po odhodu učenca iz šole (po 9. razredu ali prej ob prešolanju), nato se izbrišejo.
+**Hramba.** Rezultati se hranijo, dokler so uporabni pri pouku. Učitelj lahko z enim ukazom v meniju izbriše vse rezultate, starejše od izbranega števila let, in na zahtevo izbriše vrstice posameznega učenca. Pravilo hrambe (odobrila šola): rezultati se hranijo do dveh let po odhodu učenca iz šole (po 9. razredu ali prej ob prešolanju), nato se izbrišejo. Ukaz »Delete results of pupils who left« iz skritega zavihka Homework odstrani tudi imena teh učencev (domača naloga, dodeljena samo učencem, ki so odšli, se izbriše); brisanje domače naloge v strani Results odstrani vrstico v celoti.
 
 **Pravna podlaga, obveščanje staršev, rok hrambe in morebitno soglasje:** določi šola / pooblaščena oseba.
 
