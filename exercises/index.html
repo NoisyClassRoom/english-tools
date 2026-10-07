@@ -91,6 +91,19 @@
     background: var(--accent-soft); border: 1px solid #c5d6f4; border-radius: var(--radius); }
   .who.on { background: var(--good-soft); border-color: #b4e2c6; }
   .who button { font-size: 15px; padding: 6px 12px; }
+  /* homework box */
+  .hw { max-width: 640px; margin: 0 auto 18px; text-align: left; }
+  .hw h2 { margin: 0 0 8px; color: var(--ink); font-size: 20px; text-align: left; }
+  .hw .item { background: var(--card); border: 2px solid var(--accent); border-radius: var(--radius); padding: 12px 16px; margin-bottom: 10px; }
+  .hw .item.done { border-color: var(--good); background: var(--good-soft); }
+  .hw .ttl { font-weight: 700; font-size: 19px; }
+  .hw .meta { color: var(--muted); font-size: 15px; margin: 2px 0 8px; }
+  .hw .meta .late { color: var(--bad); font-weight: 700; }
+  .hw .note { font-size: 16px; margin: 0 0 8px; }
+  .hw .acts { display: flex; gap: 8px; flex-wrap: wrap; }
+  .hw .acts button.btn { padding: 8px 14px; font-size: 16px; }
+  .hw .acts button.ok { border-color: var(--good); background: var(--good-soft); }
+  .hw .acts button.part { border-color: var(--bad); }
   .savemsg { font-size: 16px; margin: 0 0 14px; color: var(--muted); }
   .savemsg.ok { color: var(--good); }
   .savemsg.warn { color: var(--bad); }
@@ -99,6 +112,7 @@
 <body>
 <main>
   <div id="who" class="who hidden"></div>
+  <div id="hw" class="hw hidden"></div>
   <div id="home">
     <h1 id="homeTitle">English Exercises</h1>
     <p class="hint" id="homeHint"></p>
@@ -152,7 +166,7 @@
   };
   const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
   const norm = s => s.trim().toLowerCase().replace(/\s+/g, ' ');
-  const show = id => ['home', 'menu', 'play'].forEach(x => $('#' + x).classList.toggle('hidden', x !== id));
+  const show = id => { ['home', 'menu', 'play'].forEach(x => $('#' + x).classList.toggle('hidden', x !== id)); $('#hw').classList.toggle('hidden', id === 'play' || !$('#hw').childNodes.length); };
   const setBar = f => $('#bar').style.width = Math.round(f * 100) + '%';
 
   let set = null, mode = null;
@@ -169,8 +183,47 @@
       Track.button(box);
     }
   };
-  Track.onChange(whoBar);
-  Track.init(whoBar);
+  // ----- homework: the teacher's assignments for this pupil's class (asked from the server once signed in) -----
+  const MODE_IDS = { match: 'Match', quiz: 'Quiz', gap: 'Fill the gap', test: 'Unit test', test2: 'Unit test 2' };
+  let hwBusy = false;
+  const loadHw = async () => {
+    const box = $('#hw'); const token = Track.enabled && Track.token();
+    if (!token) { box.innerHTML = ''; box.classList.add('hidden'); return; }
+    if (hwBusy) return; hwBusy = true;
+    try {
+      const r = await fetch(Track.config.endpoint, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'homework', token }) });
+      const j = await r.json();
+      if (j.ok) renderHw(j.items || []);
+    } catch (e) { /* homework is optional: stay quiet if it cannot be loaded */ } finally { hwBusy = false; }
+  };
+  const fmtDue = s => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s || ''); return m ? Number(m[3]) + '. ' + Number(m[2]) + '. ' + m[1] : ''; };
+  const renderHw = items => {
+    const box = $('#hw'); box.innerHTML = '';
+    if (!items.length) { box.classList.add('hidden'); return; }
+    const today = new Date(); const tk = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
+    box.append(el('h2', '', '📚 Your homework'));
+    items.forEach(it => {
+      const c = el('div', 'item' + (it.done ? ' done' : ''));
+      c.append(el('div', 'ttl', (it.done ? '✓ ' : '') + [it.unit, it.topic].filter(Boolean).join(' · ')));
+      const meta = el('div', 'meta');
+      meta.append(document.createTextNode('Due ' + fmtDue(it.due) + (it.min ? ' · at least ' + it.min + ' % in each activity' : '')));
+      if (!it.done && it.due && it.due < tk) meta.append(el('span', 'late', ' · overdue'));
+      c.append(meta);
+      if (it.note) c.append(el('p', 'note', it.note));
+      const row = el('div', 'acts');
+      it.acts.forEach(a => {
+        const b = el('button', 'btn' + (a.ok ? ' ok' : a.pct != null ? ' part' : ''),
+          (a.ok ? '✓ ' : '') + a.name + (a.pct != null ? ' · best ' + Math.round(a.pct * 100) + ' %' : ''));
+        b.onclick = () => { location.search = '?class=' + encodeURIComponent(it.book) + '&set=' + encodeURIComponent(it.set) + '&mode=' + encodeURIComponent(a.id); };
+        row.append(b);
+      });
+      c.append(row); box.append(c);
+    });
+    box.classList.toggle('hidden', !$('#play').classList.contains('hidden'));
+  };
+  Track.onChange(() => { whoBar(); loadHw(); });
+  Track.init(() => { whoBar(); loadHw(); });
   // what the pupil answered in the current activity: [question, right answer, chosen answer, 1 right / 0 wrong]
   let detail = [];
   // lim: how many characters of the chosen / typed answer are kept (multiple choice 90, typed words 40)
@@ -184,6 +237,7 @@
     const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);   // the same result is never stored twice, even if it is sent again
     Track.save({ id, cls, unit: set.unit || '', topic: set.title, activity: mode.name, score, total, qs }, st => {
       msg.className = 'savemsg ' + (st === 'saved' ? 'ok' : st === 'off' ? '' : 'warn');
+      if (st === 'saved') loadHw();                                  // homework ticks update
       msg.textContent = st === 'saved' ? '✓ Result saved'
         : st === 'signin' ? 'Sign in with Google (top of the page) to save this result.'
         : st === 'retry' ? 'Saving is taking longer than usual - trying again...'
@@ -235,7 +289,7 @@
 
   const cls = new URLSearchParams(location.search).get('class');
   const info = CLASSES.find(c => c.id === cls && c.ready);
-  if (cls === 'extra') renderSets([], null);
+  if (cls === 'extra') { renderSets([], null); setTimeout(() => autoOpen(), 0); }
   else if (info) {
     const s = document.createElement('script');
     s.src = 'class-' + info.id + '.js';
@@ -253,6 +307,7 @@
         if (more.hard) set.tests2 = (set.tests2 || []).concat(more.hard.map(toTest));
       });
       renderSets(window.CLASS_SETS || [], info);
+      autoOpen();
     };
     s.onerror = () => { $('#homeBody').textContent = 'Could not load the exercises for this class.'; };
     document.head.append(s);
@@ -276,10 +331,21 @@
     MODES.filter(m => !m.need || m.need(s)).forEach(m => {
       const b = el('button', 'tile');
       b.append(el('span', 'ico', m.icon), document.createTextNode(m.name), el('small', '', m.desc));
-      b.onclick = () => { mode = m; show('play'); $('#playInfo').textContent = s.title + ' · ' + m.name; setBar(0); m.run(); };
+      b.onclick = () => startMode(m);
       g.append(b);
     });
     show('menu');
+  }
+  function startMode(m) { mode = m; show('play'); $('#playInfo').textContent = set.title + ' · ' + m.name; setBar(0); m.run(); }
+  // a homework link (?class=8a&set=<unit id>&mode=quiz) goes straight to the unit and the activity
+  function autoOpen() {
+    const qp = new URLSearchParams(location.search), wantSet = qp.get('set'), wantMode = qp.get('mode');
+    if (!wantSet) return;
+    const s0 = (window.CLASS_SETS || []).concat(SHARED).find(x => x.id === wantSet);
+    if (!s0) return;
+    openSet(s0);
+    const m = wantMode && MODES.find(x => x.id === wantMode && (!x.need || x.need(s0)));
+    if (m) startMode(m);
   }
 
   const stage = () => { const s = $('#stage'); s.innerHTML = ''; return s; };
