@@ -95,6 +95,7 @@ function doPost(e) {
     if (d.action === 'hwlist') return hwListReply_(d);       // teacher-only: assignments with every pupil's progress
     if (d.action === 'hwsave') return hwSaveReply_(d);       // teacher-only: new assignment
     if (d.action === 'hwdelete') return hwDeleteReply_(d);   // teacher-only: remove an assignment
+    if (d.action === 'board') return boardReply_(d);         // teacher-only: the exercise keys for the board pages
     var who = verify_(d.token);
     if (!who) return out_({ ok: false, error: 'token' });
 
@@ -384,6 +385,84 @@ function hwDeleteReply_(d) {
     }
   } finally { lock.releaseLock(); }
   return out_({ ok: found });
+}
+
+// ---------------------------------------------------------------- board pages
+// Tab "Board" (hidden): the teacher's exercise keys from the coursebooks, one row per section (long sections are
+// split into parts). Book = book id (6b, 7a ...), Order = position in the book, Level = 1/2/3 (heading level),
+// Content = JSON array of blocks: {t:'ref'|'li'|'p', x:text} or {t:'tbl', rows:[[cell,...],...]}.
+// In a text, {{W:...}} marks the parts the teacher made white in Word (hidden by a button on the board page).
+// The copyrighted book text lives only here, never in the public repository.
+var BOARDSHEET = 'Board';
+var BOARDHEADER = ['Book', 'Order', 'Part', 'Level', 'Heading', 'Content (JSON)'];
+
+function boardSheet_() {
+  var ss = SpreadsheetApp.getActive(), sh = ss.getSheetByName(BOARDSHEET);
+  if (!sh) {
+    sh = ss.insertSheet(BOARDSHEET);
+    sh.appendRow(BOARDHEADER); sh.setFrozenRows(1); sh.getRange(1, 1, 1, BOARDHEADER.length).setFontWeight('bold');
+    sh.getRange('A:A').setNumberFormat('@'); sh.getRange('E:F').setNumberFormat('@');
+    var first = ss.getSheets().filter(function (s) { return s.getName() !== BOARDSHEET; })[0];
+    if (first) ss.setActiveSheet(first);
+    sh.hideSheet();
+  }
+  return sh;
+}
+
+// sections: [{h: heading, lvl: 1-4, blocks: [...]}, ...]; replaces everything stored for that book
+function importBoardBook_(book, sections) {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    var sh = boardSheet_(), rows = [];
+    sections.forEach(function (s, i) {
+      var blocks = s.blocks || [], parts = [[]], size = 0;
+      blocks.forEach(function (b) {
+        var n = JSON.stringify(b).length;
+        if (size + n > 40000 && parts[parts.length - 1].length) { parts.push([]); size = 0; }
+        parts[parts.length - 1].push(b); size += n;
+      });
+      parts.forEach(function (p, k) { rows.push([String(book), i + 1, k + 1, Number(s.lvl) || 0, String(s.h || ''), JSON.stringify(p)]); });
+    });
+    if (sh.getLastRow() > 1) {                       // drop the old rows of this book
+      var old = sh.getRange(2, 1, sh.getLastRow() - 1, BOARDHEADER.length).getValues().filter(function (r) { return String(r[0]) !== String(book); });
+      sh.getRange(2, 1, sh.getLastRow() - 1, BOARDHEADER.length).clearContent();
+      if (old.length) sh.getRange(2, 1, old.length, BOARDHEADER.length).setNumberFormat('@').setValues(old);
+    }
+    if (rows.length) {
+      var start = sh.getLastRow() + 1, need = start + rows.length - 1;
+      if (need > sh.getMaxRows()) sh.insertRowsAfter(sh.getMaxRows(), need - sh.getMaxRows() + 100);
+      sh.getRange(start, 1, rows.length, BOARDHEADER.length).setNumberFormat('@').setValues(rows);
+    }
+    return rows.length;
+  } finally { lock.releaseLock(); }
+}
+
+function boardReply_(d) {
+  var who = verify_(d.token);
+  if (!who || !isTeacher_(who.email)) return out_({ ok: false, error: 'token' });
+  var sh = SpreadsheetApp.getActive().getSheetByName(BOARDSHEET);
+  if (!sh || sh.getLastRow() < 2) return out_({ ok: true, books: [], sections: [] });
+  var rows = sh.getRange(2, 1, sh.getLastRow() - 1, BOARDHEADER.length).getValues();
+  if (!d.book) {                                       // list of books with their number of sections
+    var cnt = {}, order = [];
+    rows.forEach(function (r) { var b = String(r[0]); if (!b) return; if (!(b in cnt)) { cnt[b] = {}; order.push(b); } cnt[b][r[1]] = 1; });
+    return out_({ ok: true, books: order.map(function (b) { return [b, Object.keys(cnt[b]).length]; }) });
+  }
+  var secs = {}, keys = [];
+  rows.forEach(function (r) {
+    if (String(r[0]) !== String(d.book)) return;
+    var k = Number(r[1]), s = secs[k];
+    if (!s) { s = secs[k] = { n: k, lvl: Number(r[3]), h: String(r[4]), parts: [] }; keys.push(k); }
+    s.parts.push([Number(r[2]), String(r[5])]);
+  });
+  keys.sort(function (a, b) { return a - b; });
+  var out = keys.map(function (k) {
+    var s = secs[k], blocks = [];
+    s.parts.sort(function (a, b) { return a[0] - b[0]; }).forEach(function (p) { try { blocks = blocks.concat(JSON.parse(p[1])); } catch (e) {} });
+    return { lvl: s.lvl, h: s.h, blocks: blocks };
+  });
+  return out_({ ok: true, book: String(d.book), sections: out });
 }
 
 // All results (Results + Archive) and the Roster with activity counts, for the private Results page. Teacher only.
