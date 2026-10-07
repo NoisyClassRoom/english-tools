@@ -380,7 +380,7 @@ function hwDeleteReply_(d) {
     var sh = hwSheet_();
     if (sh.getLastRow() > 1) {
       var ids = sh.getRange(2, 1, sh.getLastRow() - 1, 1).getValues();
-      for (var i = 0; i < ids.length; i++) if (String(ids[i][0]) === id) { sh.getRange(i + 2, 14).setValue(1); found = true; break; }
+      for (var i = 0; i < ids.length; i++) if (String(ids[i][0]) === id) { sh.deleteRow(i + 2); found = true; break; }          // really removed, with the pupil names in it
     }
   } finally { lock.releaseLock(); }
   return out_({ ok: found });
@@ -716,6 +716,24 @@ function findLeavers_(years) {
     });
     plan.parts.push({ sh: sh, n: cnt, keep: keep, gone: gone });
   });
+  // Homework tab: the names of chosen pupils who left are removed; an assignment given only to leavers is deleted
+  // (it is never left with an empty list, because an empty list means the whole class)
+  plan.hw = null; plan.hwNames = 0; plan.hwRows = 0; plan.hwPupils = {};
+  var hs = ss.getSheetByName(HWSHEET);
+  if (hs && hs.getLastRow() > 1) {
+    var hn = hs.getLastRow() - 1, hv = hs.getRange(2, 1, hn, HWHEADER.length).getValues(), hkeep = [], changed = false;
+    hv.forEach(function (r) {
+      var names = String(r[11]).split(';').map(function (s) { return s.trim(); }).filter(String);
+      var stay = names.filter(function (nm) { var b = maps.byName[nameKey_(nm)]; return !(b != null && b < cutoff.getTime()); });
+      var gone = names.length - stay.length;
+      if (!gone) { hkeep.push(r); return; }
+      changed = true; plan.hwNames += gone;
+      names.forEach(function (nm) { if (stay.indexOf(nm) < 0) plan.hwPupils[nm] = 1; });
+      if (!stay.length) { plan.hwRows++; return; }
+      r[11] = stay.join('; '); hkeep.push(r);
+    });
+    if (changed) plan.hw = { sh: hs, n: hn, keep: hkeep };
+  }
   return plan;
 }
 
@@ -736,16 +754,17 @@ function deleteLeavers_(years, auto) {
   }
   var lock = LockService.getScriptLock();
   lock.waitLock(20000);
-  var total = 0, count = 0;
+  var total = 0, count = 0, hwDone = 0;
   try {
     var plan = findLeavers_(years);
-    if (!plan.rows) { say('Nobody left the school more than ' + years + ' year(s) ago (before ' + Utilities.formatDate(plan.cutoff, TZ, 'dd.MM.yyyy') + '), so there is nothing to delete.'); return; }
+    if (!plan.rows && !plan.hwNames) { say('Nobody left the school more than ' + years + ' year(s) ago (before ' + Utilities.formatDate(plan.cutoff, TZ, 'dd.MM.yyyy') + '), so there is nothing to delete.'); return; }
     var list = Object.keys(plan.pupils).map(function (k) { return plan.pupils[k]; }).sort(function (a, b) { return a.name.localeCompare(b.name, 'sl'); });
     if (ui) {
       var names = list.slice(0, 25).map(function (p) { return p.name + ' (' + p.n + ' results, last year at school ' + schoolYear_(new Date(p.left - 86400000 * 30)) + ')'; }).join('\n');
       var ok = ui.alert('Delete ' + plan.rows + ' results of ' + list.length + ' pupils who left before ' + Utilities.formatDate(plan.cutoff, TZ, 'dd.MM.yyyy') + '?',
         names + (list.length > 25 ? '\n... and ' + (list.length - 25) + ' more' : '') +
         '\n\nThis also removes their rows from the Archive and the hidden Duplicates tab and the question details linked to them. ' +
+        (plan.hwNames ? 'Homework: ' + plan.hwNames + ' name(s) of these pupils (' + Object.keys(plan.hwPupils).slice(0, 15).join(', ') + ') are removed from the hidden Homework tab' + (plan.hwRows ? '; ' + plan.hwRows + ' assignment(s) given only to pupils who left are deleted' : '') + '. ' : '') +
         'The Roster is not changed. This cannot be undone here (only via File > Version history).', ui.ButtonSet.YES_NO);
       if (ok !== ui.Button.YES) return;
     }
@@ -763,9 +782,13 @@ function deleteLeavers_(years, auto) {
         if (qkeep.length) q.getRange(2, 1, qkeep.length, QHEADER.length).setValues(qkeep);
       }
     }
-    total = plan.rows; count = list.length;
+    if (plan.hw) {
+      plan.hw.sh.getRange(2, 1, plan.hw.n, HWHEADER.length).clearContent();
+      if (plan.hw.keep.length) plan.hw.sh.getRange(2, 1, plan.hw.keep.length, HWHEADER.length).setValues(plan.hw.keep);
+    }
+    total = plan.rows; count = list.length; hwDone = plan.hwNames;
   } finally { lock.releaseLock(); }
-  if (total) say('Done. Deleted ' + total + ' results of ' + count + ' pupils.');
+  if (total || hwDone) say('Done. Deleted ' + total + ' results of ' + count + ' pupils' + (hwDone ? ' and removed ' + hwDone + ' name(s) from the Homework tab' : '') + '.');
 }
 // Removes results older than N years (whole school years are the sensible choice: 1, 2, 3...),
 // from Results and Archive. Always asks for confirmation first.
