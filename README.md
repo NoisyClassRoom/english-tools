@@ -48,8 +48,8 @@ A description for the school's data-protection officer is in `DATA-PROTECTION.md
 ### Board pages (teacher only)
 
 `board/index.html` shows the teacher's exercise keys from the seven coursebooks (from her Word files) for projecting on the board. The page contains **no book text**: after the same Google sign-in as the Results page, the text is loaded from the hidden Sheet tab **Board** (Apps Script action `board`, teacher accounts only). The text is never in this public repository.
-- Choose a book, find a section or an exercise (e.g. `43/3`), and click a line (or a table cell) to hide or show it. Words that were **white in Word** are hidden by default (“White parts”) and revealed with a button, per exercise or for everything.
-- **▶ Board** opens one exercise full screen for the projector: ← → next / previous exercise, W white parts, H hide all lines, S show all lines, + / - text size, Esc close.
+- Choose a book, find a section or an exercise (e.g. `43/3`), and click a line (or a table cell) to hide or show it. The words that are **bold, underlined or white in Word** (usually the answers) are the “Marked parts”: they are hidden by default and revealed with a button, per exercise or for everything (bold labels such as speaker names, headings and table headers are not marked). In the Sheet text they are written `{{B:..}}`, `{{U:..}}`, `{{BU:..}}` (bold and underlined) and `{{W:..}}` (white).
+- **▶ Board** opens one exercise full screen for the projector: ← → next / previous exercise, W marked parts, H hide all lines, S show all lines, + / - text size, Esc close.
 - Sheet tab Board: Book, Order, Part, Level, Heading, Content (JSON blocks). `importBoardBook_(book, sections)` in Code.gs replaces the stored text of one book (the content was converted from the Word files once; to refresh a book, convert it again and import it).
 
 ### Results page (teacher only)
