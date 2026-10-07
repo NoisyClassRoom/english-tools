@@ -45,6 +45,13 @@ Each finished activity saves e-mail, first/last name (from the Google account), 
 The Sheet's menu "English hub" builds overview tabs (Summary, Students, Difficulty, By book, Best scores, Topics, By day) and manages the Roster and school years.
 A description for the school's data-protection officer is in `DATA-PROTECTION.md`.
 
+### Board pages (teacher only)
+
+`board/index.html` shows the teacher's exercise keys from the seven coursebooks (from her Word files) for projecting on the board. The page contains **no book text**: after the same Google sign-in as the Results page, the text is loaded from the hidden Sheet tab **Board** (Apps Script action `board`, teacher accounts only). The text is never in this public repository.
+- Choose a book, find a section or an exercise (e.g. `43/3`), and click a line (or a table cell) to hide or show it. Words that were **white in Word** are hidden by default (“White parts”) and revealed with a button, per exercise or for everything.
+- **▶ Board** opens one exercise full screen for the projector: ← → next / previous exercise, W white parts, H hide all lines, S show all lines, + / - text size, Esc close.
+- Sheet tab Board: Book, Order, Part, Level, Heading, Content (JSON blocks). `importBoardBook_(book, sections)` in Code.gs replaces the stored text of one book (the content was converted from the Word files once; to refresh a book, convert it again and import it).
+
 ### Results page (teacher only)
 
 `results/index.html` is a private page (WordPress page "Results", embedded by iframe; the data is only sent to a signed-in teacher account listed in the script property `TEACHER_EMAILS`). It holds no data itself.
