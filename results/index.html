@@ -138,12 +138,14 @@
     <div class="card filters">
       <label>School year <select id="fYear"></select></label>
       <label>Class <select id="fClass"></select></label>
+      <label>Accounts <select id="fWho"><option value="p">Pupils (with a class)</option><option value="n">No class (teachers, unlisted)</option><option value="all">Everyone</option></select></label>
       <label>Book <select id="fBook"></select></label>
       <label>Level <select id="fLevel"></select></label>
       <label>From <input type="date" id="fFrom" class="btn"></label>
       <label>To <input type="date" id="fTo" class="btn"></label>
       <button class="btn" id="fReset">Reset</button>
     </div>
+    <p class="muted no-print" id="whoNote" style="margin:-4px 0 8px;font-size:12px"></p>
     <div class="tabs" id="tabs"></div>
     <div class="tools"><button class="btn" id="bCsv">Download table (CSV)</button><button class="btn" id="bRaw">Download all filtered results (CSV)</button><button class="btn" id="bPrint">Print</button></div>
     <div id="printHead"></div>
@@ -167,7 +169,9 @@
   const avg = (a, f) => a.length ? a.reduce((s, x) => s + f(x), 0) / a.length : 0;
 
   let rows = [], roster = [], tab = 'overview', sortKey = {}, selPupil = '';
-  const F = { year: '', cls: '', book: '', level: '', from: '', to: '' };
+  const F = { year: '', cls: '', who: 'p', book: '', level: '', from: '', to: '' };
+  // accounts filter: pupils = accounts with a class in the Roster; a chosen class always means pupils
+  const whoOk = c => !!F.cls || F.who === 'all' || (F.who === 'n' ? !c : !!c);
 
   // ---------------------------------------------------------------- data
   const load = async () => {
@@ -206,19 +210,19 @@
     fill($('#fBook'), [['', 'All books']].concat(books.map(b => [b, (BOOKS[b] || b) + ' (' + b + ')'])));
     fill($('#fLevel'), [['', 'All levels'], ['1', LEVELS[1]], ['2', LEVELS[2]], ['3', LEVELS[3]]]);
   };
-  ['fYear:year', 'fClass:cls', 'fBook:book', 'fLevel:level', 'fFrom:from', 'fTo:to'].forEach(p => {
+  ['fYear:year', 'fClass:cls', 'fWho:who', 'fBook:book', 'fLevel:level', 'fFrom:from', 'fTo:to'].forEach(p => {
     const [id, k] = p.split(':'); $('#' + id).onchange = e => { F[k] = e.target.value; selPupil = ''; render(); };
   });
-  $('#fReset').onclick = () => { F.cls = F.book = F.level = F.from = F.to = ''; $('#fFrom').value = $('#fTo').value = ''; setupFilters(); selPupil = ''; render(); };
+  $('#fReset').onclick = () => { F.cls = F.book = F.level = F.from = F.to = ''; F.who = 'p'; $('#fWho').value = 'p'; $('#fFrom').value = $('#fTo').value = ''; setupFilters(); selPupil = ''; render(); };
 
-  const filtered = () => {
+  const filtered = (allClasses) => {
     const from = F.from ? new Date(F.from + 'T00:00:00').getTime() : 0, to = F.to ? new Date(F.to + 'T23:59:59').getTime() : Infinity;
-    return rows.filter(r => (!F.year || r.year === F.year) && (!F.cls || r.cls === F.cls) && (!F.book || r.book === F.book) &&
+    return rows.filter(r => (!F.year || r.year === F.year) && (allClasses ? !!r.cls : (!F.cls || r.cls === F.cls) && whoOk(r.cls)) && (!F.book || r.book === F.book) &&
       (!F.level || String(r.lvl) === F.level) && r.t >= from && r.t <= to);
   };
 
   // ---------------------------------------------------------------- tabs
-  const TABS = [['overview', 'Overview'], ['report', 'Class report'], ['heat', 'Heat-map'], ['weak', 'Weak spots'], ['questions', 'Questions'], ['progress', 'Progress'], ['pupils', 'Pupils'], ['units', 'Units'], ['quiet', 'Not practising']];
+  const TABS = [['overview', 'Overview'], ['report', 'Class report'], ['heat', 'Heat-map'], ['weak', 'Weak spots'], ['questions', 'Questions'], ['progress', 'Progress'], ['compare', 'Compare classes'], ['pupils', 'Pupils'], ['units', 'Units'], ['quiet', 'Not practising']];
   const render = () => {
     const tabs = $('#tabs'); tabs.innerHTML = '';
     TABS.forEach(([id, name]) => { const b = el('button', 'btn' + (id === tab ? ' on' : ''), name); b.onclick = () => { tab = id; render(); }; tabs.append(b); });
@@ -227,6 +231,9 @@
     $('#printHead').textContent = 'Results · ' + [F.cls ? 'class ' + F.cls : 'all classes', F.book ? (BOOKS[F.book] || F.book) : 'all books', F.level ? LEVELS[F.level] : '', F.year || 'all years',
       F.from || F.to ? (F.from || '…') + ' – ' + (F.to || '…') : ''].filter(Boolean).join(' · ') + ' · ' + (TABS.find(x => x[0] === tab) || [0, ''])[1] + ' · printed ' + new Date().toLocaleDateString('en-GB');
     const data = filtered();
+    const hidden = F.cls || F.who === 'all' ? 0 : rows.filter(r => (!F.year || r.year === F.year) && !whoOk(r.cls)).length;
+    $('#whoNote').textContent = hidden ? hidden + (hidden === 1 ? ' result from ' : ' results from ') + (F.who === 'n' ? 'accounts with a class' : 'accounts without a class (teachers, or pupils missing from the Roster)') + ' are not shown. Change "Accounts" to see them.' : '';
+    if (tab === 'compare') { compare(view, filtered(true)); return; }
     if (tab === 'overview') overview(view, data); else if (tab === 'report') report(view, data); else if (tab === 'heat') heat(view, data); else if (tab === 'weak') weak(view, data); else if (tab === 'questions') questions(view); else if (tab === 'progress') progress(view, data);
     else if (tab === 'pupils') pupils(view, data);
     else if (tab === 'units') units(view, data); else quiet(view);
@@ -457,7 +464,7 @@
       card.append(el('p', qState === 'error' ? 'msg err' : 'msg', qState === 'error' ? 'The question data could not be loaded.' : 'Loading the question data… (the report updates by itself)'));
     } else {
       const m = {};
-      qraw.filter(r => (!year || r.year === year) && (!F.cls || r.cls === F.cls) && (!F.book || r.book === F.book) && (!F.level || String(ACT_LEVEL[r.act] || 2) === F.level)).forEach(r => {
+      qraw.filter(r => (!year || r.year === year) && (!F.cls || r.cls === F.cls) && whoOk(r.cls) && (!F.book || r.book === F.book) && (!F.level || String(ACT_LEVEL[r.act] || 2) === F.level)).forEach(r => {
         const k = r.unit + '\u0001' + r.act + '\u0001' + r.q + '\u0001' + r.ans; const o = m[k] = m[k] || { q: r.q, ans: r.ans, unit: r.unit, n: 0, wrong: 0 }; o.n += r.n; o.wrong += r.wrong; });
       const qs = Object.values(m).filter(x => x.n >= 5).map(x => ({ ...x, p: x.wrong / x.n })).sort((a, b) => b.p - a.p).slice(0, 8);
       if (!qs.length) card.append(el('p', 'msg', 'No question has been answered often enough yet.'));
@@ -554,7 +561,7 @@
     card.append(el('p', 'note', 'The questions that pupils get wrong most often (' + (F.cls ? 'class ' + F.cls : 'all classes') + (F.book ? ', ' + (BOOKS[F.book] || F.book) : '') + (F.year ? ', ' + F.year : '') +
       '). Question-level data is collected since 5 Oct 2026, so the numbers grow over time. The date filter does not apply here.'), row);
     const m = {};
-    qraw.filter(r => (!F.year || r.year === F.year) && (!F.cls || r.cls === F.cls) && (!F.book || r.book === F.book) && (!F.level || String(ACT_LEVEL[r.act] || 2) === F.level)).forEach(r => {
+    qraw.filter(r => (!F.year || r.year === F.year) && (!F.cls || r.cls === F.cls) && whoOk(r.cls) && (!F.book || r.book === F.book) && (!F.level || String(ACT_LEVEL[r.act] || 2) === F.level)).forEach(r => {
       const k = r.unit + '\u0001' + r.act + '\u0001' + r.q + '\u0001' + r.ans;
       const o = m[k] = m[k] || { unit: r.unit, act: r.act, q: r.q, ans: r.ans, n: 0, wrong: 0, w: {} };
       o.n += r.n; o.wrong += r.wrong;
@@ -625,8 +632,65 @@
     };
     sel.onchange = draw; draw();
   };
+  // ---------------------------------------------------------------- compare classes (weekly lines, one per class)
+  const COLORS = ['#e8710a', '#2b8a3e', '#1c7ed6', '#ae3ec9', '#c92a2a', '#0c8599', '#e6a700', '#5c940d', '#d6336c', '#7048e8'];
+  const compare = (view, data) => {
+    const classes = [...new Set(data.map(r => r.cls))].sort((a, b) => a.localeCompare(b, 'sl', { numeric: true }));
+    const card = el('div', 'card');
+    card.append(el('p', 'note', 'All classes side by side (the Class filter is ignored; year, book, level and dates apply). “Per pupil” divides by the number of pupils in the class in the Roster, so large and small classes can be compared fairly.'));
+    if (!classes.length) { card.append(el('p', 'msg', 'No results for this selection.')); view.append(card); return; }
+    const size = c => roster.filter(r => (!F.year || r.year === F.year) && r.cls === c).length;
+    const stat = classes.map(c => {
+      const a = data.filter(r => r.cls === c), pupilsN = new Set(a.map(r => r.key)).size, sz = size(c) || pupilsN;
+      return { cls: c, size: sz, active: pupilsN, n: a.length, per: a.length / sz, q: a.reduce((s, r) => s + r.total, 0), p: avg(a, r => r.p),
+               hard: a.length ? a.filter(r => r.lvl === 3).length / a.length : 0, last: a.reduce((m, r) => r.t > m ? r.t : m, 0), rows: a };
+    });
+    const sel = el('select'); [['p', 'Average result'], ['n', 'Activities per pupil']].forEach(([v, t]) => { const o = el('option', '', t); o.value = v; sel.append(o); });
+    const top = el('div'); top.style.marginBottom = '8px'; top.append(el('span', 'muted', 'Chart: '), sel);
+    const chartBox = el('div');
+    const draw = () => {
+      chartBox.innerHTML = '';
+      const metric = sel.value;
+      const all = data.map(r => weekStart(r.t)), w0 = Math.min(...all), w1 = Math.max(...all), list = [];
+      for (let w = w0; w <= w1 && list.length < 200; ) { list.push(w); const n = new Date(w); n.setDate(n.getDate() + 7); w = n.getTime(); }
+      const val = {}; let maxV = metric === 'p' ? 1 : 0.0001;
+      stat.forEach(s => { const wk = {}; s.rows.forEach(r => { const k = weekStart(r.t); const o = wk[k] = wk[k] || { n: 0, s: 0 }; o.n++; o.s += r.p; });
+        val[s.cls] = {}; Object.keys(wk).forEach(k => { const v = metric === 'p' ? wk[k].s / wk[k].n : wk[k].n / s.size; val[s.cls][k] = v; if (v > maxV) maxV = v; }); });
+      const W = 1040, H = 220, L = 44, step = (W - L - 10) / Math.max(list.length, 1);
+      let svg = `<svg viewBox="0 -10 ${W} ${H + 40}" width="100%" role="img" aria-label="Class comparison per week">`;
+      [0, 0.5, 1].forEach(v => { const y = H - v * H; svg += `<line x1="${L}" x2="${W}" y1="${y}" y2="${y}" stroke="var(--line)" stroke-width="1"/><text x="0" y="${y + 4}">${metric === 'p' ? v * 100 + ' %' : (v * maxV).toFixed(1)}</text>`; });
+      list.forEach((w, i) => { if (list.length <= 20 || i % Math.ceil(list.length / 14) === 0) { const dd = new Date(w), x = L + i * step + step / 2; svg += `<text x="${(x - 14).toFixed(1)}" y="${H + 16}">${String(dd.getDate()).padStart(2, '0')}.${String(dd.getMonth() + 1).padStart(2, '0')}.</text>`; } });
+      stat.forEach((s, ci) => {
+        const col = COLORS[ci % COLORS.length], pts = [];
+        list.forEach((w, i) => { const v = val[s.cls][w]; if (v != null) pts.push([L + i * step + step / 2, H - v / maxV * H, v, w]); });
+        s.col = col;
+        svg += `<polyline fill="none" stroke="${col}" stroke-width="2.5" points="${pts.map(p => p[0].toFixed(1) + ',' + p[1].toFixed(1)).join(' ')}"/>`;
+        pts.forEach(p => { svg += `<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="4" fill="${col}"><title>${s.cls}, week of ${fmtDate(p[3])}: ${metric === 'p' ? pct(p[2]) : p[2].toFixed(2) + ' activities per pupil'}</title></circle>`; });
+      });
+      svg += '</svg>';
+      const ch = el('div'); ch.innerHTML = svg; chartBox.append(ch);
+      const lg = el('div', 'legend');
+      stat.forEach(s => { const sp = el('span'); const sw = el('i', 'sw'); sw.style.background = s.col; sp.append(sw, s.cls); lg.append(sp); });
+      lg.append(el('span', '', 'weeks start on Monday'));
+      chartBox.append(lg);
+    };
+    sel.onchange = draw;
+    card.append(top, chartBox); view.append(card); draw();
+    const c2 = el('div', 'card'); c2.append(el('h2', '', 'Classes in numbers'));
+    c2.append(table('cmp', [
+      { h: 'Class', k: x => x.cls, v: x => x.cls },
+      { h: 'Pupils', k: x => x.size, v: x => x.size, num: true },
+      { h: 'Practising', k: x => x.active / x.size, v: x => x.active + ' (' + pct(x.active / x.size) + ')', num: true },
+      { h: 'Activities', k: x => x.n, v: x => x.n, num: true },
+      { h: 'Per pupil', k: x => x.per, v: x => x.per.toFixed(1), num: true },
+      { h: 'Questions', k: x => x.q, v: x => x.q, num: true },
+      { h: 'Average', k: x => x.p, v: x => badge(x.p), num: true },
+      { h: 'Hard tests', k: x => x.hard, v: x => pct(x.hard), num: true },
+      { h: 'Last activity', k: x => x.last, v: x => fmtDate(x.last), num: true }], stat, 'Per pupil'));
+    view.append(c2);
+  };
   // ---------------------------------------------------------------- pupils
-  const pupils = (view, data) => {
+  const pupils =(view, data) => {
     const by = {}; data.forEach(r => (by[r.key] = by[r.key] || []).push(r));
     const list = Object.keys(by).map(k => { const a = by[k], last = a.reduce((m, r) => r.t > m ? r.t : m, 0);
       return { key: k, name: a[0].last + ' ' + a[0].first, cls: [...new Set(a.map(r => r.cls).filter(Boolean))].join(', '),
