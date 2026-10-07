@@ -137,7 +137,7 @@
   <div id="app">
     <div class="card filters">
       <label>School year <select id="fYear"></select></label>
-      <label>Class <select id="fClass"></select></label>
+      <label>Class <select id="fClass"></select></label>`n      <label>+ second class <select id="fClass2"></select></label>
       <label>Accounts <select id="fWho"><option value="p">Pupils (with a class)</option><option value="n">No class (teachers, unlisted)</option><option value="all">Everyone</option></select></label>
       <label>Book <select id="fBook"></select></label>
       <label>Level <select id="fLevel"></select></label>
@@ -169,8 +169,11 @@
   const avg = (a, f) => a.length ? a.reduce((s, x) => s + f(x), 0) / a.length : 0;
 
   let rows = [], roster = [], tab = 'overview', sortKey = {}, selPupil = '';
-  const F = { year: '', cls: '', who: 'p', book: '', level: '', from: '', to: '' };
+  const F = { year: '', cls: '', cls2: '', who: 'p', book: '', level: '', from: '', to: '' };
   // accounts filter: pupils = accounts with a class in the Roster; a chosen class always means pupils
+  // one or two classes (lessons with combined classes): the second one only counts when a first one is chosen
+  const clsOk = c => !F.cls || c === F.cls || (!!F.cls2 && c === F.cls2);
+  const clsText = cap => F.cls ? (cap ? 'Class ' : 'class ') + F.cls + (F.cls2 ? ' + ' + F.cls2 : '') : (cap ? 'All classes' : 'all classes');
   const whoOk = c => !!F.cls || F.who === 'all' || (F.who === 'n' ? !c : !!c);
 
   // ---------------------------------------------------------------- data
@@ -199,6 +202,14 @@
     items.forEach(([v, t]) => { const o = el('option', '', t); o.value = v; sel.append(o); });
     sel.value = items.some(i => i[0] === cur) ? cur : items[0][0];
   };
+  let classList = [];
+  // the second class is only offered once a first class is chosen (and never the same one)
+  const syncCls2 = () => {
+    if (!F.cls || F.cls2 === F.cls) F.cls2 = '';
+    const s = $('#fClass2'); s.innerHTML = '';
+    [['', '— none —']].concat(classList.filter(c => c !== F.cls).map(c => [c, c])).forEach(([v, x]) => { const o = document.createElement('option'); o.value = v; o.textContent = x; s.append(o); });
+    s.value = F.cls2; s.disabled = !F.cls;
+  };
   const setupFilters = () => {
     const years = [...new Set(rows.map(r => r.year).concat(roster.map(r => r.year)))].filter(Boolean).sort().reverse();
     if (!F.year || !years.includes(F.year)) F.year = years[0] || '';
@@ -206,18 +217,19 @@
     $('#fYear').value = F.year;
     const classes = [...new Set(rows.map(r => r.cls).concat(roster.map(r => r.cls)))].filter(Boolean).sort((a, b) => a.localeCompare(b, 'sl', { numeric: true }));
     fill($('#fClass'), [['', 'All classes']].concat(classes.map(c => [c, c])));
+    classList = classes; syncCls2();
     const books = [...new Set(rows.map(r => r.book))].filter(Boolean).sort();
     fill($('#fBook'), [['', 'All books']].concat(books.map(b => [b, (BOOKS[b] || b) + ' (' + b + ')'])));
     fill($('#fLevel'), [['', 'All levels'], ['1', LEVELS[1]], ['2', LEVELS[2]], ['3', LEVELS[3]]]);
   };
-  ['fYear:year', 'fClass:cls', 'fWho:who', 'fBook:book', 'fLevel:level', 'fFrom:from', 'fTo:to'].forEach(p => {
-    const [id, k] = p.split(':'); $('#' + id).onchange = e => { F[k] = e.target.value; selPupil = ''; render(); };
+  ['fYear:year', 'fClass:cls', 'fClass2:cls2', 'fWho:who', 'fBook:book', 'fLevel:level', 'fFrom:from', 'fTo:to'].forEach(p => {
+    const [id, k] = p.split(':'); $('#' + id).onchange = e => { F[k] = e.target.value; if (k === 'cls') syncCls2(); selPupil = ''; render(); };
   });
-  $('#fReset').onclick = () => { F.cls = F.book = F.level = F.from = F.to = ''; F.who = 'p'; $('#fWho').value = 'p'; $('#fFrom').value = $('#fTo').value = ''; setupFilters(); selPupil = ''; render(); };
+  $('#fReset').onclick = () => { F.cls = F.cls2 = F.book = F.level = F.from = F.to = ''; F.who = 'p'; $('#fWho').value = 'p'; $('#fFrom').value = $('#fTo').value = ''; setupFilters(); selPupil = ''; render(); };
 
   const filtered = (allClasses) => {
     const from = F.from ? new Date(F.from + 'T00:00:00').getTime() : 0, to = F.to ? new Date(F.to + 'T23:59:59').getTime() : Infinity;
-    return rows.filter(r => (!F.year || r.year === F.year) && (allClasses ? !!r.cls : (!F.cls || r.cls === F.cls) && whoOk(r.cls)) && (!F.book || r.book === F.book) &&
+    return rows.filter(r => (!F.year || r.year === F.year) && (allClasses ? !!r.cls : clsOk(r.cls) && whoOk(r.cls)) && (!F.book || r.book === F.book) &&
       (!F.level || String(r.lvl) === F.level) && r.t >= from && r.t <= to);
   };
 
@@ -228,7 +240,7 @@
     TABS.forEach(([id, name]) => { const b = el('button', 'btn' + (id === tab ? ' on' : ''), name); b.onclick = () => { tab = id; render(); }; tabs.append(b); });
     document.body.classList.toggle('rep', tab === 'report');
     const view = $('#view'); view.innerHTML = '';
-    $('#printHead').textContent = 'Results · ' + [F.cls ? 'class ' + F.cls : 'all classes', F.book ? (BOOKS[F.book] || F.book) : 'all books', F.level ? LEVELS[F.level] : '', F.year || 'all years',
+    $('#printHead').textContent = 'Results · ' + [clsText(), F.book ? (BOOKS[F.book] || F.book) : 'all books', F.level ? LEVELS[F.level] : '', F.year || 'all years',
       F.from || F.to ? (F.from || '…') + ' – ' + (F.to || '…') : ''].filter(Boolean).join(' · ') + ' · ' + (TABS.find(x => x[0] === tab) || [0, ''])[1] + ' · printed ' + new Date().toLocaleDateString('en-GB');
     const data = filtered();
     const hidden = F.cls || F.who === 'all' ? 0 : rows.filter(r => (!F.year || r.year === F.year) && !whoOk(r.cls)).length;
@@ -399,10 +411,10 @@
     view.append(bar);
     const card = el('div', 'card'); wrap.append(card); view.append(wrap);
     const year = F.year || roster.map(r => r.year).sort().pop() || '';
-    const what = [F.cls ? 'Class ' + F.cls : 'All classes', F.book ? (BOOKS[F.book] || F.book) : '', F.level ? LEVELS[F.level] : '', year ? 'School year ' + year : 'All school years'].filter(Boolean).join(' · ');
+    const what = [clsText(true), F.book ? (BOOKS[F.book] || F.book) : '', F.level ? LEVELS[F.level] : '', year ? 'School year ' + year : 'All school years'].filter(Boolean).join(' · ');
     card.append(el('h1', '', 'Class report'), el('p', 'sub', what + (F.from || F.to ? ' · ' + (F.from || '…') + ' – ' + (F.to || '…') : '') + ' · printed ' + new Date().toLocaleDateString('en-GB')));
     // a comment for the printout (kept in this browser only, per class / book / year)
-    const nkey = 'res.note|' + [F.cls, F.book, year].join('|');
+    const nkey = 'res.note|' + [F.cls + (F.cls2 ? '+' + F.cls2 : ''), F.book, year].join('|');
     let saved = ''; try { saved = localStorage.getItem(nkey) || ''; } catch (e) {}
     const box = el('div', 'cm-edit no-print'), pr = el('div', 'cm-print'), ta = el('textarea');
     const lab = el('label', 'muted', 'Your comment for the printout (stays in this browser, it is not saved in the Sheet):'); lab.style.display = 'block';
@@ -417,7 +429,7 @@
       return { key: k, nk: nk(a[0].first + ' ' + a[0].last), name: a[0].last + ' ' + a[0].first, cls: [...new Set(a.map(r => r.cls).filter(Boolean))].join(', '),
                n: a.length, q: a.reduce((s, r) => s + r.total, 0), p: avg(a, r => r.p), lv: avg(a, r => r.lvl), hard: a.filter(r => r.lvl === 3).length, last }; });
     const have = new Set(people.map(p => p.nk));
-    roster.filter(r => r.year === year && (!F.cls || r.cls === F.cls) && !have.has(nk(r.name))).forEach(r => people.push({ key: 'r|' + r.name, name: r.name, cls: r.cls, n: 0, q: 0, p: null, lv: null, hard: 0, last: 0 }));
+    roster.filter(r => r.year === year && clsOk(r.cls) && !have.has(nk(r.name))).forEach(r => people.push({ key: 'r|' + r.name, name: r.name, cls: r.cls, n: 0, q: 0, p: null, lv: null, hard: 0, last: 0 }));
     people.sort((a, b) => a.cls.localeCompare(b.cls, 'sl', { numeric: true }) || a.name.localeCompare(b.name, 'sl'));
     const active = people.filter(p => p.n > 0), idle = Date.now() - 14 * 86400000;
 
@@ -465,7 +477,7 @@
       card.append(el('p', qState === 'error' ? 'msg err' : 'msg', qState === 'error' ? 'The question data could not be loaded.' : 'Loading the question data… (the report updates by itself)'));
     } else {
       const m = {};
-      qraw.filter(r => (!year || r.year === year) && (!F.cls || r.cls === F.cls) && whoOk(r.cls) && (!F.book || r.book === F.book) && (!F.level || String(ACT_LEVEL[r.act] || 2) === F.level)).forEach(r => {
+      qraw.filter(r => (!year || r.year === year) && clsOk(r.cls) && whoOk(r.cls) && (!F.book || r.book === F.book) && (!F.level || String(ACT_LEVEL[r.act] || 2) === F.level)).forEach(r => {
         const k = r.unit + '\u0001' + r.act + '\u0001' + r.q + '\u0001' + r.ans; const o = m[k] = m[k] || { q: r.q, ans: r.ans, unit: r.unit, n: 0, wrong: 0 }; o.n += r.n; o.wrong += r.wrong; });
       const qs = Object.values(m).filter(x => x.n >= 5).map(x => ({ ...x, p: x.wrong / x.n })).sort((a, b) => b.p - a.p).slice(0, 8);
       if (!qs.length) card.append(el('p', 'msg', 'No question has been answered often enough yet.'));
@@ -478,7 +490,7 @@
   const weak = (view, data) => {
     const minN = Number(sortKey.weakMin || 3);
     const head = el('div', 'card');
-    head.append(el('p', 'note', 'Weak spots for ' + (F.cls ? 'class ' + F.cls : 'all classes') + (F.book ? ', ' + (BOOKS[F.book] || F.book) : '') + (F.year ? ', ' + F.year : '') + '. Choose a class above to see its weak spots.'));
+    head.append(el('p', 'note', 'Weak spots for ' + (clsText()) + (F.book ? ', ' + (BOOKS[F.book] || F.book) : '') + (F.year ? ', ' + F.year : '') + '. Choose a class above to see its weak spots.'));
     const sel = el('select'); [['1', '1'], ['3', '3'], ['5', '5'], ['10', '10']].forEach(([v, t]) => { const o = el('option', '', t); o.value = v; sel.append(o); });
     sel.value = String(minN); sel.onchange = () => { sortKey.weakMin = sel.value; render(); };
     const row = el('div'); row.append(el('span', 'muted', 'Only count units and pupils with at least '), sel, el('span', 'muted', ' finished activities'));
@@ -559,10 +571,10 @@
     sel.value = String(minN); sel.onchange = () => { sortKey.qMin = sel.value; render(); };
     const row = el('div'); row.append(el('span', 'muted', 'Only questions answered at least '), sel, el('span', 'muted', ' times'));
     const rf = el('button', 'btn', 'Reload'); rf.style.marginLeft = '12px'; rf.onclick = () => { qState = ''; qraw = null; render(); }; row.append(rf);
-    card.append(el('p', 'note', 'The questions that pupils get wrong most often (' + (F.cls ? 'class ' + F.cls : 'all classes') + (F.book ? ', ' + (BOOKS[F.book] || F.book) : '') + (F.year ? ', ' + F.year : '') +
+    card.append(el('p', 'note', 'The questions that pupils get wrong most often (' + (clsText()) + (F.book ? ', ' + (BOOKS[F.book] || F.book) : '') + (F.year ? ', ' + F.year : '') +
       '). Question-level data is collected since 5 Oct 2026, so the numbers grow over time. The date filter does not apply here.'), row);
     const m = {};
-    qraw.filter(r => (!F.year || r.year === F.year) && (!F.cls || r.cls === F.cls) && whoOk(r.cls) && (!F.book || r.book === F.book) && (!F.level || String(ACT_LEVEL[r.act] || 2) === F.level)).forEach(r => {
+    qraw.filter(r => (!F.year || r.year === F.year) && clsOk(r.cls) && whoOk(r.cls) && (!F.book || r.book === F.book) && (!F.level || String(ACT_LEVEL[r.act] || 2) === F.level)).forEach(r => {
       const k = r.unit + '\u0001' + r.act + '\u0001' + r.q + '\u0001' + r.ans;
       const o = m[k] = m[k] || { unit: r.unit, act: r.act, q: r.q, ans: r.ans, n: 0, wrong: 0, w: {} };
       o.n += r.n; o.wrong += r.wrong;
@@ -892,8 +904,8 @@
       sortKey.quietDays = sel.value; holder.innerHTML = '';
       const days = Number(sel.value), cutoff = Date.now() - days * 86400000;
       const year = F.year || roster.map(r => r.year).sort().pop();
-      const items = roster.filter(r => r.year === year && (!F.cls || r.cls === F.cls) && (days === 0 ? r.n === 0 : (r.n === 0 || r.last < cutoff)));
-      holder.append(el('p', 'note', items.length + ' of ' + roster.filter(r => r.year === year && (!F.cls || r.cls === F.cls)).length + ' pupils in the Roster (' + year + ').'));
+      const items = roster.filter(r => r.year === year && clsOk(r.cls) && (days === 0 ? r.n === 0 : (r.n === 0 || r.last < cutoff)));
+      holder.append(el('p', 'note', items.length + ' of ' + roster.filter(r => r.year === year && clsOk(r.cls)).length + ' pupils in the Roster (' + year + ').'));
       holder.append(table('quiet', [
         { h: 'Pupil', k: x => x.name, v: x => x.name },
         { h: 'Class', k: x => x.cls, v: x => x.cls },
