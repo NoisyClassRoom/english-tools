@@ -52,6 +52,10 @@
   .ln.off .tx, .ln.off .tx * { color: transparent !important; text-shadow: none !important; }
   .ln.off:hover { background: var(--accent-soft); }
   .wh { cursor: pointer; border-radius: 4px; }
+  /* a revealed marked part stays clearly different from the rest of the text (as bold / underlined in Word) */
+  .wh:not(.hid) { color: var(--accent); background: var(--accent-soft); padding: 0 .12em; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
+  .wh.kB:not(.hid), .wh.kBU:not(.hid), .wh.kW:not(.hid) { font-weight: 700; }
+  .wh.kU:not(.hid), .wh.kBU:not(.hid) { text-decoration: underline; text-decoration-thickness: .08em; text-underline-offset: .15em; }
   .wh.hid { background: var(--accent-soft); }
   table.bt { border-collapse: collapse; margin: 4px 0; }
   table.bt td { border: 1px solid var(--line); padding: 4px 10px; font-size: var(--fs); vertical-align: top; cursor: pointer; }
@@ -136,10 +140,10 @@
 
   // text with {{W:..}} {{B:..}} {{U:..}} {{BU:..}} (white / bold / underlined / both in Word) -> nodes; those parts become clickable spans
   const textNodes = (txt, hideWhite) => {
-    const f = document.createDocumentFragment(), re = /\{\{(?:W|B|U|BU):([\s\S]*?)\}\}/g; let i = 0, m;
+    const f = document.createDocumentFragment(), re = /\{\{(W|B|U|BU):([\s\S]*?)\}\}/g; let i = 0, m;
     while ((m = re.exec(txt))) {
       if (m.index > i) f.append(document.createTextNode(txt.slice(i, m.index)));
-      const s = el('span', 'wh' + (hideWhite ? ' hid' : ''), m[1] === '' ? ' ' : m[1]);
+      const s = el('span', 'wh k' + m[1] + (hideWhite ? ' hid' : ''), m[2] === '' ? ' ' : m[2]);
       s.onclick = e => { e.stopPropagation(); s.classList.toggle('hid'); };
       f.append(s); i = m.index + m[0].length;
     }
