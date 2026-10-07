@@ -1045,7 +1045,8 @@
   };
   $('#bCsv').onclick = exportTable; $('#bRaw').onclick = exportRaw; $('#bPrint').onclick = () => printPage(false);
 
-  // ---------------------------------------------------------------- start  $('#theme').onclick = () => { document.body.classList.toggle('light'); try { localStorage.setItem('res.light', document.body.classList.contains('light') ? '1' : ''); } catch (e) {} };
+  // ---------------------------------------------------------------- start
+  $('#theme').onclick =() => { document.body.classList.toggle('light'); try { localStorage.setItem('res.light', document.body.classList.contains('light') ? '1' : ''); } catch (e) {} };
   try { if (localStorage.getItem('res.light')) document.body.classList.add('light'); } catch (e) {}
   $('#reload').onclick = load;
   if (window.Track && Track.enabled) {
