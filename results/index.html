@@ -429,7 +429,7 @@
       return { key: k, nk: nk(a[0].first + ' ' + a[0].last), name: a[0].last + ' ' + a[0].first, cls: [...new Set(a.map(r => r.cls).filter(Boolean))].join(', '),
                n: a.length, q: a.reduce((s, r) => s + r.total, 0), p: avg(a, r => r.p), lv: avg(a, r => r.lvl), hard: a.filter(r => r.lvl === 3).length, last }; });
     const have = new Set(people.map(p => p.nk));
-    roster.filter(r => r.year === year && clsOk(r.cls) && !have.has(nk(r.name))).forEach(r => people.push({ key: 'r|' + r.name, name: r.name, cls: r.cls, n: 0, q: 0, p: null, lv: null, hard: 0, last: 0 }));
+    roster.filter(r => r.year === year && clsOk(r.cls) && !have.has(nk(r.name))).forEach(r => people.push({ key: 'r|' + r.name, nk: nk(r.name), name: r.name, cls: r.cls, n: 0, q: 0, p: null, lv: null, hard: 0, last: 0 }));
     people.sort((a, b) => a.cls.localeCompare(b.cls, 'sl', { numeric: true }) || a.name.localeCompare(b.name, 'sl'));
     const active = people.filter(p => p.n > 0), idle = Date.now() - 14 * 86400000;
 
@@ -442,6 +442,9 @@
     if (ch) { card.append(el('h2', '', 'Activity per week')); const hold = el('div'); hold.innerHTML = ch; card.append(hold);
       const lg = el('div', 'legend'); lg.innerHTML = '<span><i class="sw" style="background:var(--accent)"></i>average result of the week</span><span><i class="sw" style="background:var(--line)"></i>number of activities</span>'; card.append(lg); }
 
+    // homework of this group (current school year); loads in the background and the report redraws by itself
+    if (hwState === '') loadHw();
+    const hwSums = hwState === 'ok' ? hwItems().map(hwSummary) : null, hwMap = hwSums && hwSums.length ? hwByPupil(hwSums) : null;
     card.append(el('h2', '', 'Pupils'));
     const noteOf = p => { const o = []; if (!p.n) o.push(['no practice yet', 0]); else { if (p.p < 0.6) o.push(['below 60 %', 0]); if (p.last < idle) o.push(['not practising for 14+ days', 1]); } return o; };
     card.append(table('rep', [
@@ -451,9 +454,29 @@
       { h: 'Average', k: x => x.p == null ? -1 : x.p, v: x => x.p == null ? '—' : badge(x.p), num: true },
       { h: 'Avg level', k: x => x.lv == null ? -1 : x.lv, v: x => x.lv == null ? '—' : x.lv.toFixed(1), num: true },
       { h: 'Hard tests', k: x => x.hard, v: x => x.hard, num: true },
-      { h: 'Last practised', k: x => x.last, v: x => fmtDate(x.last), num: true },
-      { h: 'Note', k: x => noteOf(x).length, v: x => { const s = el('span'); noteOf(x).forEach(([t, q]) => s.append(el('span', 'tag' + (q ? ' q' : ''), t))); return s; } }], people, 'Pupil'));
+      { h: 'Last practised', k: x => x.last, v: x => fmtDate(x.last), num: true }]
+      .concat(hwMap ? [{ h: 'Homework', k: x => { const h = hwMap.get(x.nk); return h ? (h.onTime + h.late) / h.assigned : -1; },
+        v: x => { const h = hwMap.get(x.nk); return h ? (h.onTime + h.late) + ' / ' + h.assigned + (h.missing ? ' (' + h.missing + ' missing)' : '') : '—'; }, num: true }] : [])
+      .concat([
+      { h: 'Note', k: x => noteOf(x).length, v: x => { const s = el('span'); noteOf(x).forEach(([t, q]) => s.append(el('span', 'tag' + (q ? ' q' : ''), t))); return s; } }]), people, 'Pupil'));
     card.lastChild.style.maxHeight = 'none';
+
+    // homework section
+    if (hwState === 'error') { card.append(el('h2', '', 'Homework'), el('p', 'msg', 'The homework could not be loaded.')); }
+    else if (hwState !== 'ok') { card.append(el('h2', '', 'Homework'), el('p', 'msg', 'Loading the homework… (the report updates by itself)')); }
+    else if (hwSums.length) {
+      card.append(el('h2', '', 'Homework (school year ' + hwData.year + ')'));
+      card.append(table('repH', [
+        { h: 'Assignment', k: x => x.it.created, v: x => [x.it.cls, x.it.unit, x.it.topic].filter(Boolean).join(' · ') + ' (' + x.it.acts.map(id => (HW_ACTS.find(a => a[0] === id) || [0, id])[1]).join(', ') + (x.it.min ? ', min ' + x.it.min + ' %' : '') + ')' },
+        { h: 'Due', k: x => x.it.dueEnd, v: x => fmtDate(x.it.dueEnd), num: true },
+        { h: 'Done', k: x => (x.onTime + x.late) / (x.n || 1), v: x => (x.onTime + x.late) + ' / ' + x.n, num: true },
+        { h: 'Late', k: x => x.late, v: x => x.late, num: true },
+        { h: 'Missing', k: x => x.missing, v: x => x.missing, num: true },
+        { h: 'Avg best score', k: x => x.avgScore == null ? -1 : x.avgScore, v: x => x.avgScore == null ? '—' : badge(x.avgScore), num: true }], hwSums, 'Assignment'));
+      card.lastChild.style.maxHeight = 'none';
+      const miss = [...hwByPupil(hwSums).values()].filter(p => p.missing > 0).sort((a, b) => b.missing - a.missing || a.name.localeCompare(b.name, 'sl'));
+      card.append(el('p', 'note', miss.length ? 'Missing homework (past due, not done): ' + miss.map(p => p.name + ' (' + p.missing + ')').join(', ') + '.' : 'No pupil has missing homework.'));
+    }
 
     // heat-map: best result of each pupil in each unit
     card.append(el('h2', '', 'Units: best result of each pupil'));
@@ -657,7 +680,7 @@
   const loadHw = async () => {
     if (hwState === 'loading') return; hwState = 'loading';
     try { const j = await api('hwlist'); if (j.ok) { hwData = j; hwState = 'ok'; } else hwState = 'error'; } catch (e) { hwState = 'error'; }
-    if (tab === 'homework') render();
+    if (tab === 'homework' || tab === 'report') render();
   };
   // the units of a book come from the public exercise files (no pupil data in them)
   const loadUnits = book => new Promise(res => {
@@ -718,9 +741,37 @@
     fillPupils(); fillUnits();
     return card;
   };
+  // ---- homework analysis helpers (used by the Homework tab and the Class report)
+  const hwItems = () => hwData ? hwData.items.filter(it => clsOk(it.cls)) : [];
+  // every pupil of an assignment with a status: Done / Done late / Missing (past due) / In progress / Not done
+  const hwPupils = it => it.pupils.map(p => {
+    const o = { name: p[0], per: p[1], doneAt: p[2], late: !!p[3], ok: p[4], any: p[1].some(v => v != null) };
+    o.status = o.doneAt ? (o.late ? 'Done late' : 'Done') : (it.dueEnd && Date.now() > it.dueEnd ? 'Missing' : o.any ? 'In progress' : 'Not done');
+    return o;
+  });
+  const hwSummary = it => {
+    const pup = hwPupils(it), n = pup.length, fin = pup.filter(p => p.doneAt), late = pup.filter(p => p.late).length;
+    pup.forEach(p => { const v = p.per.filter(x => x != null); p.score = v.length ? avg(v, x => x) : null; });
+    const sc = pup.filter(p => p.score != null), days = fin.map(p => (p.doneAt - it.created) / 86400000).sort((a, b) => a - b);
+    const med = days.length ? (days[Math.floor((days.length - 1) / 2)] + days[Math.ceil((days.length - 1) / 2)]) / 2 : null;
+    return { it, pup, n, onTime: fin.length - late, late, missing: pup.filter(p => p.status === 'Missing').length,
+      open: pup.filter(p => p.status === 'Not done' || p.status === 'In progress').length, avgScore: sc.length ? avg(sc, p => p.score) : null, med,
+      actAvg: it.acts.map((id, i) => { const v = pup.map(p => p.per[i]).filter(x => x != null); return v.length ? avg(v, x => x) : null; }) };
+  };
+  // one record per pupil over the given summaries, keyed by normalised name
+  const hwByPupil = sums => {
+    const m = new Map();
+    sums.forEach(s => s.pup.forEach(p => {
+      const k = nk(p.name), o = m.get(k) || { name: p.name, cls: s.it.cls, assigned: 0, onTime: 0, late: 0, missing: 0, open: 0, scoreSum: 0, scoreN: 0 };
+      o.assigned++; if (p.status === 'Done') o.onTime++; else if (p.status === 'Done late') o.late++; else if (p.status === 'Missing') o.missing++; else o.open++;
+      if (p.score != null) { o.scoreSum += p.score; o.scoreN++; }
+      m.set(k, o);
+    }));
+    return m;
+  };
   const homework = view => {
     const top = el('div', 'card');
-    top.append(el('p', 'note', 'Assign an exercise to a class (or to chosen pupils) and see who has done it. A pupil sees the homework on the exercise page after signing in. An activity counts as done when the pupil saved a result for it after you assigned it (best attempt, at least the minimum score if you set one). The filters above do not apply here.'));
+    top.append(el('p', 'note', 'Assign an exercise to a class (or to chosen pupils) and see who has done it. A pupil sees the homework on the exercise page after signing in. An activity counts as done when the pupil saved a result for it after you assigned it (best attempt, at least the minimum score if you set one). Only the Class filter applies here (school year: always the current one).'));
     const nb = el('button', 'btn' + (hwForm ? ' on' : ''), hwForm ? 'Close the form' : 'New homework'); nb.onclick = () => { hwForm = !hwForm; render(); };
     const rb = el('button', 'btn', 'Reload'); rb.style.marginLeft = '8px'; rb.onclick = () => { hwState = ''; hwData = null; render(); };
     top.append(nb, rb); view.append(top);
@@ -731,22 +782,67 @@
       if (hwState === 'error') { const b = el('button', 'btn', 'Try again'); b.onclick = () => { hwState = ''; render(); }; c.append(b); }
       view.append(c); return;
     }
+    const items = hwItems();
     if (!hwData.items.length) { view.append(el('div', 'card', 'No homework assigned yet this school year (' + hwData.year + ').')); return; }
-    const now = Date.now();
-    hwData.items.forEach(it => {
-      const card = el('div', 'card');
+    if (!items.length) { view.append(el('div', 'card', 'No homework for the selected class. (The Class filter applies here; year, book and dates do not.)')); return; }
+    const sums = items.map(hwSummary), now = Date.now();
+
+    // --- overview of everything shown
+    const ov = el('div', 'card'); ov.append(el('h2', '', 'Overview · ' + clsText() + ' · school year ' + hwData.year));
+    const tot = sums.reduce((a, s) => ({ n: a.n + s.n, onTime: a.onTime + s.onTime, late: a.late + s.late, missing: a.missing + s.missing, open: a.open + s.open }), { n: 0, onTime: 0, late: 0, missing: 0, open: 0 });
+    const scored = sums.filter(s => s.avgScore != null);
+    const tl = el('div', 'tiles');
+    tl.append(tile(sums.length, 'assignments'), tile(tot.n ? pct((tot.onTime + tot.late) / tot.n) : '—', 'done (of all assigned)'), tile(tot.n ? pct(tot.onTime / tot.n) : '—', 'done on time'),
+      tile(tot.late, 'done late'), tile(tot.missing, 'missing (past due)'), tile(scored.length ? pct(avg(scored, s => s.avgScore)) : '—', 'average best score'));
+    ov.append(tl);
+    ov.append(el('h2', '', 'Completion per assignment'));
+    const bars = el('div'); bars.style.cssText = 'display:grid;gap:8px;margin-top:6px';
+    const seg = (w, col, title) => { const d = el('div'); d.style.cssText = 'width:' + w + '%;background:' + col + ';height:100%'; d.title = title; return d; };
+    sums.forEach(s => {
+      const row = el('div'), lab = el('div', 'muted', s.it.cls + ' · ' + [s.it.unit, s.it.topic].filter(Boolean).join(' · ') + ' · due ' + fmtDate(s.it.dueEnd || 0) + ' · done ' + (s.onTime + s.late) + ' / ' + s.n);
+      lab.style.cssText = 'font-size:12px;margin-bottom:2px';
+      const b = el('div'); b.style.cssText = 'display:flex;height:14px;border-radius:7px;overflow:hidden;background:var(--line)';
+      if (s.n) { const w = c => c / s.n * 100;
+        b.append(seg(w(s.onTime), 'var(--good)', s.onTime + ' on time'), seg(w(s.late), 'var(--warn)', s.late + ' late'), seg(w(s.missing), 'var(--bad)', s.missing + ' missing')); }
+      row.append(lab, b); bars.append(row);
+    });
+    ov.append(bars);
+    const lg = el('div', 'legend'); lg.innerHTML = '<span><i class="sw" style="background:var(--good)"></i>done on time</span><span><i class="sw" style="background:var(--warn)"></i>done late</span><span><i class="sw" style="background:var(--bad)"></i>missing (past due)</span><span><i class="sw" style="background:var(--line)"></i>not yet due / in progress</span>';
+    ov.append(lg); view.append(ov);
+
+    // --- every pupil across the assignments shown
+    const pm = hwByPupil(sums), plist = [...pm.values()];
+    const pc = el('div', 'card'); pc.append(el('h2', '', 'Pupils across all this homework'));
+    pc.append(el('p', 'note', 'Done % = done (on time or late) of everything assigned. “Often missing” = two or more missing.'));
+    pc.append(table('hwp', [
+      { h: 'Pupil', k: x => x.name, v: x => x.name },
+      { h: 'Class', k: x => x.cls, v: x => x.cls },
+      { h: 'Assigned', k: x => x.assigned, v: x => x.assigned, num: true },
+      { h: 'On time', k: x => x.onTime, v: x => x.onTime, num: true },
+      { h: 'Late', k: x => x.late, v: x => x.late, num: true },
+      { h: 'Missing', k: x => x.missing, v: x => x.missing, num: true },
+      { h: 'Open', k: x => x.open, v: x => x.open, num: true },
+      { h: 'Done %', k: x => (x.onTime + x.late) / x.assigned, v: x => badge((x.onTime + x.late) / x.assigned), num: true },
+      { h: 'Avg best score', k: x => x.scoreN ? x.scoreSum / x.scoreN : -1, v: x => x.scoreN ? badge(x.scoreSum / x.scoreN) : '—', num: true },
+      { h: 'Note', k: x => x.missing, v: x => x.missing >= 2 ? el('span', 'pct lo', 'often missing') : '' }], plist, 'Missing'));
+    view.append(pc);
+
+    // --- one card per assignment
+    sums.forEach(s => {
+      const it = s.it, card = el('div', 'card'), pup = s.pup;
       const names = it.acts.map(id => (HW_ACTS.find(a => a[0] === id) || [0, id])[1]);
-      const pup = it.pupils.map(p => ({ name: p[0], per: p[1], doneAt: p[2], late: !!p[3], ok: p[4], any: p[1].some(v => v != null) }));
-      pup.forEach(p => { p.status = p.doneAt ? (p.late ? 'Done late' : 'Done') : now > it.dueEnd && it.dueEnd ? 'Missing' : p.any ? 'In progress' : 'Not done'; });
-      const nDone = pup.filter(p => p.doneAt).length, nLate = pup.filter(p => p.late).length;
       card.append(el('h2', '', (BOOKS[it.book] || it.book) + ' · ' + [it.unit, it.topic].filter(Boolean).join(' · ')));
       card.append(el('p', 'note', 'Class ' + it.cls + (it.all ? ' (whole class)' : ' (' + pup.length + ' chosen pupils)') + ' · ' + names.join(', ') + (it.min ? ' · at least ' + it.min + ' %' : '') +
         ' · due ' + fmtDate(it.dueEnd || 0) + ' · assigned ' + fmtDate(it.created) + (it.note ? ' · “' + it.note + '”' : '')));
-      const tiles = el('div', 'tiles'); tiles.append(tile(nDone + ' / ' + pup.length, 'done' + (nLate ? ' (' + nLate + ' late)' : '')), tile(pup.length - nDone, 'not finished'));
-      card.append(tiles);
+      const tiles2 = el('div', 'tiles'); tiles2.append(tile((s.onTime + s.late) + ' / ' + s.n, 'done' + (s.late ? ' (' + s.late + ' late)' : '')), tile(s.missing, 'missing'), tile(s.open, 'open'),
+        tile(s.avgScore == null ? '—' : pct(s.avgScore), 'average best score'), tile(s.med == null ? '—' : (s.med < 1 ? 'same day' : s.med.toFixed(1) + ' days'), 'typical time to finish'));
+      card.append(tiles2);
+      const an = names.map((n, i) => n + ': ' + (s.actAvg[i] == null ? '—' : pct(s.actAvg[i]))).join(' · ');
+      card.append(el('p', 'note', 'Average best score per activity (pupils who tried it) — ' + an));
       if (pup.length) {
         const cols = [{ h: 'Pupil', k: x => x.name, v: x => x.name }];
         names.forEach((n, i) => cols.push({ h: n, k: x => x.per[i] == null ? -1 : x.per[i], num: true, v: x => x.per[i] == null ? '—' : (x.ok[i] ? '✓ ' : '') + pct(x.per[i]) }));
+        cols.push({ h: 'Finished', k: x => x.doneAt || 0, num: true, v: x => x.doneAt ? fmtDate(x.doneAt) : '—' });
         const rank = { Missing: 0, 'Not done': 1, 'In progress': 2, 'Done late': 3, Done: 4 };
         cols.push({ h: 'Status', k: x => rank[x.status], v: x => el('span', 'pct' + (x.status === 'Done' ? ' hi' : x.status === 'Missing' || x.status === 'Not done' ? ' lo' : ''), x.status) });
         card.append(table('hw' + it.id, cols, pup, 'Status'));
