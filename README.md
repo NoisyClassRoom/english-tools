@@ -19,6 +19,7 @@ This repo is served by GitHub Pages and embedded in a WordPress site on Arnes Sp
 | `exercises/more-<id>.js` | Extra questions that make each unit's exercise bank bigger than one session (8 gap sentences, 10 easy and 10 hard test questions per unit). The page shows questions a pupil has not seen yet first, so a repeat attempt brings new ones |
 | `exercises/more2-<id>.js` | A second set of the same kind (10 gap sentences, 10 easy and 10 hard questions per unit), written on 7 Oct 2026 from the teacher's own exercise notes for each coursebook (original sentences, not copied from the books). Global `MORE2_SETS`; merged into the unit banks by `exercises/index.html` exactly like `more-<id>.js` |
 | `exercises/sets.js` | Generic "Extra practice" topics shown to every class |
+| `exercises/levels-1.js`, `levels-2.js` | Difficulty levels for Extra practice (written 8 Oct 2026): every topic has Easy / Medium / Hard with 15 words each (translations and emoji) and gap sentences. Part 1 adds to the nine topics of `sets.js` (its words are the first Easy words); part 2 has 12 new topics (body, house, transport, sports, town, feelings, calendar, nature, technology, travel, shopping, irregular verbs). Pupils pick a level after the topic; results are saved with the topic name `Topic · Level`. Format is explained at the top of the files |
 
 Class ids (internal only): 6b = Project 1, 7a = Dream Team Starter, 7bc = Project 2,
 8a = Dream Team 1, 8b = Project 3, 9a = Dream Team 2, 9b = Project 4.
