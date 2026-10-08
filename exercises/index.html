@@ -80,6 +80,18 @@
   .card { text-align: center; }
   .grid { display: flex; flex-wrap: wrap; justify-content: center; gap: 14px; }
   .tile { width: 210px; }
+  .gram { text-align: left; max-width: 760px; margin: 0 auto; }
+  .gsec { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px 20px; margin-bottom: 14px; }
+  .gsec h3 { margin: 0 0 8px; font-size: 20px; }
+  .gsec p { margin: 6px 0; line-height: 1.55; }
+  .gwrap { overflow-x: auto; margin: 10px 0; }
+  .gtab { border-collapse: collapse; font-size: 16px; }
+  .gtab th, .gtab td { border: 1px solid var(--line); padding: 6px 12px; text-align: left; }
+  .gtab th { background: var(--accent-soft); }
+  .gex { margin: 10px 0 0; padding-left: 22px; line-height: 1.6; }
+  .gex .en { font-weight: 600; }
+  .gex .sl { color: var(--muted); }
+  .gtip { margin-top: 10px; padding: 10px 12px; border-radius: 10px; background: var(--accent-soft); line-height: 1.5; }
   .match, .choices { max-width: 640px; margin-left: auto; margin-right: auto; }
   .match .opt { text-align: center; }
   .gap-line { text-align: center; }
@@ -317,7 +329,10 @@
       await loadOpt('hard-' + info.id + '.js');
       await loadOpt('more-' + info.id + '.js');
       await loadOpt('more2-' + info.id + '.js');
+      await loadOpt('grammar-' + info.id + '.js');
       (window.CLASS_SETS || []).forEach(set => {
+        const gr = (window.GRAMMAR || {})[set.id];          // grammar-<id>.js: explanation + quick check
+        if (gr) { set.grammar = gr.s; set.gcheck = (gr.c || []).map(toTest); }
         const hard = (window.HARD_TESTS || {})[set.id];
         if (hard) set.tests2 = hard.map(toTest);
         // more-<id>.js and more2-<id>.js: extra gap sentences, easy and hard test questions
@@ -340,6 +355,7 @@
 
   // ----- menu -----
   const MODES = [
+    { id: 'grammar', icon: '📖', name: 'Grammar', desc: 'Rules and examples', run: grammar, need: s => (s.grammar || []).length },
     { id: 'flash', icon: '🃏', name: 'Flashcards', desc: 'Look, think, flip', run: flashcards },
     { id: 'match', icon: '🔗', name: 'Match', desc: 'Pair words and pictures', run: match },
     { id: 'quiz',  icon: '❓', name: 'Quiz', desc: 'Pick the right word', run: quiz },
@@ -499,6 +515,36 @@
       q.append(box); s.append(q);
     };
     ask();
+  }
+
+  // ----- grammar explanation (grammar-<id>.js) -----
+  function grammar() {
+    setBar(1);
+    const s = stage(); const box = el('div', 'gram');
+    const rich = (tag, txt) => { const e = el(tag); String(txt).split('**').forEach((part, k) => { if (k % 2) e.append(el('strong', '', part)); else e.append(document.createTextNode(part)); }); return e; };
+    set.grammar.forEach(sec => {
+      const c = el('section', 'gsec'); c.append(el('h3', '', sec.h));
+      (sec.l || []).forEach(x => c.append(rich('p', x)));
+      if (sec.t) {
+        const tb = el('table', 'gtab');
+        sec.t.forEach((r, ri) => { const tr = el('tr'); r.forEach(cell => tr.append(el(ri ? 'td' : 'th', '', cell))); tb.append(tr); });
+        const wrap = el('div', 'gwrap'); wrap.append(tb); c.append(wrap);
+      }
+      if (sec.x && sec.x.length) {
+        const ul = el('ul', 'gex');
+        sec.x.forEach(([en, sl]) => { const li = el('li'); li.append(el('span', 'en', en)); if (sl) li.append(el('span', 'sl', ' – ' + sl)); ul.append(li); });
+        c.append(ul);
+      }
+      if (sec.sl) { const n = el('div', 'gtip'); n.append(el('span', '', '🇸🇮 '), document.createTextNode(sec.sl)); c.append(n); }
+      box.append(c);
+    });
+    s.append(box);
+    if ((set.gcheck || []).length) {
+      const row = el('div', 'row center'); row.style.marginTop = '18px';
+      const go = el('button', 'btn primary', '✅ Quick check');
+      go.onclick = () => { mode = { id: 'gcheck', name: 'Grammar quick check' }; $('#playInfo').textContent = set.title + ' · Grammar quick check'; setBar(0); test('gcheck'); };
+      row.append(go); s.append(row);
+    }
   }
 
   // ----- gap fill -----
