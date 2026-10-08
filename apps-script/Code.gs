@@ -96,6 +96,7 @@ function doPost(e) {
     if (d.action === 'hwsave') return hwSaveReply_(d);       // teacher-only: new assignment
     if (d.action === 'hwdelete') return hwDeleteReply_(d);   // teacher-only: remove an assignment
     if (d.action === 'board') return boardReply_(d);         // teacher-only: the exercise keys for the board pages
+    if (d.action === 'boardsave') return boardSaveReply_(d); // teacher-only: one edited section of the board text
     var who = verify_(d.token);
     if (!who) return out_({ ok: false, error: 'token' });
 
@@ -465,6 +466,82 @@ function boardReply_(d) {
   return out_({ ok: true, book: String(d.book), sections: out });
 }
 
+// ---- editing the board text on the board page ("Edit" button): one section is saved at a time.
+// The first save makes a hidden backup tab "BoardOriginal" (menu: English hub > Restore board text from backup...).
+var BOARD_BACKUP = 'BoardOriginal';
+
+function boardBackup_() {
+  var ss = SpreadsheetApp.getActive();
+  if (ss.getSheetByName(BOARD_BACKUP)) return;
+  var src = ss.getSheetByName(BOARDSHEET);
+  if (!src) return;
+  var first = ss.getSheets().filter(function (s) { return s.getName() !== BOARDSHEET && s.getName() !== BOARD_BACKUP; })[0];
+  var c = src.copyTo(ss); c.setName(BOARD_BACKUP);
+  if (first) ss.setActiveSheet(first);
+  c.hideSheet();
+}
+
+// rows of the Board tab for one section (long sections are split into parts of at most 40,000 characters)
+function boardRows_(book, n, s) {
+  var parts = [[]], size = 0;
+  (s.blocks || []).forEach(function (b) {
+    var len = JSON.stringify(b).length;
+    if (size + len > 40000 && parts[parts.length - 1].length) { parts.push([]); size = 0; }
+    parts[parts.length - 1].push(b); size += len;
+  });
+  return parts.map(function (p, k) { return [String(book), n, k + 1, Number(s.lvl) || 0, String(s.h || ''), JSON.stringify(p)]; });
+}
+
+function boardSaveReply_(d) {
+  var who = verify_(d.token);
+  if (!who || !isTeacher_(who.email)) return out_({ ok: false, error: 'token' });
+  var book = String(d.book || ''), n = Math.floor(Number(d.n)), s = d.section;
+  if (!/^[0-9a-z]{1,6}$/.test(book) || !(n >= 1 && n <= 2000) || !s || !(s.blocks instanceof Array) || s.blocks.length > 3000) return out_({ ok: false, error: 'data' });
+  var str = function (v, max) { return String(v == null ? '' : v).slice(0, max); };
+  var blocks = [];
+  for (var i = 0; i < s.blocks.length; i++) {
+    var b = s.blocks[i] || {};
+    if (b.t === 'tbl') {
+      if (!(b.rows instanceof Array) || b.rows.length > 300) return out_({ ok: false, error: 'data' });
+      blocks.push({ t: 'tbl', rows: b.rows.map(function (r) { return (r instanceof Array ? r : []).slice(0, 30).map(function (c) { return str(c, 2000); }); }) });
+    } else if (b.t === 'ref' || b.t === 'p') {
+      blocks.push({ t: b.t, x: str(b.x, 4000) });
+    } else if (b.t === 'li') {
+      blocks.push({ t: 'li', x: str(b.x, 4000), l: Math.max(0, Math.min(4, Math.floor(Number(b.l)) || 0)), n: str(b.n, 12) });
+    } else return out_({ ok: false, error: 'data' });
+  }
+  var sec = { lvl: Math.max(0, Math.min(4, Math.floor(Number(s.lvl)) || 0)), h: str(s.h, 300), blocks: blocks };
+  var lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    boardBackup_();
+    var sh = boardSheet_();
+    if (sh.getLastRow() > 1) {                         // remove the old rows of this section (bottom-up)
+      var ids = sh.getRange(2, 1, sh.getLastRow() - 1, 2).getValues();
+      for (var r = ids.length - 1; r >= 0; r--) if (String(ids[r][0]) === book && Number(ids[r][1]) === n) sh.deleteRow(r + 2);
+    }
+    var rows = boardRows_(book, n, sec), start = sh.getLastRow() + 1, need = start + rows.length - 1;
+    if (need > sh.getMaxRows()) sh.insertRowsAfter(sh.getMaxRows(), need - sh.getMaxRows() + 50);
+    sh.getRange(start, 1, rows.length, BOARDHEADER.length).setNumberFormat('@').setValues(rows);
+  } finally { lock.releaseLock(); }
+  return out_({ ok: true });
+}
+
+function restoreBoardOriginal() {
+  var ui = SpreadsheetApp.getUi(), ss = SpreadsheetApp.getActive(), bk = ss.getSheetByName(BOARD_BACKUP);
+  if (!bk || bk.getLastRow() < 2) { ui.alert('There is no board backup yet. It is made automatically when the first edit on the board page is saved.'); return; }
+  if (ui.alert('Restore the board text from the backup?', 'All edits made on the board page since the backup was made will be lost.', ui.ButtonSet.YES_NO) !== ui.Button.YES) return;
+  var lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    var sh = boardSheet_(), vals = bk.getRange(2, 1, bk.getLastRow() - 1, BOARDHEADER.length).getValues();
+    if (sh.getLastRow() > 1) sh.getRange(2, 1, sh.getLastRow() - 1, BOARDHEADER.length).clearContent();
+    if (vals.length > sh.getMaxRows() - 1) sh.insertRowsAfter(sh.getMaxRows(), vals.length - sh.getMaxRows() + 50);
+    sh.getRange(2, 1, vals.length, BOARDHEADER.length).setNumberFormat('@').setValues(vals);
+  } finally { lock.releaseLock(); }
+  ui.alert('Done. The board text is back to the backup (' + vals.length + ' rows).');
+}
+
 // All results (Results + Archive) and the Roster with activity counts, for the private Results page. Teacher only.
 // rows:   [time ms, last name, first name, class, book id, unit title, activity, level 1-3, score, total, school year]
 // roster: [school year, class, name, attempts that year, last time ms (0 = never)]
@@ -653,6 +730,8 @@ function onOpen() {
     .addItem('Remove duplicate results (save bug)...', 'removeDuplicateResults')
     .addItem('Delete old results...', 'deleteOldResults')
     .addItem('Delete results of pupils who left...', 'deleteLeavers')
+    .addSeparator()
+    .addItem('Restore board text from backup...', 'restoreBoardOriginal')
     .addToUi();
 }
 
