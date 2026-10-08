@@ -139,6 +139,8 @@
 
 <script src="classes.js"></script>
 <script src="sets.js"></script>
+<script src="levels-1.js"></script>
+<script src="levels-2.js"></script>
 <script src="tracking.js"></script>
 <script>
 (() => {
@@ -148,7 +150,7 @@
   // (remembered per class/unit/activity in localStorage), so a repeat attempt brings new questions.
   const idOf = x => (x.q || x.text || x.en || '') + '|' + (x.answer || '');
   const pick = (items, n, kind) => {
-    const key = (new URLSearchParams(location.search).get('class') || '') + '/' + (set ? set.id : '') + '/' + kind;
+    const key = (new URLSearchParams(location.search).get('class') || '') + '/' + (set ? set.id + (set.level ? '.' + set.level : '') : '') + '/' + kind;
     let store = {}; try { store = JSON.parse(localStorage.getItem('eh.seen') || '{}'); } catch (e) {}
     let seen = new Set(store[key] || []);
     let fresh = shuffle(items.filter(x => !seen.has(idOf(x))));
@@ -246,6 +248,21 @@
   };
   const CLASSES = window.CLASSES || [];
   const SHARED = window.SETS || [];
+  // Extra practice with difficulty levels (levels-*.js): easy = the words in sets.js + extra easy ones, then medium and hard
+  const LEVELS = { easy: ['🟢', 'Easy', 'Everyday words'], medium: ['🟡', 'Medium', 'More words and phrases'], hard: ['🔴', 'Hard', 'Rarer words and harder sentences'] };
+  (window.EXTRA_LEVELS || []).forEach(x => {
+    const toW = a => ({ en: a[0], sl: a[1], pic: a[2] });
+    const toS = a => ({ text: a[0], answer: a[1], alt: a.slice(2) });
+    let base = SHARED.find(s => s.id === x.id);
+    if (!base) { base = { id: x.id, title: x.title, icon: x.icon, words: [], sentences: [] }; SHARED.push(base); }
+    base.levels = {};
+    ['easy', 'medium', 'hard'].forEach(k => {
+      const l = x[k]; if (!l) return;
+      const w = (k === 'easy' ? base.words.map(w0 => w0) : []).concat(l.w.map(toW));
+      const s = (k === 'easy' ? (base.sentences || []) : []).concat((l.s || []).map(toS));
+      base.levels[k] = { words: w, sentences: s };
+    });
+  });
 
   // ----- home -----
   const grid = sets => {
@@ -330,7 +347,19 @@
     { id: 'test',  icon: '📝', name: 'Unit test', desc: 'Grammar check', run: test, need: s => (s.tests || []).length },
     { id: 'test2', icon: '🧠', name: 'Unit test 2', desc: 'A harder test', run: () => test('tests2'), need: s => (s.tests2 || []).length }
   ];
-  function openSet(s) {
+  function openSet(s, lvl) {
+    if (s.levels && !lvl) {
+      set = s; $('#menuTitle').textContent = s.icon + ' ' + s.title;
+      const g = $('#modeGrid'); g.innerHTML = '';
+      Object.keys(LEVELS).filter(k => s.levels[k]).forEach(k => {
+        const b = el('button', 'tile'), L = LEVELS[k];
+        b.append(el('span', 'ico', L[0]), document.createTextNode(L[1]), el('small', '', s.levels[k].words.length + ' words · ' + L[2]));
+        b.onclick = () => openSet(s, k);
+        g.append(b);
+      });
+      show('menu'); return;
+    }
+    if (lvl) s = Object.assign({}, s, { base: s, level: lvl, title: s.title + ' · ' + LEVELS[lvl][1], words: s.levels[lvl].words, sentences: s.levels[lvl].sentences });
     set = s; $('#menuTitle').textContent = s.icon + ' ' + s.title;
     const g = $('#modeGrid'); g.innerHTML = '';
     MODES.filter(m => !m.need || m.need(s)).forEach(m => {
@@ -339,6 +368,7 @@
       b.onclick = () => startMode(m);
       g.append(b);
     });
+    if (s.base) { const c = el('button', 'tile'); c.append(el('span', 'ico', '🎚️'), document.createTextNode('Change level'), el('small', '', 'Easy, medium or hard')); c.onclick = () => openSet(s.base); g.append(c); }
     show('menu');
   }
   function startMode(m) { mode = m; show('play'); $('#playInfo').textContent = set.title + ' · ' + m.name; setBar(0); m.run(); }
@@ -348,7 +378,7 @@
     if (!wantSet) return;
     const s0 = (window.CLASS_SETS || []).concat(SHARED).find(x => x.id === wantSet);
     if (!s0) return;
-    openSet(s0);
+    openSet(s0, qp.get('level') || undefined);
     const m = wantMode && MODES.find(x => x.id === wantMode && (!x.need || x.need(s0)));
     if (m) startMode(m);
   }
