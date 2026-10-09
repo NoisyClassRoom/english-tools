@@ -671,7 +671,9 @@
   // ---------------------------------------------------------------- homework (assign, then check who has done it)
   let hwData = null, hwState = '', hwForm = false;
   const unitCache = {};
-  const HW_ACTS = [['match', 'Match'], ['quiz', 'Quiz'], ['gap', 'Fill the gap'], ['test', 'Unit test'], ['test2', 'Unit test 2']];
+  const HW_ACTS = [['match', 'Match'], ['quiz', 'Quiz'], ['gap', 'Fill the gap'], ['test', 'Unit test'], ['test2', 'Unit test 2'], ['gcheck', 'Grammar quick check']];
+  const EXTRA_ACTS = ['match', 'quiz', 'gap'];                       // Extra practice has no unit tests and no grammar
+  const EXTRA_LEVELS = [['easy', 'Easy'], ['medium', 'Medium'], ['hard', 'Hard']];
   const api = async (action, extra) => {
     const token = Track.token(); if (!token) throw new Error('token');
     const r = await fetch(Track.config.endpoint, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(Object.assign({ action, token }, extra || {})) });
@@ -683,12 +685,18 @@
     if (tab === 'homework' || tab === 'report') render();
   };
   // the units of a book come from the public exercise files (no pupil data in them)
-  const loadUnits = book => new Promise(res => {
-    if (unitCache[book]) return res(unitCache[book]);
-    const s = document.createElement('script'); s.src = book === 'extra' ? '../exercises/sets.js' : '../exercises/class-' + book + '.js';
-    s.onload = () => { const list = (book === 'extra' ? window.SETS : window.CLASS_SETS) || []; res(unitCache[book] = list.map(x => ({ id: x.id, title: x.title, unit: x.unit || '' }))); };
-    s.onerror = () => res([]); document.head.append(s);
-  });
+  const loadScript = src => new Promise(res => { const s = document.createElement('script'); s.src = src; s.onload = s.onerror = res; document.head.append(s); });
+  const loadUnits = async book => {
+    if (unitCache[book]) return unitCache[book];
+    if (book === 'extra') {                                  // topics of sets.js + the new topics of levels-*.js
+      await loadScript('../exercises/sets.js'); await loadScript('../exercises/levels-1.js'); await loadScript('../exercises/levels-2.js');
+      const list = (window.SETS || []).map(x => ({ id: x.id, title: x.title, unit: '' }));
+      (window.EXTRA_LEVELS || []).forEach(x => { if (x.title && !list.some(l => l.id === x.id)) list.push({ id: x.id, title: x.title, unit: '' }); });
+      return unitCache[book] = list;
+    }
+    window.CLASS_SETS = null; await loadScript('../exercises/class-' + book + '.js');
+    return unitCache[book] = (window.CLASS_SETS || []).map(x => ({ id: x.id, title: x.title, unit: x.unit || '' }));
+  };
   const hwForm_ = () => {
     const card = el('div', 'card'); card.append(el('h2', '', 'New homework'));
     const year = roster.reduce((m, r) => r.year > m ? r.year : m, '');
@@ -715,7 +723,14 @@
       list.forEach((u, i) => { const o2 = el('option', '', [u.unit, u.title].filter(Boolean).join(' · ')); o2.value = String(i); sUnit.append(o2); });
       if (!list.length) { const o3 = el('option', '', 'No units found'); o3.value = ''; sUnit.append(o3); }
     };
-    sCls.onchange = fillPupils; sBook.onchange = fillUnits;
+    // Extra practice: a level (Easy / Medium / Hard) and only the activities that exist there
+    const sLevel = sel(EXTRA_LEVELS); const levelRow = field('Level', sLevel);
+    const bookChanged = () => {
+      const ex = sBook.value === 'extra'; levelRow.style.display = ex ? 'block' : 'none';
+      actBox.querySelectorAll('input').forEach(c => { const off = ex && EXTRA_ACTS.indexOf(c.value) < 0; c.disabled = off; if (off) c.checked = false; c.parentNode.style.opacity = off ? '.4' : ''; });
+      fillUnits();
+    };
+    sCls.onchange = fillPupils; sBook.onchange = bookChanged;
     whole.onchange = () => { pBox.style.display = whole.checked ? 'none' : 'block'; };
     const wrapW = el('label'); wrapW.append(whole, document.createTextNode(' Whole class (untick to choose pupils)'));
     wrapW.style.cssText = 'display:block;margin:0 0 6px';
@@ -730,15 +745,16 @@
       if (!whole.checked && !chosen.length) { msg.className = 'msg err'; msg.textContent = 'Tick at least one pupil, or choose the whole class.'; return; }
       save.disabled = true; msg.className = 'msg'; msg.textContent = 'Saving…';
       try {
-        const j = await api('hwsave', { hw: { cls: sCls.value, book: sBook.value, set: u.id, topic: u.title, unit: u.unit, acts, min: min.value === '' ? 0 : Number(min.value), due: due.value,
+        const ex = sBook.value === 'extra', lv = EXTRA_LEVELS.find(l => l[0] === sLevel.value) || EXTRA_LEVELS[0];
+        const j = await api('hwsave', { hw: { cls: sCls.value, book: sBook.value, set: ex ? u.id + '.' + lv[0] : u.id, topic: ex ? u.title + ' · ' + lv[1] : u.title, unit: u.unit, acts, min: min.value === '' ? 0 : Number(min.value), due: due.value,
           note: note.value, pupils: whole.checked ? [] : chosen } });
         if (!j.ok) throw new Error('save');
         hwForm = false; hwState = ''; hwData = null; render();
       } catch (e) { save.disabled = false; msg.className = 'msg err'; msg.textContent = 'Could not save the homework. Try again.'; }
     };
-    card.append(field('Class', sCls), field('Book', sBook), field('Unit', sUnit), el('div', 'muted', 'Activities'), actBox,
+    card.append(field('Class', sCls), field('Book', sBook), field('Unit', sUnit), levelRow, el('div', 'muted', 'Activities'), actBox,
       field('Minimum score in each activity (%)', min), field('Due date', due), field('Note', note), wrapW, pBox, msg, save, cancel);
-    fillPupils(); fillUnits();
+    fillPupils(); bookChanged();
     return card;
   };
   // ---- homework analysis helpers (used by the Homework tab and the Class report)
