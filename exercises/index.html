@@ -198,7 +198,7 @@
     }
   };
   // ----- homework: the teacher's assignments for this pupil's class (asked from the server once signed in) -----
-  const MODE_IDS = { match: 'Match', quiz: 'Quiz', gap: 'Fill the gap', test: 'Unit test', test2: 'Unit test 2' };
+  const MODE_IDS = { match: 'Match', quiz: 'Quiz', gap: 'Fill the gap', test: 'Unit test', test2: 'Unit test 2', gcheck: 'Grammar quick check' };
   let hwBusy = false;
   const loadHw = async () => {
     const box = $('#hw'); const token = Track.enabled && Track.token();
@@ -229,7 +229,9 @@
       it.acts.forEach(a => {
         const b = el('button', 'btn' + (a.ok ? ' ok' : a.pct != null ? ' part' : ''),
           (a.ok ? '✓ ' : '') + a.name + (a.pct != null ? ' · best ' + Math.round(a.pct * 100) + ' %' : ''));
-        b.onclick = () => { location.search = '?class=' + encodeURIComponent(it.book) + '&set=' + encodeURIComponent(it.set) + '&mode=' + encodeURIComponent(a.id); };
+        // Extra practice homework: set = '<topic id>.<level>' (e.g. food.hard)
+        const [sid, lvl] = String(it.set).split('.');
+        b.onclick = () => { location.search = '?class=' + encodeURIComponent(it.book) + '&set=' + encodeURIComponent(sid) + (lvl ? '&level=' + encodeURIComponent(lvl) : '') + '&mode=' + encodeURIComponent(a.id); };
         row.append(b);
       });
       c.append(row); box.append(c);
@@ -395,7 +397,8 @@
     const s0 = (window.CLASS_SETS || []).concat(SHARED).find(x => x.id === wantSet);
     if (!s0) return;
     openSet(s0, qp.get('level') || undefined);
-    const m = wantMode && MODES.find(x => x.id === wantMode && (!x.need || x.need(s0)));
+    if (wantMode === 'gcheck') { if ((set.gcheck || []).length) startCheck(); return; }
+    const m = wantMode && MODES.find(x => x.id === wantMode && (!x.need || x.need(set)));
     if (m) startMode(m);
   }
 
@@ -520,6 +523,12 @@
     ask();
   }
 
+  // the 5-question check after the grammar explanation (also opened directly by a homework link: mode=gcheck)
+  function startCheck() {
+    mode = { id: 'gcheck', name: 'Grammar quick check' }; show('play');
+    $('#playInfo').textContent = set.title + ' · Grammar quick check'; setBar(0); test('gcheck');
+  }
+
   // ----- grammar explanation (grammar-<id>.js) -----
   function grammar() {
     setBar(1);
@@ -545,7 +554,7 @@
     if ((set.gcheck || []).length) {
       const row = el('div', 'row center'); row.style.marginTop = '18px';
       const go = el('button', 'btn primary', '✅ Quick check');
-      go.onclick = () => { mode = { id: 'gcheck', name: 'Grammar quick check' }; $('#playInfo').textContent = set.title + ' · Grammar quick check'; setBar(0); test('gcheck'); };
+      go.onclick = startCheck;
       row.append(go); s.append(row);
     }
   }
