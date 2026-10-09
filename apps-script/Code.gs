@@ -227,9 +227,10 @@ function isTeacher_(email) {
 // Tab "Homework": one row per assignment. Class = Roster class (teaching group); Pupils blank = the whole class,
 // otherwise the chosen Roster names separated by ";". An activity counts as done when the pupil saved a result for
 // that book + topic + activity after the assignment was created (best attempt; at least Min % when set).
+// Extra practice homework: Book = extra, Set = '<topic id>.<level>' (food.hard), Topic = 'Food and drink · Hard' (= what the page saves).
 var HWSHEET = 'Homework';
 var HWHEADER = ['Id', 'Created', 'Class', 'Book', 'Set', 'Topic', 'Unit', 'Activities', 'Min %', 'Due', 'Note', 'Pupils', 'School year', 'Deleted'];
-var HW_ACTS = { match: 'Match', quiz: 'Quiz', gap: 'Fill the gap', test: 'Unit test', test2: 'Unit test 2' };
+var HW_ACTS = { match: 'Match', quiz: 'Quiz', gap: 'Fill the gap', test: 'Unit test', test2: 'Unit test 2', gcheck: 'Grammar quick check' };
 
 function hwSheet_() {
   var ss = SpreadsheetApp.getActive(), sh = ss.getSheetByName(HWSHEET);
