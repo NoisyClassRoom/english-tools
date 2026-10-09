@@ -436,6 +436,9 @@
     draw();
   }
 
+  // two English words with the same Slovenian translation (e.g. opposite / across from = nasproti) are synonyms for the exercises
+  const sameSl = (a, b) => a === b || (!!a.sl && !!b.sl && a.sl.trim().toLowerCase() === b.sl.trim().toLowerCase());
+
   // ----- match -----
   function match() {
     const words = pick(set.words, 6, 'match');
@@ -450,7 +453,7 @@
         if (side === 'L') { if (selL) selL.b.classList.remove('sel'); selL = { w, b }; b.classList.add('sel'); }
         else { if (selR) selR.b.classList.remove('sel'); selR = { w, b }; b.classList.add('sel'); }
         if (selL && selR) {
-          if (selL.w === selR.w) {
+          if (sameSl(selL.w, selR.w)) {
             [selL.b, selR.b].forEach(x => { x.classList.remove('sel'); x.classList.add('done'); });
             done++; setBar(done / words.length); selL = selR = null;
             if (done === words.length) { words.forEach(w => rec(w.en, w.sl || '', (wrongOf.get(w) || []).join(' / '), !wrongOf.has(w))); }
@@ -475,7 +478,7 @@
       if (w.pic) q.append(el('div', 'pic', w.pic));
       q.append(el('div', 'sl', w.sl || ''), el('p', 'hint', 'Which English word is this?'));
       const box = el('div', 'choices');
-      const others = shuffle(set.words.filter(x => x !== w)).slice(0, 3);
+      const others = shuffle(set.words.filter(x => !sameSl(x, w))).slice(0, 3);   // never offer a synonym as a wrong option
       shuffle([w, ...others]).forEach(o => {
         const b = el('button', 'opt', o.en);
         b.onclick = () => {
