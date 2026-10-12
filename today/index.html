@@ -62,7 +62,7 @@
   <div id="app">
     <div class="grid">
       <div class="card wide"><h2>Homework to watch</h2><div id="hw" class="muted">Loading…</div></div>
-      <div class="card"><h2>This week, by class</h2><div id="wk" class="muted">Loading…</div></div>
+      <div class="card"><h2>Last 7 days, by class</h2><div id="wk" class="muted">Loading…</div></div>
       <div class="card"><h2>Today so far</h2><div id="td" class="muted">Loading…</div></div>
       <div class="card wide"><h2>Go to</h2><div id="go"></div></div>
     </div>
@@ -116,13 +116,13 @@
     const roster = j.roster.map(a => ({ year: a[0], cls: a[1], name: a[2], last: a[4] }));
     const year = roster.reduce((m, r) => r.year > m ? r.year : m, '') || rows.reduce((m, r) => r.year > m ? r.year : m, '');
     const cur = rows.filter(r => r.year === year), now = new Date(), today0 = day0(now);
-    const wd = (now.getDay() + 6) % 7, week0 = today0 - wd * 86400000, prev0 = week0 - 7 * 86400000;
+    const week0 = now.getTime() - 7 * 86400000, prev0 = week0 - 7 * 86400000;      // rolling: the last 7 days and the 7 before them
     // classes of this school year (from the Roster)
     const classes = [...new Set(roster.filter(r => r.year === year).map(r => r.cls))].sort((a, b) => a.localeCompare(b, 'sl', { numeric: true }));
     wk.className = ''; wk.innerHTML = '';
     if (!classes.length) wk.append(el('p', 'muted', 'No classes in the Roster yet.'));
     else {
-      const t = el('table'), hd = el('tr'); [['Class', ''], ['Pupils active', 'n'], ['Activities', 'n'], ['Last week', 'n'], ['Last activity', '']].forEach(([h, c]) => hd.append(el('th', c, h))); t.append(hd);
+      const t = el('table'), hd = el('tr'); [['Class', ''], ['Pupils active', 'n'], ['Activities', 'n'], ['Before that', 'n'], ['Last activity', '']].forEach(([h, c]) => hd.append(el('th', c, h))); t.append(hd);
       classes.forEach(c => {
         const mine = cur.filter(r => r.cls === c), pup = roster.filter(r => r.year === year && r.cls === c);
         const n = mine.filter(r => r.t >= week0).length, np = mine.filter(r => r.t >= prev0 && r.t < week0).length;
@@ -130,7 +130,7 @@
         const tr = el('tr', n ? '' : 'quiet'); tr.append(el('td', '', c), el('td', 'n', act + ' / ' + pup.length), el('td', 'n', String(n)), el('td', 'n', String(np)), el('td', '', lastT ? dmy(lastT) : '–'));
         t.append(tr);
       });
-      wk.append(t, el('p', 'muted', 'Since Monday ' + dmy(week0) + ' Orange class name = nobody has practised this week yet.'));
+      wk.append(t, el('p', 'muted', 'The last 7 days (since ' + dmy(week0) + '); "Before that" = the 7 days before. Orange class name = nobody has practised in the last 7 days.'));
     }
     // today
     const tr = cur.filter(r => r.t >= today0).sort((a, b) => b.t - a.t);
