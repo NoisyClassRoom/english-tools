@@ -41,6 +41,10 @@
   #nav a.l3, #nav a.l4 { padding-left: 32px; color: var(--muted); }
   h2.sec { font-size: 22px; margin: 22px 0 8px; color: var(--accent); }
   h2.sec.l2 { font-size: 18px; margin-top: 14px; }
+  /* a small round "edit" button that stays in the corner while you scroll (hidden while editing: the sticky bar has "Done editing") */
+  #fab { position: fixed; right: 18px; bottom: 18px; z-index: 7; width: 46px; height: 46px; border-radius: 50%; border: 1px solid var(--accent); background: var(--accent); color: var(--accent-ink); font-size: 22px; line-height: 1; cursor: pointer; box-shadow: 0 2px 10px rgba(0,0,0,.35); opacity: .88; }
+  #fab:hover { opacity: 1; }
+  body.editing #fab { display: none; }
   /* bookmarks: pinned exercises and where each class stopped */
   #marks { padding: 8px 14px; }
   #marks .mrow { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 3px 0; }
@@ -137,8 +141,11 @@
       <button class="btn sm" id="edUnmark">Unmark</button>
       <button class="btn sm" id="edUndo">↶ Undo</button>
       <span id="edStatus" class="muted"></span>
-      <span class="muted" style="font-size:12px;flex-basis:100%">Click in any text to change it. Select words and press “Mark” to make them a hidden answer (or “Unmark”). Enter = new line, Tab / Shift+Tab = indent, Alt+↑↓ = move, the small buttons at the end of a line do the same. Everything is saved automatically.</span>
+      <button class="btn sm" id="edHelpBtn" title="How editing works" style="margin-left:auto">?</button>
+      <button class="btn sm on" id="edDone">✔ Done editing</button>
+      <span class="muted" id="edHelp" style="display:none;font-size:12px;flex-basis:100%">Click in any text to change it. Select words and press “Mark” to make them a hidden answer (or “Unmark”). Enter = new line, Tab / Shift+Tab = indent, Alt+↑↓ = move, the small buttons at the end of a line do the same. Everything is saved automatically.</span>
     </div>
+    <button id="fab" title="Edit text" aria-label="Edit text">✎</button>
     <div class="layout">
       <div class="card" id="nav"><input type="search" id="q" placeholder="Find a section or exercise (e.g. 43/3)…"><div id="navList"></div></div>
       <div id="main"></div>
@@ -465,7 +472,10 @@
     $('#gEdit').textContent = editing ? '✔ Done editing' : '✎ Edit text'; $('#gEdit').classList.toggle('on', editing);
     if (editing) { setStatus(dirty.size ? 'Changes not saved yet…' : ''); $('#edUndo').disabled = !undoStack.length; }
     const y = window.scrollY; renderBook(); window.scrollTo(0, y);
-  };  $('#q').oninput = e => { const q = e.target.value.trim().toLowerCase(); document.querySelectorAll('#navList a').forEach(a => { a.style.display = !q || a.dataset.t.includes(q) ? '' : 'none'; }); };
+  };
+  $('#fab').onclick = $('#edDone').onclick = () => $('#gEdit').click();
+  $('#edHelpBtn').onclick = () => { const h = $('#edHelp'); h.style.display = h.style.display === 'none' ? 'block' : 'none'; };
+  $('#q').oninput = e => { const q = e.target.value.trim().toLowerCase(); document.querySelectorAll('#navList a').forEach(a => { a.style.display = !q || a.dataset.t.includes(q) ? '' : 'none'; }); };
 
   const loadBook = async id => {
     cur = id; document.querySelectorAll('#books .btn').forEach(b => b.classList.toggle('on', b.dataset.id === id));
