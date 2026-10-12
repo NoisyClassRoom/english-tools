@@ -1056,6 +1056,7 @@ function onOpen() {
     .addItem('Set up analysis tabs', 'setupAnalysis')
     .addItem('Refresh classes from Roster', 'refreshClasses')
     .addItem('Start new school year (copy Roster)', 'startNewSchoolYear')
+    .addItem('End of school year (guided)...', 'endOfYear')
     .addSeparator()
     .addItem('Move earlier school years to Archive...', 'archiveOldYears')
     .addItem('Remove duplicate results (save bug)...', 'removeDuplicateResults')
@@ -1369,6 +1370,101 @@ function startNewSchoolYear() {
     '2. Pupils who repeat a year: change their class in the ' + next + ' rows.\n' +
     (check.length ? '3. Yellow classes could not be moved up automatically: please fix them.\n' : '') +
     'Last: menu English hub > Refresh classes from Roster.', ui.ButtonSet.OK);
+}
+
+// ---------------------------------------------------------------- end of school year (guided)
+// One menu item that knows which step comes next. Two stages, because the Roster has to be edited by hand in between:
+//   stage 1 "prepare" (June-August, or any time before 1 September): backup, copy the Roster one grade up (startNewSchoolYear),
+//           then you add the new 6th graders, remove pupils who left, fix repeaters;
+//   stage 2 "finish" (on or after 1 September, when results of the new school year have a new year): backup, refresh the classes,
+//           move last year's results to the Archive, offer the leavers cleanup, old homework and last year's "where we stopped"
+//           bookmarks, then the health check. Every step that deletes something asks first.
+function rosterNewestYear_() {
+  var ro = SpreadsheetApp.getActive().getSheetByName(ROSTER), newest = '';
+  if (ro && ro.getLastRow() > 1) ro.getRange(2, 2, ro.getLastRow() - 1, 1).getValues().forEach(function (r) {
+    var y = String(r[0]).trim(); if (/^\d{4}-\d{2}$/.test(y) && y > newest) newest = y;
+  });
+  return newest;
+}
+
+// which step comes next: noroster | ready (Roster of the next year exists, wait for 1 September) | running (nothing from earlier years) |
+// prepare (the new year has started but the Roster was not copied yet) | finish (new year, old results still on Results)
+function endOfYearState_() {
+  var cur = schoolYear_(new Date()), newest = rosterNewestYear_(), rs = SpreadsheetApp.getActive().getSheetByName(SHEET), old = 0, stage;
+  if (rs && rs.getLastRow() > 1) rs.getRange(2, 11, rs.getLastRow() - 1, 1).getValues().forEach(function (r) { var y = String(r[0]).trim(); if (y && y !== cur) old++; });
+  stage = !newest ? 'noroster' : newest > cur ? 'ready' : newest < cur ? 'prepare' : old === 0 ? 'running' : 'finish';
+  return { cur: cur, newest: newest, old: old, stage: stage };
+}
+
+// for testing (Extensions > Apps Script > run endOfYearLog): shows which step would come next and what step 2 would offer; changes nothing
+function endOfYearLog() {
+  var s = endOfYearState_(), ss = SpreadsheetApp.getActive(), hs = ss.getSheetByName(HWSHEET), ms = ss.getSheetByName(MARKSSHEET), hw = 0, stops = 0;
+  if (hs && hs.getLastRow() > 1) hs.getRange(2, 13, hs.getLastRow() - 1, 1).getValues().forEach(function (r) { var y = String(r[0]).trim(); if (y && y !== s.cur) hw++; });
+  if (ms && ms.getLastRow() > 1) ms.getRange(2, 1, ms.getLastRow() - 1, 1).getValues().forEach(function (r) { if (String(r[0]) === 'stop') stops++; });
+  Logger.log(JSON.stringify(s) + ' | homework of earlier years: ' + hw + ' | "where we stopped" bookmarks: ' + stops);
+}
+
+function endOfYear() {
+  var ui = SpreadsheetApp.getUi(), s = endOfYearState_();
+  if (s.stage === 'noroster') { ui.alert('The Roster has no rows with a school year like 2026-27, so there is nothing to carry over. Fill in the Roster first.'); return; }
+  if (s.stage === 'ready') {
+    ui.alert('The Roster for ' + s.newest + ' is ready', 'Check it (new 6th graders, pupils who left, pupils who repeat a year).\n\nOn or after 1 September choose "End of school year (guided)..." again to finish: it updates the classes, moves last year\'s results to the Archive and tidies up.', ui.ButtonSet.OK);
+    return;
+  }
+  if (s.stage === 'running') {
+    if (ui.alert('End of school year', 'School year ' + s.cur + ' is running and there are no results from earlier years.\n\nPrepare the next school year now (backup, then copy the Roster one grade up)?', ui.ButtonSet.YES_NO) !== ui.Button.YES) return;
+    endOfYearPrepare_(ui, s.newest); return;
+  }
+  if (s.stage === 'prepare') { endOfYearPrepare_(ui, s.newest); return; }         // the new year has started but the Roster was not copied yet
+  endOfYearFinish_(ui, s.cur, s.old);
+}
+
+function endOfYearBackup_(ui) {
+  try { var r = doBackup_(); SpreadsheetApp.getActive().toast('Backup done: ' + r.name, 'English hub', 6); return true; }
+  catch (e) { return ui.alert('The backup did not work', String(e) + '\n\nContinue WITHOUT a backup?', ui.ButtonSet.YES_NO) === ui.Button.YES; }
+}
+
+function endOfYearPrepare_(ui, before) {
+  if (!endOfYearBackup_(ui)) return;
+  startNewSchoolYear();                                                          // shows its own questions
+  var after = rosterNewestYear_();
+  if (after === before) return;                                                  // cancelled or nothing copied
+  ui.alert('Step 1 of 2 is done: the Roster for ' + after + ' exists',
+    'Now edit it by hand:\n- add the new pupils (the new 6th grade),\n- remove pupils who left the school,\n- change the class of pupils who repeat a year,\n- fix yellow classes.\n\n' +
+    'On or after 1 September choose "End of school year (guided)..." again for step 2.', ui.ButtonSet.OK);
+}
+
+function endOfYearFinish_(ui, cur, old) {
+  var ss = SpreadsheetApp.getActive();
+  if (ui.alert('End of school year - step 2 of 2', 'A new school year (' + cur + ') has started: ' + old + ' results from earlier years are still on the Results tab.\n\n' +
+    'This will, one after the other (each deleting step asks first):\n1. make a backup copy,\n2. put the right class on every result (Refresh classes from Roster),\n3. move last year\'s results to the Archive,\n4. offer to delete results of pupils who left more than 2 years ago,\n5. offer to delete homework of earlier years,\n6. offer to clear last year\'s "where we stopped" bookmarks on the Board,\n7. run the health check.\n\nContinue?', ui.ButtonSet.YES_NO) !== ui.Button.YES) return;
+  if (!endOfYearBackup_(ui)) return;
+  refreshClasses();
+  archiveOldYears();                                                             // asks before it moves anything
+  if (ui.alert('Pupils who left', 'Delete the results of pupils who left the school more than 2 years ago (retention rule)?\nYou will see the names and numbers first and can still say no.', ui.ButtonSet.YES_NO) === ui.Button.YES) deleteLeavers();
+  // homework of earlier years: assignments with pupil names, no longer shown anywhere
+  var hs = ss.getSheetByName(HWSHEET);
+  if (hs && hs.getLastRow() > 1) {
+    var hv = hs.getRange(2, 1, hs.getLastRow() - 1, HWHEADER.length).getValues(), keep = hv.filter(function (r) { var y = String(r[12]).trim(); return !y || y === cur; }), gone = hv.length - keep.length;
+    if (gone && ui.alert('Homework of earlier years', gone + ' homework assignment(s) from earlier school years are still stored (with the names of chosen pupils). Pupils and you no longer see them.\n\nDelete them now? (Results are not affected.)', ui.ButtonSet.YES_NO) === ui.Button.YES) {
+      var lock = LockService.getScriptLock(); lock.waitLock(20000);
+      try {
+        hs.getRange(2, 1, hv.length, HWHEADER.length).clearContent();
+        if (keep.length) hs.getRange(2, 1, keep.length, HWHEADER.length).setValues(keep);
+      } finally { lock.releaseLock(); }
+    }
+  }
+  // "where we stopped" bookmarks refer to last year's classes
+  var ms = ss.getSheetByName(MARKSSHEET);
+  if (ms && ms.getLastRow() > 1) {
+    var mv = ms.getRange(2, 1, ms.getLastRow() - 1, 1).getValues(), stops = mv.filter(function (r) { return String(r[0]) === 'stop'; }).length;
+    if (stops && ui.alert('Board bookmarks', stops + ' "where we stopped" bookmark(s) on the Board belong to last year\'s classes (the classes moved up a grade).\n\nClear them? (Pinned exercises stay.)', ui.ButtonSet.YES_NO) === ui.Button.YES) {
+      var lock2 = LockService.getScriptLock(); lock2.waitLock(20000);
+      try { for (var i = mv.length - 1; i >= 0; i--) if (String(mv[i][0]) === 'stop') ms.deleteRow(i + 2); } finally { lock2.releaseLock(); }
+    }
+  }
+  ui.alert('The school year is set up', 'The health check follows. Pupils do not need to do anything: they sign in as before and see their new class (from the Roster).\n\nStill to do by hand if needed: the TEACHER_EMAILS setting when teachers change.', ui.ButtonSet.OK);
+  healthCheck();
 }
 
 // ---------------------------------------------------------------- analysis tabs
