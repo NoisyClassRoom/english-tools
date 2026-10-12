@@ -80,6 +80,7 @@
   .card { text-align: center; }
   .grid { display: flex; flex-wrap: wrap; justify-content: center; gap: 14px; }
   .tile { width: 210px; }
+  .hintsl { margin: 12px auto 0; max-width: 520px; padding: 8px 12px; border-radius: 10px; background: var(--accent-soft); font-size: 16px; line-height: 1.45; text-align: left; }
   .gram { text-align: left; max-width: 760px; margin: 0 auto; }
   .gsec { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px 20px; margin-bottom: 14px; }
   .gsec h3 { margin: 0 0 8px; font-size: 20px; }
@@ -164,6 +165,7 @@
 
 <script src="classes.js"></script>
 <script src="sets.js"></script>
+<script src="hints.js"></script>
 <script src="levels-1.js"></script>
 <script src="levels-2.js"></script>
 <script src="tracking.js"></script>
@@ -486,7 +488,10 @@
     const draw = () => {
       const w = cards[i]; card.innerHTML = '';
       if (!flipped) { if (w.pic) card.append(el('div', 'pic', w.pic)); card.append(el('div', 'word', w.en), el('div', 'sub', 'Click to see the Slovenian word')); }
-      else { card.append(el('div', 'word', w.sl || '—'), el('div', 'sub', w.en)); }
+      else {
+        card.append(el('div', 'word', w.sl || '—'), el('div', 'sub', w.en));
+        const h = hintOf(w); if (h) card.append(el('div', 'hintsl', '💡 ' + h));            // a Slovenian hint for tricky words (hints.js)
+      }
       setBar((i + 1) / cards.length); $('#playInfo').textContent = `${set.title} · Flashcards ${i + 1}/${cards.length}`;
     };
     const doFlip = () => { flipped = !flipped; draw(); };
@@ -496,6 +501,9 @@
     next.onclick = () => { i = (i + 1) % cards.length; flipped = false; draw(); };
     draw();
   }
+
+  // Slovenian hint of a word (false friends, uncountable nouns, silent letters ...): from the word itself or from hints.js
+  const hintOf = w => w.hint || (window.WORD_HINTS || {})[String(w.en || '').trim().toLowerCase()] || '';
 
   // two English words with the same Slovenian translation (e.g. opposite / across from = nasproti) are synonyms for the exercises
   const sameSl = (a, b) => a === b || (!!a.sl && !!b.sl && a.sl.trim().toLowerCase() === b.sl.trim().toLowerCase());
@@ -548,7 +556,8 @@
           if (o === w) { b.classList.add('done'); score++; }
           else { b.classList.add('wrong'); [...box.children].find(x => x.textContent === w.en).classList.add('done'); }
           i++; setBar(i / qs.length);
-          setTimeout(() => i < qs.length ? ask() : finish(score, qs.length, quiz), 900);
+          const hn = hintOf(w); if (hn) q.append(el('p', 'hintsl', '💡 ' + hn));            // tricky word: show the hint for a little longer
+          setTimeout(() => i < qs.length ? ask() : finish(score, qs.length, quiz), hn ? 3200 : 900);
         };
         box.append(b);
       });
@@ -605,7 +614,7 @@
         sec.x.forEach(([en, sl]) => { const li = el('li'); li.append(el('span', 'en', en)); if (sl) li.append(el('span', 'sl', ' – ' + sl)); ul.append(li); });
         c.append(ul);
       }
-      if (sec.sl) { const n = el('div', 'gtip'); n.append(el('span', '', '🇸🇮 '), document.createTextNode(sec.sl)); c.append(n); }
+      if (sec.sl) { const n = el('div', 'gtip'); n.append(el('span', '', '💡 '), document.createTextNode(sec.sl)); c.append(n); }
       box.append(c);
     });
     s.append(box);
