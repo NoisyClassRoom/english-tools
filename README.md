@@ -59,7 +59,7 @@ Backups: the Sheet menu has *Set up weekly backup* (a copy of the whole Sheet in
 
 ### Today (teacher only)
 
-`today/index.html` is the overview at the top of the Home page (embedded by iframe; Google sign-in like Results, teacher account only, nothing stored in it). It shows: **Homework to watch** (assignments with pupils who have not finished; overdue ones in red), **This week, by class** (since Monday: pupils active, activities, last week, last activity; a class with no activity this week is orange), **Today so far** (number of activities and pupils, the latest results) and shortcuts, including **Continue on the Board** (the Board remembers the last section or exercise you opened in this browser, `localStorage` key `board.last`, and understands `board/?book=8b&si=3`). The data comes from the existing teacher actions `stats` and `hwlist`.
+`today/index.html` is the overview at the top of the Home page (embedded by iframe; Google sign-in like Results, teacher account only, nothing stored in it). It shows: **Homework to watch** (assignments with pupils who have not finished; overdue ones in red), **Last 7 days, by class** (pupils active, activities, the 7 days before, last activity; a class with no activity in the last 7 days is orange), **Today so far** (number of activities and pupils, the latest results) and shortcuts, including **Continue on the Board** (the Board remembers the last section or exercise you opened in this browser, `localStorage` key `board.last`, and understands `board/?book=8b&si=3`). The data comes from the existing teacher actions `stats` and `hwlist`.
 
 ### Results page (teacher only)
 
