@@ -41,6 +41,16 @@
   #nav a.l3, #nav a.l4 { padding-left: 32px; color: var(--muted); }
   h2.sec { font-size: 22px; margin: 22px 0 8px; color: var(--accent); }
   h2.sec.l2 { font-size: 18px; margin-top: 14px; }
+  /* bookmarks: pinned exercises and where each class stopped */
+  #marks { padding: 8px 14px; }
+  #marks .mrow { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 3px 0; }
+  #marks .mrow > b { font-size: 13px; color: var(--accent); margin-right: 4px; }
+  .chip { background: var(--field); color: var(--ink); border: 1px solid var(--line); border-radius: 999px; padding: 2px 4px 2px 10px; font: inherit; font-size: 13px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; }
+  .chip:hover { border-color: var(--accent); }
+  .chip .x { border: 0; background: transparent; color: var(--muted); cursor: pointer; padding: 0 6px; font-size: 13px; }
+  .chip .x:hover { color: var(--bad); }
+  .pick { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin: 4px 0 8px; }
+  .ex.flash { outline: 3px solid var(--accent); }
   /* a title line inside a section (e.g. "Unit 2 – Animals"), between exercises */
   .ttl { display: flex; align-items: flex-start; gap: .45em; margin: 20px 0 6px; padding: 2px 6px; border-radius: 6px; }
   .ttl h3 { margin: 0; flex: 1; font-size: 19px; color: var(--accent); }
@@ -120,6 +130,7 @@
       </div>
       <p class="muted" style="margin:6px 0 0;font-size:13px">Click a line, a table cell or a marked word to hide or show it. “Marked parts” are the words that are <b>bold, underlined or white</b> in your Word files (usually the answers). “▶ Board” opens one exercise full screen for the projector (keys: ← → next exercise, W marked parts, H hide lines, S show lines, Esc close).</p>
     </div>
+    <div class="card" id="marks"></div>
     <div class="edbar" id="edBar" style="display:none">
       <b style="color:var(--accent)">Edit mode</b>
       <button class="btn sm" id="edMark" title="Ctrl+M">Mark selected words</button>
@@ -409,6 +420,7 @@
       }
       const idx = exercises.indexOf(ex);
       const card = el('div', 'ex'), hd = el('div', 'exh');
+      card.dataset.si = ex.si; card.dataset.ref = ex.ref || '';
       const lab = el('b', '', ex.ref || (editing ? '' : 'Text'));
       if (editing && ex.refBlock) { lab.contentEditable = 'true'; lab.oninput = () => { ex.refBlock.x = clean(lab.textContent); markDirty(ex.si); }; lab.onkeydown = e => { if (e.key === 'Enter') e.preventDefault(); }; lab.onpaste = pastePlain; }
       hd.append(lab);
@@ -421,7 +433,14 @@
         bBoard.onclick = () => openOv(idx);
         bW.onclick = () => { const any = [...card.querySelectorAll('.wh')].some(s => !s.classList.contains('hid')); scope(card, 'white', any); };
         bH.onclick = () => scope(card, 'lines', true); bS.onclick = () => scope(card, 'lines', false);
-        hd.append(bBoard); if (/\{\{(?:W|B|U|BU):/.test(JSON.stringify(ex.blocks))) hd.append(bW); hd.append(bH, bS);
+        hd.append(bBoard);
+        if (ex.ref) {                                                                  // bookmarks: ☆ pin this exercise, 📍 a class stopped here
+          const bPin = el('button', 'btn sm'), bStop = el('button', 'btn sm', '📍 Stopped here');
+          card._sync = () => { const p = isPinned(ex); bPin.textContent = p ? '★ Pinned' : '☆ Pin'; bPin.classList.toggle('on', p); };
+          bPin.onclick = () => setMark({ kind: 'pin', book: cur, si: ex.si, ref: ex.ref, label: exLabel(ex) }, !isPinned(ex));
+          bStop.onclick = () => pickStop(ex, card); card._sync(); hd.append(bPin, bStop);
+        }
+        if (/\{\{(?:W|B|U|BU):/.test(JSON.stringify(ex.blocks))) hd.append(bW); hd.append(bH, bS);
         card.append(hd); bodyEls(ex, whiteHidden).forEach(n => card.append(n));
       }
       card.dataset.i = idx; main.append(card);
@@ -463,6 +482,46 @@
     $('#ovTitle').textContent = (BOOKS[cur] || cur) + ' · ' + (ex.h || '') + (ex.ref ? ' · ' + ex.ref : '') + '   (' + (ovIdx + 1) + '/' + exercises.length + ')';
     const b = $('#ovBody'); b.innerHTML = ''; bodyEls(ex, whiteHidden).forEach(n => b.append(n)); b.scrollTop = 0;
   };
+  // ================================================================ bookmarks (kept in the private Sheet, so they follow you to any computer)
+  let marks = [], classNames = null;
+  const shortBook = id => (BOOKS[id] || id).split(' · ')[0];
+  const exLabel = ex => [shortBook(cur), ex.h, ex.ref].filter(Boolean).join(' · ');
+  const isPinned = ex => marks.some(m => m.kind === 'pin' && m.book === cur && m.si === ex.si && m.ref === ex.ref);
+  const dmy = t => { const d = new Date(t); return d.getDate() + '. ' + (d.getMonth() + 1) + '.'; };
+  const setMark = async (mark, on) => {
+    try { const j = await api('boardmarkset', { mark, on }); if (!j.ok) throw new Error(j.error); marks = j.marks; renderMarks(); return true; }
+    catch (e) { alert('Could not save the bookmark. Please try again.'); return false; }
+  };
+  const jumpTo = async m => {
+    if (m.book !== cur) await loadBook(m.book);
+    const cards = [...document.querySelectorAll('#main .ex')];
+    const card = cards.find(c => c.dataset.si === String(m.si) && c.dataset.ref === m.ref) || cards.find(c => c.dataset.si === String(m.si));
+    const t = card || document.getElementById('s' + m.si); if (!t) return;
+    t.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    if (card) { card.classList.add('flash'); setTimeout(() => card.classList.remove('flash'), 2500); }
+    remember(m.si, m.label);
+  };
+  const renderMarks = () => {
+    const box = $('#marks'); box.innerHTML = '';
+    const pins = marks.filter(m => m.kind === 'pin'), stops = marks.filter(m => m.kind === 'stop').sort((a, b) => a.cls.localeCompare(b.cls, 'sl', { numeric: true }));
+    const chip = (m, text, off) => { const c = el('span', 'chip'), t = el('span', '', text); t.onclick = () => jumpTo(m); const x = el('button', 'x', '✕'); x.title = 'Remove this bookmark'; x.onclick = e => { e.stopPropagation(); off(); }; c.append(t, x); return c; };
+    if (!pins.length && !stops.length) box.append(el('span', 'muted', '☆ Pin an exercise you use a lot, or press 📍 on an exercise to note where a class stopped – your bookmarks appear here.'));
+    if (pins.length) { const r = el('div', 'mrow'); r.append(el('b', '', '⭐ Pinned')); pins.forEach(m => r.append(chip(m, m.label, () => setMark({ kind: 'pin', book: m.book, si: m.si, ref: m.ref }, false)))); box.append(r); }
+    if (stops.length) { const r = el('div', 'mrow'); r.append(el('b', '', '📍 Where we stopped')); stops.forEach(m => r.append(chip(m, m.cls + ': ' + m.label + ' (' + dmy(m.t) + ')', () => setMark({ kind: 'stop', cls: m.cls, book: m.book, si: m.si, ref: m.ref }, false)))); box.append(r); }
+    document.querySelectorAll('#main .ex').forEach(c => c._sync && c._sync());
+  };
+  const loadMarks = async () => { try { const j = await api('boardmarks'); if (j.ok) marks = j.marks; } catch (e) { /* bookmarks are optional */ } renderMarks(); };
+  const loadClasses = async () => { if (classNames) return classNames; try { const j = await api('roster'); classNames = j.ok ? Object.keys(j.classes || {}) : []; } catch (e) { classNames = []; } return classNames; };
+  const pickStop = async (ex, card) => {
+    const old = card.querySelector('.pick'); if (old) { old.remove(); return; }
+    const row = el('div', 'pick'); row.append(el('span', 'muted', 'Which class stopped here?'));
+    card.querySelector('.exh').after(row);
+    const names = await loadClasses();
+    names.forEach(c => { const b = el('button', 'btn sm', c); b.onclick = async () => { row.remove(); await setMark({ kind: 'stop', cls: c, book: cur, si: ex.si, ref: ex.ref, label: exLabel(ex) }, true); }; row.append(b); });
+    if (!names.length) row.append(el('span', 'muted', '(no classes found in the Roster)'));
+    const cancel = el('button', 'btn sm', 'Cancel'); cancel.onclick = () => row.remove(); row.append(cancel);
+  };
+
   // the last place the teacher worked at (the Today page offers a link back to it; same origin, so localStorage is shared)
   const remember = (si, label) => { try { localStorage.setItem('board.last', JSON.stringify({ book: cur, si: si || 0, label: label || '', t: Date.now() })); } catch (e) {} };
   const openOv = i => { ovIdx = i; $('#ov').classList.add('on'); ovRender(); const ex = exercises[i]; if (ex) remember(ex.si, [ex.h, ex.ref].filter(Boolean).join(' · ')); };
@@ -504,6 +563,7 @@
       const bx = $('#books'); bx.innerHTML = '';
       bookList.forEach(id => { const b = el('button', 'btn', BOOKS[id] || id); b.dataset.id = id; b.onclick = () => loadBook(id); bx.append(b); });
       const qp = new URLSearchParams(location.search), wantBook = qp.get('book'), wantSi = qp.get('si');    // a link from the Today page
+      loadMarks();
       await loadBook(wantBook && bookList.includes(wantBook) ? wantBook : cur && bookList.includes(cur) ? cur : bookList[0]);
       if (wantSi !== null) { const t = document.getElementById('s' + Number(wantSi)); if (t) t.scrollIntoView({ block: 'start' }); }
     } catch (e) { $('#loginMsg').textContent = 'Could not reach the Sheet. Check your connection.'; }
