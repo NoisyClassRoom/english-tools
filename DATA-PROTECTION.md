@@ -23,6 +23,8 @@ Draft for the school's data-protection officer (DPO). It describes what the tool
 
 **Where the data is.** One private Google Sheet in the teacher's school Google Workspace account (domain os-verzej.si). It is not shared with anyone else. The class list (pupil name, school year, class; imported from the school register) is a tab in the same Sheet. Sign-in is limited to the school domain; the server rejects accounts from other domains.
 
+**Backups.** Since 12 Oct 2026 a copy of the whole Sheet is made once a week into a private folder ("NoisyClassRoom backups") in the same Google Drive account, as protection against loss or mistakes. The newest 8 copies are kept; older copies are moved to the Drive bin (and are gone for good after 30 days). The copies are not shared with anyone. A result deleted from the Sheet (for example under the retention rule below) can therefore still be in a backup copy for up to about 8 weeks plus the bin period.
+
 **Where the data is NOT.** The web pages and exercise code are hosted on WordPress at Arnes Splet and on GitHub Pages. They contain no pupil data. The class list and results are never published in the public code repository.
 
 **Processing.** Google (school Workspace) provides sign-in and the spreadsheet. A small script in the teacher's Google account checks the Google sign-in token and writes one row per result. Nothing is sent to other services.
@@ -57,6 +59,8 @@ Draft for the school's data-protection officer (DPO). It describes what the tool
 **Ne zbiramo:** gesel, fotografij, telefonskih številk, naslovov, lokacije, prostih besedilnih odgovorov, oglaševalskih ali analitičnih piškotkov.
 
 **Kje so podatki.** V eni zasebni Google preglednici v učiteljevem šolskem Google Workspace računu (domena os-verzej.si). Z nikomer ni deljena. Seznam razredov (ime učenca, šolsko leto, razred; uvožen iz šolske evidence) je zavihek v isti preglednici. Prijava je omejena na šolsko domeno; strežnik zavrne račune z drugih domen.
+
+**Varnostne kopije.** Od 12. 10. 2026 se enkrat tedensko naredi kopija cele preglednice v zasebno mapo (»NoisyClassRoom backups«) v istem Google Drivu, kot zaščita pred izgubo ali napakami. Hrani se zadnjih 8 kopij; starejše se premaknejo v koš Drive-a (po 30 dneh so dokončno izbrisane). Kopije niso z nikomer deljene. Rezultat, ki je izbrisan iz preglednice (npr. po pravilu o hrambi spodaj), je zato lahko še do približno 8 tednov (plus čas v košu) v varnostni kopiji.
 
 **Kje podatkov NI.** Spletne strani in koda vaj so na WordPressu pri Arnes Splet in na GitHub Pages. Ne vsebujejo podatkov o učencih. Seznam razredov in rezultati se nikoli ne objavijo v javnem repozitoriju kode.
 
