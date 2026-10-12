@@ -342,12 +342,14 @@
   // (the list of the last drawing is used, so the order shown is the order changed). The section's blocks are rewritten in the new order.
   const moveExercise = (ex, d) => {
     const sec = secOf(ex), list = lastAll.filter(e => e.si === ex.si), i = list.indexOf(ex), j = i + d;
-    if (i < 0 || j < 0 || j >= list.length) return;
-    const other = list[j];
-    if (!ex.refBlock || (!other.title && !other.refBlock)) { setStatus('Give the "Text" card a label first (click its label field), then it can be moved.', true); return; }
-    const l2 = list.slice(); l2[i] = other; l2[j] = ex; const flat = [];
-    l2.forEach(e => { if (e.title) flat.push(e.tb); else { if (e.refBlock) flat.push(e.refBlock); e.blocks.forEach(b => flat.push(b)); } });
-    if (flat.length !== sec.blocks.length) { setStatus('Could not move this exercise (nothing was changed).', true); return; }
+    if (i < 0) { setStatus('Could not find this exercise - please try again.', true); return; }
+    if (j < 0 || j >= list.length) { setStatus(d < 0 ? 'This is already the first exercise of its section (moving into another section is not possible).' : 'This is already the last exercise of its section (moving into another section is not possible).', true); return; }
+    const l2 = list.slice(); l2[i] = list[j]; l2[j] = ex; let added = 0;
+    // a card without a label ("Text") would stick to the exercise in front of it after moving: give it an empty label block (it still shows as "Text")
+    l2.forEach(e => { if (!e.title && !e.refBlock) { e.refBlock = { t: 'ref', x: '' }; added++; } });
+    const flat = [];
+    l2.forEach(e => { if (e.title) flat.push(e.tb); else { flat.push(e.refBlock); e.blocks.forEach(b => flat.push(b)); } });
+    if (flat.length !== sec.blocks.length + added) { setStatus('Could not move this exercise (nothing was changed).', true); return; }
     snap(ex.si); sec.blocks = flat; changed(ex, null);
     const card = [...document.querySelectorAll('#main .ex')].find(c => c.dataset.si === String(ex.si) && c.dataset.ref === (ex.refBlock.x || '')); if (card) card.scrollIntoView({ block: 'center' });
   };
@@ -466,19 +468,19 @@
       const card = el('div', 'ex'), hd = el('div', 'exh');
       card.dataset.si = ex.si; card.dataset.ref = ex.ref || '';
       const lab = el('b', '', ex.ref || (editing ? '' : 'Text'));
-      if (editing && ex.refBlock) { lab.contentEditable = 'true'; lab.oninput = () => { ex.refBlock.x = clean(lab.textContent); markDirty(ex.si); }; lab.onkeydown = e => { if (e.key === 'Enter') e.preventDefault(); }; lab.onpaste = pastePlain; }
-      else if (editing) {                                  // lines without a "Book p.x/y" label ("Text"): type a label here to make it a proper exercise (then Pin / Stopped here appear)
-        lab.contentEditable = 'true'; lab.className = 'ph'; lab.dataset.ph = 'Text – click here to give it a label, e.g. Book p.20/1';
-        let named = false;
+      if (editing) {                                       // the label is always editable; a card without one ("Text") shows a hint, typing makes it a proper exercise
+        lab.contentEditable = 'true'; lab.onpaste = pastePlain;
+        if (!ex.ref) { lab.className = 'ph'; lab.dataset.ph = 'Text – click here to give it a label, e.g. Book p.20/1'; }
         lab.oninput = () => {
-          const x = clean(lab.textContent); if (!x) return;
-          if (!ex.refBlock) { const sec = secOf(ex), at = sec.blocks.indexOf(ex.blocks[0]); snap(ex.si); ex.refBlock = { t: 'ref', x }; sec.blocks.splice(at < 0 ? sec.blocks.length : at, 0, ex.refBlock); named = true; }
-          else ex.refBlock.x = x;
+          const x = clean(lab.textContent);
+          if (!ex.refBlock) {                              // lines without any label block: make one in front of the first line
+            if (!x) return; const sec = secOf(ex), at = sec.blocks.indexOf(ex.blocks[0]); snap(ex.si);
+            ex.refBlock = { t: 'ref', x }; sec.blocks.splice(at < 0 ? sec.blocks.length : at, 0, ex.refBlock);
+          } else ex.refBlock.x = x;
           ex.ref = x; markDirty(ex.si);
         };
-        lab.onblur = () => { if (named) { lab.classList.remove('ph'); card.dataset.ref = ex.ref; markButtons(); } };   // Pin / Stopped here appear in place (no redraw: it could swallow a click)
+        lab.onblur = () => { if (ex.ref) { lab.classList.remove('ph'); card.dataset.ref = ex.ref; markButtons(); } };   // Pin / Stopped here appear in place (no redraw: it could swallow a click)
         lab.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); lab.blur(); } };
-        lab.onpaste = pastePlain;
       }
       hd.append(lab);
       // bookmarks: ☆ pin this exercise, 📍 a class stopped here (in view and in edit mode)
