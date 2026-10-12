@@ -93,6 +93,7 @@ function doPost(e) {
     if (d.action === 'qstats') return qstatsReply_(d);       // teacher-only: question-level statistics
     if (d.action === 'homework') return homeworkReply_(d);   // a pupil: own open homework
     if (d.action === 'mistakes') return mistakesReply_(d);   // a pupil: own wrong answers in one unit (for "Practise my mistakes")
+    if (d.action === 'myprogress') return myProgressReply_(d); // a pupil: own numbers of this school year ("My progress")
     if (d.action === 'hwlist') return hwListReply_(d);       // teacher-only: assignments with every pupil's progress
     if (d.action === 'hwsave') return hwSaveReply_(d);       // teacher-only: new assignment
     if (d.action === 'hwdelete') return hwDeleteReply_(d);   // teacher-only: remove an assignment
@@ -222,6 +223,35 @@ function isTeacher_(email) {
   var allowed = String(PropertiesService.getScriptProperties().getProperty('TEACHER_EMAILS') || '')
     .toLowerCase().split(/[\s,;]+/).filter(String);
   return allowed.indexOf(String(email).toLowerCase()) >= 0;
+}
+
+// A signed-in pupil asks for THEIR OWN progress in the current school year (found by the e-mail of the Google sign-in; nobody
+// else's data is returned). total, avg (0-1), week = activities in the last 7 days, streak = days in a row with an activity
+// (counting back from today, or from yesterday if nothing was done yet today), units = [{book, topic, title, n, avg, best, last}],
+// recent = [[time, unit title, activity, percent 0-1]] newest first.
+function myProgressReply_(d) {
+  var who = verify_(d.token);
+  if (!who) return out_({ ok: false, error: 'token' });
+  var email = String(who.email).toLowerCase(), year = schoolYear_(new Date()), sh = SpreadsheetApp.getActive().getSheetByName(SHEET), mine = [];
+  if (sh && sh.getLastRow() > 1) sh.getRange(2, 1, sh.getLastRow() - 1, NCOLS).getValues().forEach(function (r) {
+    if (r[0] instanceof Date && String(r[1]).toLowerCase() === email && String(r[10]) === year && r[8] > 0) mine.push(r);
+  });
+  var DAY = 86400000, now = Date.now(), days = {}, sum = 0, week = 0, units = {}, order = [];
+  var key = function (t) { return Utilities.formatDate(new Date(t), TZ, 'yyyy-MM-dd'); };
+  var prevDay = function (k) { return Utilities.formatDate(new Date(new Date(k + 'T12:00:00Z').getTime() - DAY), 'UTC', 'yyyy-MM-dd'); };
+  mine.forEach(function (r) {
+    var t = r[0].getTime(), p = r[7] / r[8];
+    days[key(t)] = 1; sum += p; if (t >= now - 7 * DAY) week++;
+    var k = r[4] + '\u0001' + r[5], o = units[k];
+    if (!o) { o = units[k] = { book: String(r[4]), topic: String(r[5]), title: String(r[15] || r[5]), n: 0, sum: 0, best: 0, last: 0 }; order.push(k); }
+    o.n++; o.sum += p; if (p > o.best) o.best = p; if (t > o.last) o.last = t;
+  });
+  var today = key(now), k2 = days[today] ? today : prevDay(today), streak = 0;
+  while (days[k2]) { streak++; k2 = prevDay(k2); }
+  mine.sort(function (a, b) { return b[0].getTime() - a[0].getTime(); });
+  return out_({ ok: true, year: year, total: mine.length, avg: mine.length ? sum / mine.length : 0, week: week, streak: streak,
+    units: order.slice(0, 80).map(function (k) { var o = units[k]; return { book: o.book, topic: o.topic, title: o.title, n: o.n, avg: o.sum / o.n, best: o.best, last: o.last }; }),
+    recent: mine.slice(0, 6).map(function (r) { return [r[0].getTime(), String(r[15] || r[5]), String(r[6]), r[7] / r[8]]; }) });
 }
 
 // A signed-in pupil asks for THEIR OWN mistakes in one unit (book = the class id of the exercise link, topic = the unit title
