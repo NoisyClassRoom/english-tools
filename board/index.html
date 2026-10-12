@@ -180,7 +180,7 @@
   const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
   const BOOKS = { '6b': 'Project 1 · grade 6', '7a': 'Dream Team Starter · grade 7', '7bc': 'Project 2 · grade 7', '8a': 'Dream Team 1 · grade 8', '8b': 'Project 3 · grade 8', '9a': 'Dream Team 2 · grade 9', '9b': 'Project 4 · grade 9' };
   const ORDER = ['6b', '7a', '7bc', '8a', '8b', '9a', '9b'];
-  let bookList = [], cache = {}, cur = '', exercises = [], whiteHidden = true, fs = 20, ovIdx = -1;
+  let bookList = [], cache = {}, cur = '', exercises = [], lastAll = [], whiteHidden = true, fs = 20, ovIdx = -1;
 
   const api = async (action, extra) => {
     const token = Track.token(); if (!token) throw new Error('token');
@@ -338,6 +338,19 @@
   const toTitle = (ex, b) => { snap(ex.si); b.t = 'h'; delete b.l; delete b.n; delete b.keep; changed(ex, null); };
   const fromTitle = (ex, b) => { snap(ex.si); b.t = 'p'; changed(ex, b); };
   const keepPrev = (ex, b) => { snap(ex.si); b.keep = 1; changed(ex, null); };
+  // move a WHOLE exercise (its label and all its lines) one place up or down within its section; it swaps with the neighbouring exercise or title
+  // (the list of the last drawing is used, so the order shown is the order changed). The section's blocks are rewritten in the new order.
+  const moveExercise = (ex, d) => {
+    const sec = secOf(ex), list = lastAll.filter(e => e.si === ex.si), i = list.indexOf(ex), j = i + d;
+    if (i < 0 || j < 0 || j >= list.length) return;
+    const other = list[j];
+    if (!ex.refBlock || (!other.title && !other.refBlock)) { setStatus('Give the "Text" card a label first (click its label field), then it can be moved.', true); return; }
+    const l2 = list.slice(); l2[i] = other; l2[j] = ex; const flat = [];
+    l2.forEach(e => { if (e.title) flat.push(e.tb); else { if (e.refBlock) flat.push(e.refBlock); e.blocks.forEach(b => flat.push(b)); } });
+    if (flat.length !== sec.blocks.length) { setStatus('Could not move this exercise (nothing was changed).', true); return; }
+    snap(ex.si); sec.blocks = flat; changed(ex, null);
+    const card = [...document.querySelectorAll('#main .ex')].find(c => c.dataset.si === String(ex.si) && c.dataset.ref === (ex.refBlock.x || '')); if (card) card.scrollIntoView({ block: 'center' });
+  };
   // a title jumps over a whole exercise (not over one line): up = in front of the previous exercise, down = behind the next one
   const moveTitle = (ex, b, d) => {
     const sec = secOf(ex), bl = sec.blocks, i = bl.indexOf(b), starts = x => x.t === 'ref' || x.t === 'h'; let at;
@@ -430,7 +443,7 @@
   const renderBook = () => {
     const secs = cache[cur] || [], main = $('#main'), nav = $('#navList');
     main.innerHTML = ''; nav.innerHTML = '';
-    const all = buildExercises(secs); exercises = all.filter(e => !e.title);          // the board view steps through the exercises only
+    const all = buildExercises(secs); lastAll = all; exercises = all.filter(e => !e.title);          // the board view steps through the exercises only
     let lastSi = -1;
     all.forEach(ex => {
       if (ex.si !== lastSi) {
@@ -478,8 +491,10 @@
         bStop.onclick = () => { syncRef(); pickStop(ex, card); }; card._sync(); hd.append(bPin, bStop);
       };
       if (editing) {
+        const bU = el('button', 'btn sm', '↑ Move up'), bW = el('button', 'btn sm', '↓ Move down');
+        bU.title = 'Move this whole exercise up'; bW.title = 'Move this whole exercise down'; bU.onclick = () => moveExercise(ex, -1); bW.onclick = () => moveExercise(ex, 1);
         const bL = el('button', 'btn sm', '＋ Line'), bE = el('button', 'btn sm', '＋ Exercise below'), bD = el('button', 'btn sm', '🗑 Delete exercise');
-        bL.onclick = () => addLine(ex); bE.onclick = () => addExercise(ex); bD.onclick = () => delExercise(ex); hd.append(bL, bE, bD);
+        bL.onclick = () => addLine(ex); bE.onclick = () => addExercise(ex); bD.onclick = () => delExercise(ex); hd.append(bU, bW, bL, bE, bD);
         markButtons();
         card.append(hd); ex.blocks.forEach(b => card.append(b.t === 'tbl' ? edTable(b, ex) : edLine(b, ex)));
       } else {
