@@ -388,6 +388,7 @@
     });
     if (s.base) { const c = el('button', 'tile'); c.append(el('span', 'ico', '🎚️'), document.createTextNode('Change level'), el('small', '', 'Easy, medium or hard')); c.onclick = () => openSet(s.base); g.append(c); }
     show('menu');
+    addMistakesTile(s);
   }
   function startMode(m) { mode = m; show('play'); $('#playInfo').textContent = set.title + ' · ' + m.name; setBar(0); m.run(); }
   // a homework link (?class=8a&set=<unit id>&mode=quiz) goes straight to the unit and the activity
@@ -557,6 +558,101 @@
       go.onclick = startCheck;
       row.append(go); s.append(row);
     }
+  }
+
+  // ----- practise my mistakes: the pupil's own wrong answers in this unit (asked from the server after sign-in) -----
+  // The server returns the questions as they were saved (text cut to 110 / 90 characters); each one is found again in the unit's
+  // own exercise bank so that it can be asked in the same form (choice or typed gap). The answers are saved under the original
+  // question text, so a question the pupil now gets right disappears from the list.
+  const clipQ = (v, n) => String(v == null ? '' : v).replace(/\s+/g, ' ').trim().slice(0, n);
+  const savedAs = (v, n) => clipQ(v, n).replace(/^'(?=[=+\-@])/, '');
+  const mistakeQuestions = (items, s) => {
+    const out = [], W = s.words || [], same = (a, b, n) => savedAs(a, n) === savedAs(b, n);
+    items.forEach(it => {
+      const q = savedAs(it.q, 110), ans = savedAs(it.ans, 90);
+      if (it.act === 'Quiz') {
+        const w = W.find(x => same('"' + (x.sl || '') + '" in English', q, 110) && same(x.en, ans, 90)); if (!w) return;
+        const opts = shuffle([w, ...shuffle(W.filter(x => !sameSl(x, w))).slice(0, 3)]).map(x => x.en);
+        out.push({ pic: w.pic, stem: w.sl || '', hint: 'Which English word is this?', options: opts, answer: w.en, rec: [it.q, it.ans] });
+      } else if (it.act === 'Match') {
+        const w = W.find(x => same(x.en, q, 110) && same(x.sl || '', ans, 90)); if (!w) return;
+        const opts = [...new Set([w.sl, ...shuffle(W.filter(x => x.sl && x.sl !== w.sl)).slice(0, 6).map(x => x.sl)].slice(0, 4))];
+        out.push({ pic: w.pic, stem: w.en, hint: 'What does this word mean in Slovenian?', options: shuffle(opts), answer: w.sl, rec: [it.q, it.ans] });
+      } else if (it.act === 'Fill the gap') {
+        const g = (s.sentences || []).find(x => same(x.text, q, 110) && same(x.answer, ans, 90)); if (!g) return;
+        out.push({ gap: g, rec: [it.q, it.ans] });
+      } else {
+        const key = it.act === 'Unit test' ? 'tests' : it.act === 'Unit test 2' ? 'tests2' : it.act === 'Grammar quick check' ? 'gcheck' : null; if (!key) return;
+        const t = (s[key] || []).find(x => same(x.q, q, 110) && same(x.answer, ans, 90)); if (!t) return;
+        out.push({ stem: t.q, options: shuffle(t.options.slice()), answer: t.answer, rec: [it.q, it.ans] });
+      }
+    });
+    return out;
+  };
+  const fetchMistakes = async s => {
+    const token = Track.enabled && Track.token(); if (!token) return [];
+    try {
+      const r = await fetch(Track.config.endpoint, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'mistakes', token, book: new URLSearchParams(location.search).get('class') || '', topic: s.title }) });
+      const j = await r.json(); return j.ok ? mistakeQuestions(j.items || [], s) : [];
+    } catch (e) { return []; }                                           // optional: stay quiet if it cannot be loaded
+  };
+  async function addMistakesTile(s) {
+    const qs = await fetchMistakes(s);
+    if (!qs.length || set !== s || $('#menu').classList.contains('hidden')) return;
+    const g = $('#modeGrid'); if (g.querySelector('.mistakes')) return;
+    const b = el('button', 'tile mistakes');
+    b.append(el('span', 'ico', '🔁'), document.createTextNode('My mistakes'), el('small', '', qs.length + ' to practise'));
+    b.onclick = startMistakes; g.append(b);
+  }
+  async function startMistakes() {
+    mode = { id: 'mistakes', name: 'Mistakes practice' }; show('play');
+    $('#playInfo').textContent = set.title + ' · My mistakes'; setBar(0);
+    const s0 = stage(); s0.append(el('p', 'hint', 'Looking for your mistakes…'));
+    const qs = shuffle(await fetchMistakes(set)).slice(0, 10);
+    if (!qs.length) {
+      const s1 = stage(); s1.append(el('div', 'big', '🎉'), el('p', 'hint', 'No mistakes left in this unit. Well done!'));
+      const b = el('button', 'btn', 'Other activities'); b.onclick = () => show('menu'); s1.append(b); return;
+    }
+    let i = 0, score = 0; detail = [];
+    const next = () => { i++; setBar(i / qs.length); if (i < qs.length) ask(); else finish(score, qs.length, startMistakes); };
+    const ask = () => {
+      const q = qs[i], s = stage(), box = el('div', 'q');
+      box.append(el('p', 'hint', `Question ${i + 1} of ${qs.length}`));
+      if (q.gap) {
+        const line = el('div', 'gap-line'), parts = q.gap.text.split('___'), inp = el('input');
+        inp.type = 'text'; inp.autocomplete = 'off'; inp.autocapitalize = 'off'; inp.spellcheck = false;
+        line.append(document.createTextNode(parts[0]), inp, document.createTextNode(parts.slice(1).join('___')));
+        const row = el('div', 'row center'); row.style.marginTop = '18px';
+        const check = el('button', 'btn primary', 'Check'); row.append(check);
+        let done = false;
+        check.onclick = () => {
+          if (done) { next(); return; }
+          const ok = [q.gap.answer, ...(q.gap.alt || [])].map(norm).includes(norm(inp.value));
+          rec(q.rec[0], q.rec[1], inp.value.trim(), ok);
+          inp.classList.add(ok ? 'ok' : 'no'); inp.readOnly = true; if (ok) score++; else line.append(el('span', 'ans', '→ ' + q.gap.answer));
+          done = true; check.textContent = i + 1 < qs.length ? 'Next' : 'Finish';
+        };
+        inp.onkeydown = e => { if (e.key === 'Enter') check.click(); };
+        box.append(line, row); s.append(box); inp.focus(); return;
+      }
+      if (q.pic) box.append(el('div', 'pic', q.pic));
+      box.append(el('div', q.hint ? 'sl' : 'stem', q.stem)); if (q.hint) box.append(el('p', 'hint', q.hint));
+      const choices = el('div', 'choices');
+      q.options.forEach(o => {
+        const b = el('button', 'opt', o);
+        b.onclick = () => {
+          choices.querySelectorAll('button').forEach(x => x.disabled = true);
+          rec(q.rec[0], q.rec[1], o, o === q.answer, 90);
+          if (o === q.answer) { b.classList.add('done'); score++; }
+          else { b.classList.add('wrong'); [...choices.children].find(x => x.textContent === q.answer).classList.add('done'); }
+          setTimeout(next, 1000);
+        };
+        choices.append(b);
+      });
+      box.append(choices); s.append(box);
+    };
+    ask();
   }
 
   // ----- gap fill -----
