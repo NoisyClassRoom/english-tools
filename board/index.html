@@ -42,6 +42,8 @@
   h2.sec { font-size: 22px; margin: 22px 0 8px; color: var(--accent); }
   h2.sec.l2 { font-size: 18px; margin-top: 14px; }
   /* a small round "edit" button that stays in the corner while you scroll (hidden while editing: the sticky bar has "Done editing") */
+  .exh b.ph:empty::before { content: attr(data-ph); color: var(--muted); font-weight: 400; font-size: 13px; }
+  .exh b.ph { min-width: 12em; }
   .sech { display: flex; align-items: baseline; gap: 10px; }
   .sech h2.sec { flex: 1; }
   #fab { position: fixed; right: 18px; bottom: 18px; z-index: 7; width: 46px; height: 46px; border-radius: 50%; border: 1px solid var(--accent); background: var(--accent); color: var(--accent-ink); font-size: 22px; line-height: 1; cursor: pointer; box-shadow: 0 2px 10px rgba(0,0,0,.35); opacity: .88; }
@@ -452,14 +454,28 @@
       card.dataset.si = ex.si; card.dataset.ref = ex.ref || '';
       const lab = el('b', '', ex.ref || (editing ? '' : 'Text'));
       if (editing && ex.refBlock) { lab.contentEditable = 'true'; lab.oninput = () => { ex.refBlock.x = clean(lab.textContent); markDirty(ex.si); }; lab.onkeydown = e => { if (e.key === 'Enter') e.preventDefault(); }; lab.onpaste = pastePlain; }
+      else if (editing) {                                  // lines without a "Book p.x/y" label ("Text"): type a label here to make it a proper exercise (then Pin / Stopped here appear)
+        lab.contentEditable = 'true'; lab.className = 'ph'; lab.dataset.ph = 'Text – click here to give it a label, e.g. Book p.20/1';
+        let named = false;
+        lab.oninput = () => {
+          const x = clean(lab.textContent); if (!x) return;
+          if (!ex.refBlock) { const sec = secOf(ex), at = sec.blocks.indexOf(ex.blocks[0]); snap(ex.si); ex.refBlock = { t: 'ref', x }; sec.blocks.splice(at < 0 ? sec.blocks.length : at, 0, ex.refBlock); named = true; }
+          else ex.refBlock.x = x;
+          ex.ref = x; markDirty(ex.si);
+        };
+        lab.onblur = () => { if (named) { lab.classList.remove('ph'); card.dataset.ref = ex.ref; markButtons(); } };   // Pin / Stopped here appear in place (no redraw: it could swallow a click)
+        lab.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); lab.blur(); } };
+        lab.onpaste = pastePlain;
+      }
       hd.append(lab);
       // bookmarks: ☆ pin this exercise, 📍 a class stopped here (in view and in edit mode)
+      const syncRef = () => { if (ex.refBlock) ex.ref = ex.refBlock.x; card.dataset.ref = ex.ref || ''; };   // the label may have been edited since the card was drawn
       const markButtons = () => {
-        if (!ex.ref) return;
+        if (!ex.ref || card._marks) return; card._marks = true;
         const bPin = el('button', 'btn sm'), bStop = el('button', 'btn sm', '📍 Stopped here');
-        card._sync = () => { const p = isPinned(ex); bPin.textContent = p ? '★ Pinned' : '☆ Pin'; bPin.classList.toggle('on', p); };
-        bPin.onclick = () => setMark({ kind: 'pin', book: cur, si: ex.si, ref: ex.ref, label: exLabel(ex) }, !isPinned(ex));
-        bStop.onclick = () => pickStop(ex, card); card._sync(); hd.append(bPin, bStop);
+        card._sync = () => { syncRef(); const p = isPinned(ex); bPin.textContent = p ? '★ Pinned' : '☆ Pin'; bPin.classList.toggle('on', p); };
+        bPin.onclick = () => { syncRef(); setMark({ kind: 'pin', book: cur, si: ex.si, ref: ex.ref, label: exLabel(ex) }, !isPinned(ex)); };
+        bStop.onclick = () => { syncRef(); pickStop(ex, card); }; card._sync(); hd.append(bPin, bStop);
       };
       if (editing) {
         const bL = el('button', 'btn sm', '＋ Line'), bE = el('button', 'btn sm', '＋ Exercise below'), bD = el('button', 'btn sm', '🗑 Delete exercise');
