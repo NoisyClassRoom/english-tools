@@ -46,6 +46,7 @@ Setup steps: `apps-script/SETUP.md`. Code: `exercises/tracking.js` (browser) and
 Each finished activity saves e-mail, first/last name (from the Google account), class, topic, activity and score to a private Sheet.
 The Sheet's menu "English hub" builds overview tabs (Summary, Students, Difficulty, By book, Best scores, Topics, By day) and manages the Roster and school years.
 A description for the school's data-protection officer is in `DATA-PROTECTION.md`.
+**My mistakes** (pupil, after signing in): a unit menu shows a 🔁 *My mistakes* tile when the pupil has questions in that unit (or Extra practice topic + level) whose latest answer was wrong. The page asks the script (action `mistakes`) for the pupil's own wrong answers (found through the pupil's result ids; nobody else's data is returned), finds each question again in the unit's exercise bank and asks up to 10 of them in their original form (Quiz, Match, Fill the gap, Unit test, Unit test 2, Grammar quick check). The result is saved as the activity "Mistakes practice" with the original question texts, so a question answered correctly drops off the list. Nothing new is collected.
 Backups: the Sheet menu has *Set up weekly backup* (a copy of the whole Sheet into the Drive folder "NoisyClassRoom backups" every Sunday night, newest 8 kept, older ones to the Drive bin), *Back up the Sheet to Drive now* and *Backup status* (see `apps-script/SETUP.md`).
 
 ### Board pages (teacher only)
