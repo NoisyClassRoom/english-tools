@@ -537,8 +537,8 @@ function boardSaveReply_(d) {
     if (b.t === 'tbl') {
       if (!(b.rows instanceof Array) || b.rows.length > 300) return out_({ ok: false, error: 'data' });
       blocks.push({ t: 'tbl', rows: b.rows.map(function (r) { return (r instanceof Array ? r : []).slice(0, 30).map(function (c) { return str(c, 2000); }); }) });
-    } else if (b.t === 'ref' || b.t === 'p') {
-      blocks.push({ t: b.t, x: str(b.x, 4000) });
+    } else if (b.t === 'ref' || b.t === 'p' || b.t === 'h') {       // h = a title line between exercises; keep = "belongs to the previous exercise"
+      var o = { t: b.t, x: str(b.x, 4000) }; if (b.keep && b.t === 'p') o.keep = 1; blocks.push(o);
     } else if (b.t === 'li') {
       blocks.push({ t: 'li', x: str(b.x, 4000), l: Math.max(0, Math.min(4, Math.floor(Number(b.l)) || 0)), n: str(b.n, 12) });
     } else return out_({ ok: false, error: 'data' });
