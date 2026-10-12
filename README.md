@@ -46,6 +46,7 @@ Setup steps: `apps-script/SETUP.md`. Code: `exercises/tracking.js` (browser) and
 Each finished activity saves e-mail, first/last name (from the Google account), class, topic, activity and score to a private Sheet.
 The Sheet's menu "English hub" builds overview tabs (Summary, Students, Difficulty, By book, Best scores, Topics, By day) and manages the Roster and school years.
 A description for the school's data-protection officer is in `DATA-PROTECTION.md`.
+Backups: the Sheet menu has *Set up weekly backup* (a copy of the whole Sheet into the Drive folder "NoisyClassRoom backups" every Sunday night, newest 8 kept, older ones to the Drive bin), *Back up the Sheet to Drive now* and *Backup status* (see `apps-script/SETUP.md`).
 
 ### Board pages (teacher only)
 
