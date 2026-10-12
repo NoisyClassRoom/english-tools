@@ -64,6 +64,7 @@
       <div class="card wide"><h2>Homework to watch</h2><div id="hw" class="muted">Loading…</div></div>
       <div class="card"><h2>Last 7 days, by class</h2><div id="wk" class="muted">Loading…</div></div>
       <div class="card"><h2>Today so far</h2><div id="td" class="muted">Loading…</div></div>
+      <div class="card wide" id="stopCard" style="display:none"><h2>📍 Where we stopped</h2><div id="stops"></div></div>
       <div class="card wide"><h2>Go to</h2><div id="go"></div></div>
     </div>
   </div>
@@ -145,6 +146,18 @@
     } else td.append(el('p', 'muted', 'Nothing yet today.'));
   };
 
+  // ---------------------------------------------------------------- where each class stopped on the Board (bookmarks 📍 set on the Board page)
+  const showStops = j => {
+    const card = $('#stopCard'), box = $('#stops'); box.innerHTML = '';
+    const stops = j && j.ok ? j.marks.filter(m => m.kind === 'stop').sort((a, b) => a.cls.localeCompare(b.cls, 'sl', { numeric: true })) : [];
+    card.style.display = stops.length ? '' : 'none';
+    stops.forEach(m => {
+      const a = el('a', 'btn', m.cls + ' · ' + m.label.replace(/^[^·]*· /, '') + ' (' + dmy(m.t) + ')');   // the book name is shown once, in the label
+      a.href = '../board/?book=' + encodeURIComponent(m.book) + '&si=' + encodeURIComponent(m.si); a.style.margin = '0 6px 6px 0'; a.title = m.label;
+      box.append(a);
+    });
+  };
+
   // ---------------------------------------------------------------- shortcuts
   const showGo = () => {
     const box = $('#go'); box.innerHTML = '';
@@ -160,7 +173,8 @@
     if (!Track.token()) return;
     loaded = true; $('#login').style.display = 'none'; $('#app').style.display = 'block'; $('#reload').style.display = ''; $('#who').textContent = Track.email || '';
     showGo();
-    const [hw, st] = await Promise.all([api('hwlist').catch(() => null), api('stats').catch(() => null)]);
+    const [hw, st, mk] = await Promise.all([api('hwlist').catch(() => null), api('stats').catch(() => null), api('boardmarks').catch(() => null)]);
+    showStops(mk);
     if ((hw && hw.error === 'token') || (st && st.error === 'token')) { loaded = false; $('#app').style.display = 'none'; $('#login').style.display = 'block'; $('#loginMsg').textContent = 'This Google account is not allowed to open this page.'; return; }
     showHomework(hw); showActivity(st);
   };
