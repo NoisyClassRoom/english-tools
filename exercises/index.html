@@ -116,6 +116,18 @@
   .hw .acts button.btn { padding: 8px 14px; font-size: 16px; }
   .hw .acts button.ok { border-color: var(--good); background: var(--good-soft); }
   .hw .acts button.part { border-color: var(--bad); }
+  .prog details { background: var(--card); border: 2px solid var(--line); border-radius: var(--radius); padding: 10px 16px; }
+  .prog summary { cursor: pointer; font-weight: 700; font-size: 18px; }
+  .prog summary small { font-weight: 400; color: var(--muted); font-size: 15px; margin-left: 6px; }
+  .prog .tiles { display: flex; gap: 10px; flex-wrap: wrap; margin: 12px 0; }
+  .prog .tl { flex: 1 1 110px; background: var(--accent-soft); border-radius: 12px; padding: 8px 10px; text-align: center; }
+  .prog .tl b { display: block; font-size: 26px; line-height: 1.1; }
+  .prog .tl span { color: var(--muted); font-size: 14px; }
+  .prog h3 { margin: 14px 0 6px; font-size: 16px; }
+  .prog .row2 { display: flex; align-items: center; gap: 10px; padding: 5px 0; border-top: 1px solid var(--line); flex-wrap: wrap; }
+  .prog .row2 .nm { flex: 1 1 200px; }
+  .prog .row2 .pc { font-weight: 700; }
+  .prog .row2 button.btn { padding: 4px 12px; font-size: 15px; }
   .savemsg { font-size: 16px; margin: 0 0 14px; color: var(--muted); }
   .savemsg.ok { color: var(--good); }
   .savemsg.warn { color: var(--bad); }
@@ -125,6 +137,7 @@
 <main>
   <div id="who" class="who hidden"></div>
   <div id="hw" class="hw hidden"></div>
+  <div id="prog" class="hw prog hidden"></div>
   <div id="home">
     <h1 id="homeTitle">English Exercises</h1>
     <p class="hint" id="homeHint"></p>
@@ -180,7 +193,7 @@
   };
   const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
   const norm = s => s.trim().toLowerCase().replace(/\s+/g, ' ');
-  const show = id => { ['home', 'menu', 'play'].forEach(x => $('#' + x).classList.toggle('hidden', x !== id)); $('#hw').classList.toggle('hidden', id === 'play' || !$('#hw').childNodes.length); };
+  const show = id => { ['home', 'menu', 'play'].forEach(x => $('#' + x).classList.toggle('hidden', x !== id)); $('#hw').classList.toggle('hidden', id === 'play' || !$('#hw').childNodes.length); $('#prog').classList.toggle('hidden', id !== 'home' || !$('#prog').childNodes.length); };
   const setBar = f => $('#bar').style.width = Math.round(f * 100) + '%';
 
   let set = null, mode = null;
@@ -238,8 +251,47 @@
     });
     box.classList.toggle('hidden', !$('#play').classList.contains('hidden'));
   };
-  Track.onChange(() => { whoBar(); loadHw(); });
-  Track.init(() => { whoBar(); loadHw(); });
+  // ----- my progress: the pupil's own numbers of this school year (asked from the server once signed in) -----
+  let progBusy = false;
+  const loadProgress = async () => {
+    const box = $('#prog'), token = Track.enabled && Track.token();
+    if (!token) { box.innerHTML = ''; box.classList.add('hidden'); return; }
+    if (progBusy) return; progBusy = true;
+    try {
+      const r = await fetch(Track.config.endpoint, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'myprogress', token }) });
+      const j = await r.json(); if (j.ok) renderProgress(j);
+    } catch (e) { /* optional: stay quiet if it cannot be loaded */ } finally { progBusy = false; }
+  };
+  const renderProgress = j => {
+    const box = $('#prog'), open = box.querySelector('details') && box.querySelector('details').open; box.innerHTML = '';
+    const pc = x => Math.round(x * 100) + ' %', d = el('details'), sm = el('summary', '', '📈 My progress');
+    if (open) d.open = true;
+    sm.append(el('small', '', j.total ? j.week + ' activities in the last 7 days' + (j.streak > 1 ? ' · ' + j.streak + ' days in a row 🔥' : '') : 'nothing yet this school year'));
+    d.append(sm);
+    if (!j.total) { d.append(el('p', 'note', 'Finish an activity while you are signed in and your progress will show up here.')); box.append(d); box.classList.toggle('hidden', $('#home').classList.contains('hidden')); return; }
+    const tiles = el('div', 'tiles');
+    [[String(j.week), 'last 7 days'], [(j.streak || 0) + (j.streak > 1 ? ' 🔥' : ''), 'days in a row'], [pc(j.avg), 'average result'], [String(j.total), 'activities this year']]
+      .forEach(([n, t]) => { const x = el('div', 'tl'); x.append(el('b', '', n), el('span', '', t)); tiles.append(x); });
+    d.append(tiles);
+    const go = u => { const e = el('button', 'btn', 'Practise'); e.onclick = () => { location.search = '?class=' + encodeURIComponent(u.book) + '&topic=' + encodeURIComponent(u.topic); }; return e; };
+    const need = j.units.filter(u => u.n >= 2 && u.avg < 0.7).sort((a, b) => a.avg - b.avg).slice(0, 3);
+    if (need.length) {
+      d.append(el('h3', '', 'A little more practice would help'));
+      need.forEach(u => { const r = el('div', 'row2'); r.append(el('span', 'nm', u.title), el('span', 'pc', 'average ' + pc(u.avg)), go(u)); d.append(r); });
+    }
+    const best = j.units.filter(u => u.best >= 0.9).sort((a, b) => b.best - a.best || b.n - a.n).slice(0, 3);
+    if (best.length) {
+      d.append(el('h3', '', '⭐ Your best'));
+      best.forEach(u => { const r = el('div', 'row2'); r.append(el('span', 'nm', u.title), el('span', 'pc', 'best ' + pc(u.best))); d.append(r); });
+    }
+    if (j.recent && j.recent.length) {
+      d.append(el('h3', '', 'Recently'));
+      j.recent.slice(0, 5).forEach(a => { const t = new Date(a[0]), r = el('div', 'row2'); r.append(el('span', 'nm', t.getDate() + '. ' + (t.getMonth() + 1) + '. · ' + a[1] + ' · ' + a[2]), el('span', 'pc', pc(a[3]))); d.append(r); });
+    }
+    box.append(d); box.classList.toggle('hidden', $('#home').classList.contains('hidden'));
+  };
+  Track.onChange(() => { whoBar(); loadHw(); loadProgress(); });
+  Track.init(() => { whoBar(); loadHw(); loadProgress(); });
   // what the pupil answered in the current activity: [question, right answer, chosen answer, 1 right / 0 wrong]
   let detail = [];
   // lim: how many characters of the chosen / typed answer are kept (multiple choice 90, typed words 40)
@@ -253,7 +305,7 @@
     const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);   // the same result is never stored twice, even if it is sent again
     Track.save({ id, cls, unit: set.unit || '', topic: set.title, activity: mode.name, score, total, qs }, st => {
       msg.className = 'savemsg ' + (st === 'saved' ? 'ok' : st === 'off' ? '' : 'warn');
-      if (st === 'saved') loadHw();                                  // homework ticks update
+      if (st === 'saved') { loadHw(); loadProgress(); }              // homework ticks and the progress numbers update
       msg.textContent = st === 'saved' ? '✓ Result saved'
         : st === 'signin' ? 'Sign in with Google (top of the page) to save this result.'
         : st === 'retry' ? 'Saving is taking longer than usual - trying again...'
@@ -393,11 +445,16 @@
   function startMode(m) { mode = m; show('play'); $('#playInfo').textContent = set.title + ' · ' + m.name; setBar(0); m.run(); }
   // a homework link (?class=8a&set=<unit id>&mode=quiz) goes straight to the unit and the activity
   function autoOpen() {
-    const qp = new URLSearchParams(location.search), wantSet = qp.get('set'), wantMode = qp.get('mode');
-    if (!wantSet) return;
-    const s0 = (window.CLASS_SETS || []).concat(SHARED).find(x => x.id === wantSet);
+    const qp = new URLSearchParams(location.search), wantSet = qp.get('set'), wantTopic = qp.get('topic'), wantMode = qp.get('mode');
+    if (!wantSet && !wantTopic) return;
+    const all = (window.CLASS_SETS || []).concat(SHARED);
+    let s0 = wantSet ? all.find(x => x.id === wantSet) : all.find(x => x.title === wantTopic), lvl = qp.get('level') || undefined;
+    if (!s0 && wantTopic) {                                              // a link from "My progress": the topic title as it was saved; Extra practice = "<topic> · <Level>"
+      const m = /^(.*) · (Easy|Medium|Hard)$/.exec(wantTopic);
+      if (m) { s0 = all.find(x => x.title === m[1]); lvl = m[2].toLowerCase(); }
+    }
     if (!s0) return;
-    openSet(s0, qp.get('level') || undefined);
+    openSet(s0, lvl);
     if (wantMode === 'gcheck') { if ((set.gcheck || []).length) startCheck(); return; }
     const m = wantMode && MODES.find(x => x.id === wantMode && (!x.need || x.need(set)));
     if (m) startMode(m);
