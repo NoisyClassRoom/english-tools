@@ -99,6 +99,8 @@ function doPost(e) {
     if (d.action === 'hwdelete') return hwDeleteReply_(d);   // teacher-only: remove an assignment
     if (d.action === 'board') return boardReply_(d);         // teacher-only: the exercise keys for the board pages
     if (d.action === 'boardsave') return boardSaveReply_(d); // teacher-only: one edited section of the board text
+    if (d.action === 'boardmarks') return boardMarksReply_(d);       // teacher-only: pinned exercises and "where the class stopped"
+    if (d.action === 'boardmarkset') return boardMarkSetReply_(d);   // teacher-only: pin / unpin an exercise, set / clear a class stop
     var who = verify_(d.token);
     if (!who) return out_({ ok: false, error: 'token' });
 
@@ -588,6 +590,58 @@ function boardSaveReply_(d) {
     sh.getRange(start, 1, rows.length, BOARDHEADER.length).setNumberFormat('@').setValues(rows);
   } finally { lock.releaseLock(); }
   return out_({ ok: true });
+}
+
+// ---------------------------------------------------------------- board bookmarks
+// Hidden tab "BoardMarks": Kind = pin (an exercise the teacher uses a lot) or stop (where a class stopped; one row per class),
+// Class (stop only), Book (6b ...), Section (index of the section on the board), Exercise (its label, e.g. "Book p.20/1"), Label (text of the chip), Time.
+var MARKSSHEET = 'BoardMarks', MARKSHEADER = ['Kind', 'Class', 'Book', 'Section', 'Exercise', 'Label', 'Time'];
+function marksSheet_() {
+  var ss = SpreadsheetApp.getActive(), sh = ss.getSheetByName(MARKSSHEET);
+  if (!sh) {
+    sh = ss.insertSheet(MARKSSHEET);
+    sh.appendRow(MARKSHEADER); sh.setFrozenRows(1); sh.getRange(1, 1, 1, MARKSHEADER.length).setFontWeight('bold');
+    sh.getRange('A:F').setNumberFormat('@');
+    var first = ss.getSheets().filter(function (s) { return s.getName() !== MARKSSHEET; })[0];
+    if (first) ss.setActiveSheet(first);
+    sh.hideSheet();
+  }
+  return sh;
+}
+function marksList_() {
+  var sh = marksSheet_();
+  if (sh.getLastRow() < 2) return [];
+  return sh.getRange(2, 1, sh.getLastRow() - 1, MARKSHEADER.length).getValues().filter(function (r) { return r[0]; }).map(function (r) {
+    return { kind: String(r[0]), cls: String(r[1]), book: String(r[2]), si: Number(r[3]) || 0, ref: String(r[4]), label: String(r[5]), t: Number(r[6]) || 0 };
+  });
+}
+function boardMarksReply_(d) {
+  var who = verify_(d.token);
+  if (!who || !isTeacher_(who.email)) return out_({ ok: false, error: 'token' });
+  return out_({ ok: true, marks: marksList_() });
+}
+function boardMarkSetReply_(d) {
+  var who = verify_(d.token);
+  if (!who || !isTeacher_(who.email)) return out_({ ok: false, error: 'token' });
+  var m = d.mark || {}, kind = String(m.kind || ''), book = String(m.book || ''), si = Math.floor(Number(m.si)), on = d.on !== false;
+  var cls = clip_(m.cls, 20), ref = clip_(m.ref, 80), label = clip_(m.label, 200);
+  if ((kind !== 'pin' && kind !== 'stop') || !/^[0-9a-z]{1,6}$/.test(book) || !(si >= 0 && si <= 2000) || (kind === 'stop' && !cls)) return out_({ ok: false, error: 'data' });
+  var lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    var sh = marksSheet_(), vals = sh.getLastRow() > 1 ? sh.getRange(2, 1, sh.getLastRow() - 1, MARKSHEADER.length).getValues() : [];
+    for (var i = vals.length - 1; i >= 0; i--) {                       // remove the row this mark replaces / switches off (bottom-up)
+      var r = vals[i], same = kind === 'stop' ? (String(r[0]) === 'stop' && String(r[1]) === cls)
+        : (String(r[0]) === 'pin' && String(r[2]) === book && Number(r[3]) === si && String(r[4]) === ref);
+      if (same) sh.deleteRow(i + 2);
+    }
+    if (on) {
+      if (kind === 'pin' && vals.filter(function (r) { return String(r[0]) === 'pin'; }).length >= 100) return out_({ ok: false, error: 'limit' });
+      var row = [kind, kind === 'stop' ? cls : '', book, si, ref, label, Date.now()], at = sh.getLastRow() + 1;
+      sh.getRange(at, 1, 1, MARKSHEADER.length).setNumberFormat('@').setValues([row]);
+    }
+  } finally { lock.releaseLock(); }
+  return out_({ ok: true, marks: marksList_() });
 }
 
 function restoreBoardOriginal() {
