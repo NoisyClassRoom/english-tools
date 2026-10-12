@@ -19,6 +19,8 @@ Draft for the school's data-protection officer (DPO). It describes what the tool
 
 - since 7 Oct 2026, homework: the teacher can assign an exercise to a class or to chosen pupils (stored in a tab of the same Sheet: class, exercise, due date, a note, and the names of the chosen pupils). A signed-in pupil sees only their own homework and whether they have done it; this is worked out from the results above, so nothing new is collected about the pupil.
 
+- since 12 Oct 2026, "My mistakes": a signed-in pupil can practise the questions they got wrong. The script looks up only that pupil's own earlier answers and sends them back to the pupil's page; the practice round is saved like any other result (activity "Mistakes practice"). Nothing new is collected, and no other pupil's data is returned.
+
 **Not collected:** passwords, photos, phone numbers, addresses, location, advertising or analytics cookies. Free text is limited to the short word typed in a fill-the-gap exercise (see above).
 
 **Where the data is.** One private Google Sheet in the teacher's school Google Workspace account (domain os-verzej.si). It is not shared with anyone else. The class list (pupil name, school year, class; imported from the school register) is a tab in the same Sheet. Sign-in is limited to the school domain; the server rejects accounts from other domains.
@@ -55,6 +57,8 @@ Draft for the school's data-protection officer (DPO). It describes what the tool
 - vaja (učbenik, tema, dejavnost) in rezultat
 - razred učenca (poiščemo ga v seznamu razredov, ki ga vodi učitelj; glej spodaj)
 - od 7. 10. 2026 domača naloga: učitelj lahko razredu ali izbranim učencem dodeli vajo (shrani se v zavihek iste preglednice: razred, vaja, rok, opomba in imena izbranih učencev). Prijavljen učenec vidi samo svojo domačo nalogo in ali jo je opravil; to se izračuna iz zgornjih rezultatov, zato se o učencu ne zbira nič novega.
+
+- od 12. 10. 2026 »Moje napake«: prijavljen učenec lahko vadi vprašanja, na katera je odgovoril narobe. Skripta poišče samo učenčeve lastne prejšnje odgovore in jih pošlje na učenčevo stran; krog vaje se shrani kot vsak drug rezultat (dejavnost »Mistakes practice«). Ne zbira se nič novega in podatki drugih učencev se ne vrnejo.
 
 **Ne zbiramo:** gesel, fotografij, telefonskih številk, naslovov, lokacije, prostih besedilnih odgovorov, oglaševalskih ali analitičnih piškotkov.
 
