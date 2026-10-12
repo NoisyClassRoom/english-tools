@@ -21,6 +21,8 @@ Draft for the school's data-protection officer (DPO). It describes what the tool
 
 - since 12 Oct 2026, "My mistakes": a signed-in pupil can practise the questions they got wrong. The script looks up only that pupil's own earlier answers and sends them back to the pupil's page; the practice round is saved like any other result (activity "Mistakes practice"). Nothing new is collected, and no other pupil's data is returned.
 
+- since 12 Oct 2026, "My progress": a signed-in pupil sees a summary of their own results of the current school year (number of activities, days in a row, average, best and weakest units, last results). The script looks up only that pupil's own rows and sends the summary to the pupil's page; nothing new is collected and no other pupil's data is returned.
+
 **Not collected:** passwords, photos, phone numbers, addresses, location, advertising or analytics cookies. Free text is limited to the short word typed in a fill-the-gap exercise (see above).
 
 **Where the data is.** One private Google Sheet in the teacher's school Google Workspace account (domain os-verzej.si). It is not shared with anyone else. The class list (pupil name, school year, class; imported from the school register) is a tab in the same Sheet. Sign-in is limited to the school domain; the server rejects accounts from other domains.
@@ -59,6 +61,8 @@ Draft for the school's data-protection officer (DPO). It describes what the tool
 - od 7. 10. 2026 domača naloga: učitelj lahko razredu ali izbranim učencem dodeli vajo (shrani se v zavihek iste preglednice: razred, vaja, rok, opomba in imena izbranih učencev). Prijavljen učenec vidi samo svojo domačo nalogo in ali jo je opravil; to se izračuna iz zgornjih rezultatov, zato se o učencu ne zbira nič novega.
 
 - od 12. 10. 2026 »Moje napake«: prijavljen učenec lahko vadi vprašanja, na katera je odgovoril narobe. Skripta poišče samo učenčeve lastne prejšnje odgovore in jih pošlje na učenčevo stran; krog vaje se shrani kot vsak drug rezultat (dejavnost »Mistakes practice«). Ne zbira se nič novega in podatki drugih učencev se ne vrnejo.
+
+- od 12. 10. 2026 »Moj napredek«: prijavljen učenec vidi povzetek svojih rezultatov v tekočem šolskem letu (število dejavnosti, zaporedne dni, povprečje, najboljše in najšibkejše enote, zadnje rezultate). Skripta poišče samo učenčeve lastne vrstice in pošlje povzetek na učenčevo stran; ne zbira se nič novega in podatki drugih učencev se ne vrnejo.
 
 **Ne zbiramo:** gesel, fotografij, telefonskih številk, naslovov, lokacije, prostih besedilnih odgovorov, oglaševalskih ali analitičnih piškotkov.
 
