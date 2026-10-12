@@ -92,6 +92,7 @@ function doPost(e) {
     if (d.action === 'stats') return statsReply_(d);         // teacher-only, used by the Results page
     if (d.action === 'qstats') return qstatsReply_(d);       // teacher-only: question-level statistics
     if (d.action === 'homework') return homeworkReply_(d);   // a pupil: own open homework
+    if (d.action === 'mistakes') return mistakesReply_(d);   // a pupil: own wrong answers in one unit (for "Practise my mistakes")
     if (d.action === 'hwlist') return hwListReply_(d);       // teacher-only: assignments with every pupil's progress
     if (d.action === 'hwsave') return hwSaveReply_(d);       // teacher-only: new assignment
     if (d.action === 'hwdelete') return hwDeleteReply_(d);   // teacher-only: remove an assignment
@@ -221,6 +222,37 @@ function isTeacher_(email) {
   var allowed = String(PropertiesService.getScriptProperties().getProperty('TEACHER_EMAILS') || '')
     .toLowerCase().split(/[\s,;]+/).filter(String);
   return allowed.indexOf(String(email).toLowerCase()) >= 0;
+}
+
+// A signed-in pupil asks for THEIR OWN mistakes in one unit (book = the class id of the exercise link, topic = the unit title
+// the page saves, e.g. "Experiences" or "Food and drink · Hard"). The Questions rows hold no names, so the pupil's rows are found
+// through their result ids in Results. A question counts as a mistake while its latest answer (in any activity, also in
+// "Mistakes practice") was wrong. Returns [{act, q, ans, n}] = original activity, question, right answer, number of wrong
+// answers; most wrong first, at most 30. Nobody else's data is returned.
+var MISTAKES_ACT = 'Mistakes practice';
+function mistakesReply_(d) {
+  var who = verify_(d.token);
+  if (!who) return out_({ ok: false, error: 'token' });
+  var book = clip_(d.book, 20), topic = clip_(d.topic, 120), email = String(who.email).toLowerCase();
+  var ss = SpreadsheetApp.getActive(), rs = ss.getSheetByName(SHEET), qs = ss.getSheetByName(QSHEET);
+  if (!book || !topic || !rs || !qs || rs.getLastRow() < 2 || qs.getLastRow() < 2) return out_({ ok: true, items: [] });
+  var n = rs.getLastRow() - 1, mails = rs.getRange(2, 2, n, 1).getValues(), rids = rs.getRange(2, NCOLS, n, 1).getValues(), ids = {};
+  for (var i = 0; i < n; i++) if (rids[i][0] && String(mails[i][0]).toLowerCase() === email) ids[String(rids[i][0])] = 1;
+  var agg = {}, order = [], tail = ' · ' + topic;
+  qs.getRange(2, 1, qs.getLastRow() - 1, QHEADER.length).getValues().forEach(function (r) {
+    if (!ids[String(r[1])] || String(r[2]) !== book) return;
+    var ut = String(r[3]);
+    if (ut !== topic && ut.slice(-tail.length) !== tail) return;
+    var k = r[5] + '\u0001' + r[6], t = r[0] instanceof Date ? r[0].getTime() : 0, o = agg[k];
+    if (!o) { o = agg[k] = { act: '', q: String(r[5]), ans: String(r[6]), n: 0, t: 0, ok: 1 }; order.push(k); }
+    if (String(r[4]) !== MISTAKES_ACT && !o.act) o.act = String(r[4]);
+    if (!Number(r[8])) o.n++;
+    if (t >= o.t) { o.t = t; o.ok = Number(r[8]) ? 1 : 0; }
+  });
+  var items = order.map(function (k) { return agg[k]; }).filter(function (o) { return !o.ok && o.act; })
+    .sort(function (a, b) { return (b.n - a.n) || (b.t - a.t); }).slice(0, 30)
+    .map(function (o) { return { act: o.act, q: o.q, ans: o.ans, n: o.n }; });
+  return out_({ ok: true, items: items });
 }
 
 // ---------------------------------------------------------------- homework
