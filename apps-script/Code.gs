@@ -719,9 +719,84 @@ function out_(o) {
   return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON);
 }
 
+// ---------------------------------------------------------------- backup to Drive
+// A copy of the whole Sheet (all tabs, also the hidden ones) goes into the Drive folder "NoisyClassRoom backups" of the
+// Sheet's owner, every Sunday night (a time trigger made by "Set up weekly backup") or on demand. The newest 8 copies are
+// kept; older ones go to the Drive bin (they can still be restored from there for 30 days). The copies hold pupil data
+// like the Sheet itself: they stay in the owner's private Drive, never shared.
+var BACKUP_FOLDER = 'NoisyClassRoom backups', BACKUP_PREFIX = 'NoisyClassRoom backup ', BACKUP_KEEP = 8;
+
+function backupFolder_() {
+  var it = DriveApp.getFoldersByName(BACKUP_FOLDER);
+  while (it.hasNext()) { var f = it.next(); if (!f.isTrashed()) return f; }
+  return DriveApp.createFolder(BACKUP_FOLDER);
+}
+
+function doBackup_() {
+  var ss = SpreadsheetApp.getActive(), folder = backupFolder_(), now = new Date();
+  var name = BACKUP_PREFIX + Utilities.formatDate(now, TZ, 'yyyy-MM-dd HH.mm');
+  DriveApp.getFileById(ss.getId()).makeCopy(name, folder);
+  var files = [], it = folder.getFiles();
+  while (it.hasNext()) { var f = it.next(); if (f.getName().indexOf(BACKUP_PREFIX) === 0) files.push(f); }
+  files.sort(function (a, b) { return b.getDateCreated().getTime() - a.getDateCreated().getTime(); });
+  var trashed = 0;
+  for (var i = BACKUP_KEEP; i < files.length; i++) { files[i].setTrashed(true); trashed++; }
+  var p = PropertiesService.getScriptProperties();
+  p.setProperty('LAST_BACKUP', String(now.getTime())); p.deleteProperty('LAST_BACKUP_ERROR');
+  return { name: name, kept: Math.min(files.length, BACKUP_KEEP), trashed: trashed, url: folder.getUrl() };
+}
+
+function backupLast_() {
+  var p = PropertiesService.getScriptProperties(), t = Number(p.getProperty('LAST_BACKUP')) || 0;
+  return t ? Utilities.formatDate(new Date(t), TZ, 'd. M. yyyy HH:mm') : '';
+}
+
+function weeklyBackup() {                                     // runs from the time trigger
+  try { doBackup_(); }
+  catch (e) { PropertiesService.getScriptProperties().setProperty('LAST_BACKUP_ERROR', Utilities.formatDate(new Date(), TZ, 'd. M. yyyy HH:mm') + ': ' + e); }
+}
+
+function backupNow() {
+  var ui = SpreadsheetApp.getUi();
+  try {
+    var r = doBackup_();
+    ui.alert('Backup done', r.name + '\n\nCopies kept: ' + r.kept + (r.trashed ? ' (' + r.trashed + ' older moved to the Drive bin)' : '') + '\nFolder: ' + r.url, ui.ButtonSet.OK);
+    onOpen();
+  } catch (e) { ui.alert('The backup did not work', String(e), ui.ButtonSet.OK); }
+}
+
+function weeklyTrigger_() {
+  return ScriptApp.getProjectTriggers().filter(function (t) { return t.getHandlerFunction() === 'weeklyBackup'; });
+}
+
+function backupSetup() {
+  var ui = SpreadsheetApp.getUi();
+  if (weeklyTrigger_().length) { ui.alert('Weekly backup is already on', 'A copy is made every Sunday night (about 03:00). Use "Backup status" to see the last one.', ui.ButtonSet.OK); return; }
+  ScriptApp.newTrigger('weeklyBackup').timeBased().onWeekDay(ScriptApp.WeekDay.SUNDAY).atHour(3).create();
+  try { var r = doBackup_(); ui.alert('Weekly backup is on', 'A first copy was made now:\n' + r.name + '\n\nFrom now on a copy is made every Sunday night (about 03:00); the newest ' + BACKUP_KEEP + ' are kept.\nFolder: ' + r.url, ui.ButtonSet.OK); onOpen(); }
+  catch (e) { ui.alert('Weekly backup is on, but the first copy did not work', String(e), ui.ButtonSet.OK); }
+}
+
+function backupStop() {
+  var ui = SpreadsheetApp.getUi(), ts = weeklyTrigger_();
+  if (!ts.length) { ui.alert('Weekly backup is not on.'); return; }
+  if (ui.alert('Switch the weekly backup off?', 'Existing copies stay in Drive.', ui.ButtonSet.OK_CANCEL) !== ui.Button.OK) return;
+  ts.forEach(function (t) { ScriptApp.deleteTrigger(t); });
+  ui.alert('Weekly backup is off.');
+}
+
+function backupStatus() {
+  var ui = SpreadsheetApp.getUi(), p = PropertiesService.getScriptProperties(), err = p.getProperty('LAST_BACKUP_ERROR');
+  var n = 0, it = backupFolder_().getFiles();
+  while (it.hasNext()) if (it.next().getName().indexOf(BACKUP_PREFIX) === 0) n++;
+  ui.alert('Backup status', 'Weekly backup: ' + (weeklyTrigger_().length ? 'ON (every Sunday night)' : 'OFF') + '\nLast copy: ' + (backupLast_() || 'none yet') +
+    '\nCopies in Drive: ' + n + ' (the newest ' + BACKUP_KEEP + ' are kept)\nFolder: ' + backupFolder_().getUrl() + (err ? '\n\nLast problem: ' + err : ''), ui.ButtonSet.OK);
+}
+
 // ---------------------------------------------------------------- menu
 
 function onOpen() {
+  var last = backupLast_();
   SpreadsheetApp.getUi().createMenu('English hub')
     .addItem('Set up analysis tabs', 'setupAnalysis')
     .addItem('Refresh classes from Roster', 'refreshClasses')
@@ -733,6 +808,11 @@ function onOpen() {
     .addItem('Delete results of pupils who left...', 'deleteLeavers')
     .addSeparator()
     .addItem('Restore board text from backup...', 'restoreBoardOriginal')
+    .addSeparator()
+    .addItem('Back up the Sheet to Drive now' + (last ? ' (last: ' + last + ')' : ''), 'backupNow')
+    .addItem('Set up weekly backup', 'backupSetup')
+    .addItem('Backup status', 'backupStatus')
+    .addItem('Switch weekly backup off...', 'backupStop')
     .addToUi();
 }
 
