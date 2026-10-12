@@ -83,6 +83,10 @@ var UNITS = {
   "9b|Relationships": "Unit 6"
 };
 
+// Change this text whenever the code of doPost changes: the health check compares it with what the published web app answers,
+// so it can tell you that the saved code has not been deployed as a new version yet.
+var CODE_VERSION = '2026-10-12.1';
+
 // ---------------------------------------------------------------- saving results
 
 function doPost(e) {
@@ -101,6 +105,7 @@ function doPost(e) {
     if (d.action === 'boardsave') return boardSaveReply_(d); // teacher-only: one edited section of the board text
     if (d.action === 'boardmarks') return boardMarksReply_(d);       // teacher-only: pinned exercises and "where the class stopped"
     if (d.action === 'boardmarkset') return boardMarkSetReply_(d);   // teacher-only: pin / unpin an exercise, set / clear a class stop
+    if (d.action === 'ping') return out_({ ok: true, v: CODE_VERSION });   // no data; used by "Check that everything works" in the Sheet menu
     var who = verify_(d.token);
     if (!who) return out_({ ok: false, error: 'token' });
 
@@ -909,6 +914,140 @@ function backupStatus() {
     '\nCopies in Drive: ' + n + ' (the newest ' + BACKUP_KEEP + ' are kept)\nFolder: ' + backupFolder_().getUrl() + (err ? '\n\nLast problem: ' + err : ''), ui.ButtonSet.OK);
 }
 
+// ---------------------------------------------------------------- health check
+// Menu "English hub > Check that everything works": looks at the web app, the Sheet, the Board text, the exercise files on
+// GitHub Pages, the website and the backup, and reports in plain words (OK / look at this / broken). It changes nothing.
+var SITE_BASE = 'https://noisyclassroom.github.io/english-tools/';
+var CLASS_IDS = ['6b', '7a', '7bc', '8a', '8b', '9a', '9b'];
+
+function healthRun_() {
+  var rep = [], add = function (lvl, text) { rep.push([lvl, text]); };
+  var steps = [['The published web app', hcWebApp_], ['The Sheet', hcSheet_], ['The Board text', hcBoard_], ['Pupils and the Roster', hcPupils_],
+               ['The backup', hcBackup_], ['The exercise files on GitHub', hcFiles_], ['The website', hcSite_]];
+  steps.forEach(function (s) {
+    add('head', s[0]);
+    try { s[1](add); } catch (e) { add('bad', 'This check itself failed: ' + e); }
+  });
+  return rep;
+}
+
+// the same check, written to the execution log (Extensions > Apps Script > select healthCheckLog > Run)
+function healthCheckLog() {
+  healthRun_().forEach(function (r) { Logger.log((r[0] === 'head' ? '\n== ' : '[' + r[0] + '] ') + r[1]); });
+}
+
+function healthCheck() {
+  var ui = SpreadsheetApp.getUi();
+  SpreadsheetApp.getActive().toast('Checking everything - this takes about half a minute...', 'English hub', 30);
+  var rep = healthRun_();
+  var n = { ok: 0, warn: 0, bad: 0 };
+  rep.forEach(function (r) { if (n[r[0]] != null) n[r[0]]++; });
+  var esc = function (s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); };
+  var icon = { ok: '✅', warn: '⚠️', bad: '❌' };
+  var html = '<div style="font:14px/1.5 Arial,sans-serif;max-width:640px"><p><b>' + (n.bad ? 'Something is broken (' + n.bad + ').' : n.warn ? 'Everything works; ' + n.warn + ' thing(s) to look at.' : 'Everything works.') +
+    '</b> ' + n.ok + ' checks OK' + (n.warn ? ', ' + n.warn + ' to look at' : '') + (n.bad ? ', ' + n.bad + ' broken' : '') + '.</p>' +
+    rep.map(function (r) {
+      return r[0] === 'head' ? '<h3 style="margin:14px 0 4px;font-size:15px">' + esc(r[1]) + '</h3>' : '<div style="margin:2px 0 2px 4px">' + icon[r[0]] + ' ' + esc(r[1]) + '</div>';
+    }).join('') + '</div>';
+  ui.showModalDialog(HtmlService.createHtmlOutput(html).setWidth(700).setHeight(560), 'Health check');
+}
+
+// 1) the published web app answers and is the same version as the saved code
+function hcWebApp_(add) {
+  // the address the pupils' pages really use (written in exercises/tracking.js on GitHub Pages)
+  var cfg = UrlFetchApp.fetch(SITE_BASE + 'exercises/tracking.js?check=' + Date.now(), { muteHttpExceptions: true }).getContentText();
+  var m = /endpoint:\s*["'](https:\/\/script\.google\.com\/macros\/s\/[^"']+)["']/.exec(cfg), url = m && m[1];
+  if (!url) { add('bad', 'The exercise pages (exercises/tracking.js) contain no web app address: results cannot be saved.'); return; }
+  var r = UrlFetchApp.fetch(url, { method: 'post', contentType: 'text/plain', payload: JSON.stringify({ action: 'ping' }), muteHttpExceptions: true, followRedirects: true });
+  var j; try { j = JSON.parse(r.getContentText()); } catch (e) { j = null; }
+  if (r.getResponseCode() !== 200 || !j) { add('bad', 'The web app does not answer correctly (HTTP ' + r.getResponseCode() + '). Pupils cannot save results until this is fixed.'); return; }
+  if (j.v === CODE_VERSION) add('ok', 'The web app answers and is up to date (' + CODE_VERSION + ').');
+  else add('warn', 'The published web app is older than the code saved here. Publish it: Extensions > Apps Script > Deploy > Manage deployments > pencil > Version: New version > Deploy.');
+}
+
+// 2) tabs, size, teacher accounts
+function hcSheet_(add) {
+  var ss = SpreadsheetApp.getActive(), sheets = ss.getSheets(), names = sheets.map(function (s) { return s.getName(); });
+  [[SHEET, 'results', true], [ROSTER, 'class list (Roster)', true], [BOARDSHEET, 'Board text', true]].forEach(function (t) {
+    if (names.indexOf(t[0]) < 0) add('bad', 'The tab "' + t[0] + '" (' + t[1] + ') is missing.');
+  });
+  var rs = ss.getSheetByName(SHEET), qs = ss.getSheetByName(QSHEET), ro = ss.getSheetByName(ROSTER);
+  if (rs) add('ok', 'Results: ' + Math.max(0, rs.getLastRow() - 1) + ' rows this school year' + (qs ? '; question details: ' + Math.max(0, qs.getLastRow() - 1) + ' rows.' : '.'));
+  if (ro) add(ro.getLastRow() > 1 ? 'ok' : 'warn', 'Roster: ' + Math.max(0, ro.getLastRow() - 1) + ' rows' + (ro.getLastRow() > 1 ? '.' : ' - empty, so pupils have no class.'));
+  var cells = sheets.reduce(function (a, s) { return a + s.getMaxRows() * s.getMaxColumns(); }, 0), pct = Math.round(cells / 100000);
+  add(pct >= 85 ? 'bad' : pct >= 60 ? 'warn' : 'ok', 'The Sheet uses ' + pct + ' % of the 10 million cells Google allows' + (pct >= 60 ? ' - consider "Move earlier school years to Archive" or deleting old results.' : '.'));
+  var mails = String(PropertiesService.getScriptProperties().getProperty('TEACHER_EMAILS') || '').split(/[\s,;]+/).filter(String);
+  add(mails.length ? 'ok' : 'bad', mails.length ? mails.length + ' teacher account(s) are allowed (Results, Board, Today).' : 'No teacher account is set (script property TEACHER_EMAILS): the teacher pages will refuse everybody.');
+  if (rs && rs.getLastRow() > 1) {
+    var last = rs.getRange(2, 1).getValue();
+    if (last instanceof Date) { var days = Math.floor((Date.now() - last.getTime()) / 86400000); add('ok', 'The latest result was saved ' + (days <= 0 ? 'today' : days + ' day(s) ago') + ' (' + Utilities.formatDate(last, TZ, 'd. M. yyyy HH:mm') + ').'); }
+  }
+}
+
+// 3) the Board text can be read: every row is valid JSON, all seven books are there
+function hcBoard_(add) {
+  var sh = SpreadsheetApp.getActive().getSheetByName(BOARDSHEET);
+  if (!sh || sh.getLastRow() < 2) { add('bad', 'The Board text is empty.'); return; }
+  var vals = sh.getRange(2, 1, sh.getLastRow() - 1, 6).getValues(), books = {}, secs = {}, badRows = [];
+  vals.forEach(function (r, i) {
+    if (!r[0]) return;
+    books[String(r[0])] = 1; secs[r[0] + '|' + r[1]] = 1;
+    try { var p = JSON.parse(r[5]); if (!(p instanceof Array)) throw 0; } catch (e) { badRows.push(i + 2); }
+  });
+  var have = Object.keys(books), missing = CLASS_IDS.filter(function (b) { return !books[b]; });
+  add(missing.length ? 'warn' : 'ok', 'Board: ' + Object.keys(secs).length + ' sections in ' + have.length + ' books' + (missing.length ? '; no text for: ' + missing.join(', ') + '.' : '.'));
+  if (badRows.length) add('bad', 'Board rows that cannot be read (broken text): ' + badRows.slice(0, 8).join(', ') + (badRows.length > 8 ? ' ...' : '') + '. Restore them with "Restore board text from backup...".');
+  var bk = SpreadsheetApp.getActive().getSheetByName(BOARD_BACKUP);
+  add('ok', bk ? 'The Board backup tab exists (' + Math.max(0, bk.getLastRow() - 1) + ' rows).' : 'No Board backup yet: it is made when you save your first edit on the Board page.');
+}
+
+// 4) results from accounts that are not in the Roster (pupils who would not appear in any class)
+function hcPupils_(add) {
+  var rs = SpreadsheetApp.getActive().getSheetByName(SHEET);
+  if (!rs || rs.getLastRow() < 2) { add('ok', 'No results yet.'); return; }
+  var year = schoolYear_(new Date()), teachers = String(PropertiesService.getScriptProperties().getProperty('TEACHER_EMAILS') || '').toLowerCase().split(/[\s,;]+/).filter(String), who = {};
+  rs.getRange(2, 1, rs.getLastRow() - 1, NCOLS).getValues().forEach(function (r) {
+    if (!(r[0] instanceof Date) || String(r[10]) !== year || String(r[11]).trim() || teachers.indexOf(String(r[1]).toLowerCase()) >= 0) return;
+    who[String(r[1]).toLowerCase()] = String(r[3] || '') + ' ' + String(r[2] || '');
+  });
+  var list = Object.keys(who);
+  if (!list.length) add('ok', 'Every account with results this year has a class in the Roster.');
+  else add('warn', list.length + ' account(s) have results but no class in the Roster: ' + list.slice(0, 8).map(function (k) { return who[k].trim() || k; }).join(', ') + (list.length > 8 ? ' ...' : '') + '. Add them to the Roster, then run "Refresh classes from Roster".');
+}
+
+// 5) the weekly backup
+function hcBackup_(add) {
+  var p = PropertiesService.getScriptProperties(), t = Number(p.getProperty('LAST_BACKUP')) || 0, err = p.getProperty('LAST_BACKUP_ERROR'), on = weeklyTrigger_().length > 0;
+  if (!on) add('warn', 'The weekly backup is OFF. Turn it on with "Set up weekly backup".');
+  if (!t) add(on ? 'warn' : 'bad', 'There is no backup copy yet.');
+  else { var d = Math.floor((Date.now() - t) / 86400000); add(d > 9 ? 'bad' : 'ok', 'The last backup copy is ' + (d <= 0 ? 'from today' : d + ' day(s) old') + ' (' + backupLast_() + ')' + (d > 9 ? ' - the weekly backup is not running.' : '.')); }
+  if (err) add('warn', 'The last backup problem: ' + err);
+}
+
+// 6) every exercise file on GitHub Pages exists, is not cut off and has no syntax error
+function hcFiles_(add) {
+  var files = [['index.html', ''], ['exercises/index.html', ''], ['exercises/classes.js', 'CLASSES'], ['exercises/tracking.js', 'TRACK_CONFIG'], ['exercises/sets.js', 'window.SETS'],
+    ['exercises/hints.js', 'WORD_HINTS'], ['exercises/levels-1.js', 'EXTRA_LEVELS'], ['exercises/levels-2.js', 'EXTRA_LEVELS'], ['results/index.html', ''], ['board/index.html', ''], ['today/index.html', '']];
+  CLASS_IDS.forEach(function (id) {
+    [['class-', 'CLASS_SETS'], ['hard-', 'HARD_TESTS'], ['more-', 'MORE_SETS'], ['more2-', 'MORE2_SETS'], ['grammar-', 'GRAMMAR']].forEach(function (f) { files.push(['exercises/' + f[0] + id + '.js', f[1]]); });
+  });
+  var res = UrlFetchApp.fetchAll(files.map(function (f) { return { url: SITE_BASE + f[0] + '?check=' + Date.now(), muteHttpExceptions: true }; })), bad = [];
+  res.forEach(function (r, i) {
+    var f = files[i], code = r.getResponseCode(), txt = code === 200 ? r.getContentText() : '';
+    if (code !== 200) { bad.push(f[0] + ' (not found, HTTP ' + code + ')'); return; }
+    if (f[1] && txt.indexOf(f[1]) < 0) { bad.push(f[0] + ' (does not look right)'); return; }
+    if (/\.js$/.test(f[0])) { try { new Function(txt); } catch (e) { bad.push(f[0] + ' (syntax error: ' + e.message + ')'); } }
+  });
+  if (!bad.length) add('ok', 'All ' + files.length + ' files of the exercise pages are on GitHub Pages and readable.');
+  else bad.forEach(function (b) { add('bad', 'Problem with ' + b + '. Pupils may see an error on that page.'); });
+}
+
+// 7) the public website answers
+function hcSite_(add) {
+  var r = UrlFetchApp.fetch('https://noisy.splet.arnes.si/', { muteHttpExceptions: true, followRedirects: true });
+  add(r.getResponseCode() === 200 ? 'ok' : 'bad', r.getResponseCode() === 200 ? 'The website noisy.splet.arnes.si answers.' : 'The website answers with HTTP ' + r.getResponseCode() + '.');
+}
+
 // ---------------------------------------------------------------- menu
 
 function onOpen() {
@@ -929,6 +1068,8 @@ function onOpen() {
     .addItem('Set up weekly backup', 'backupSetup')
     .addItem('Backup status', 'backupStatus')
     .addItem('Switch weekly backup off...', 'backupStop')
+    .addSeparator()
+    .addItem('Check that everything works', 'healthCheck')
     .addToUi();
 }
 
