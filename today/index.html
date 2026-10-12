@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Today</title>
+<style>
+  :root {
+    --bg: #141418; --card: #1f1f26; --ink: #f2efe9; --muted: #a39f95; --line: #34343e; --field: #14141a;
+    --accent: #ff8a1f; --accent-soft: #3a2a18; --good: #34c06d; --bad: #ff5a5a; --warn: #f0b429; --radius: 14px;
+  }
+  body.light {
+    --bg: #f6f4ef; --card: #ffffff; --ink: #1f2a37; --muted: #6b7280; --line: #e5e1d8; --field: #ffffff;
+    --accent: #e8710a; --accent-soft: #fdeedd; --good: #1f9d55; --bad: #d64545; --warn: #b7791f;
+  }
+  * { box-sizing: border-box; }
+  body.emb { background: transparent; }    /* inside the Home page the dark card behind it shows through */
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 14px; }
+  h1 { margin: 0; font-size: 22px; }
+  h2 { margin: 0 0 8px; font-size: 16px; color: var(--accent); }
+  .top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+  .top .sp { flex: 1; }
+  .btn { background: var(--field); color: var(--ink); border: 1px solid var(--line); border-radius: 10px; padding: 6px 12px; font: inherit; cursor: pointer; text-decoration: none; display: inline-block; }
+  .btn:hover { border-color: var(--accent); }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px; }
+  .muted { color: var(--muted); }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .grid .wide { grid-column: 1 / -1; }
+  @media (max-width: 760px) { .grid { grid-template-columns: 1fr; } }
+  #login { text-align: center; padding: 40px 14px; }
+  #app { display: none; }
+  .hw { padding: 8px 0; border-top: 1px solid var(--line); }
+  .hw:first-of-type { border-top: 0; }
+  .hw b { display: block; }
+  .tag { display: inline-block; border-radius: 999px; padding: 0 8px; font-size: 12px; border: 1px solid var(--line); margin-left: 6px; }
+  .tag.bad { color: var(--bad); border-color: var(--bad); } .tag.warn { color: var(--warn); border-color: var(--warn); } .tag.good { color: var(--good); border-color: var(--good); }
+  table { border-collapse: collapse; width: 100%; }
+  th, td { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--line); }
+  th { color: var(--muted); font-weight: 600; font-size: 13px; }
+  td.n, th.n { text-align: right; }
+  .quiet td:first-child { color: var(--warn); font-weight: 600; }
+  .big { font-size: 26px; font-weight: 700; color: var(--accent); }
+  ul { margin: 6px 0 0; padding-left: 18px; }
+</style>
+</head>
+<body>
+<script src="../exercises/tracking.js"></script>
+<div class="wrap">
+  <div class="top">
+    <h1>Today · <span id="date"></span></h1>
+    <span class="sp"></span>
+    <span class="muted" id="who"></span>
+    <button class="btn" id="reload" style="display:none">Reload</button>
+    <button class="btn" id="theme">Light / dark</button>
+  </div>
+  <div id="login" class="card">
+    <p id="loginMsg" class="muted">Sign in with your school Google account to see today's overview. Only the teacher account is allowed.</p>
+    <div id="slot"></div>
+  </div>
+  <div id="app">
+    <div class="grid">
+      <div class="card wide"><h2>Homework to watch</h2><div id="hw" class="muted">Loading…</div></div>
+      <div class="card"><h2>This week, by class</h2><div id="wk" class="muted">Loading…</div></div>
+      <div class="card"><h2>Today so far</h2><div id="td" class="muted">Loading…</div></div>
+      <div class="card wide"><h2>Go to</h2><div id="go"></div></div>
+    </div>
+  </div>
+</div>
+<script>
+(() => {
+  'use strict';
+  const $ = s => document.querySelector(s);
+  const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+  const SITE = 'https://noisy.splet.arnes.si/';
+  let loaded = false;
+  const pad = n => String(n).padStart(2, '0');
+  const dmy = ms => { const d = new Date(ms); return d.getDate() + '. ' + (d.getMonth() + 1) + '.'; };
+  const hm = ms => { const d = new Date(ms); return pad(d.getHours()) + ':' + pad(d.getMinutes()); };
+  const ymd = s => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s || ''); return m ? Number(m[3]) + '. ' + Number(m[2]) + '.' : ''; };
+  const day0 = d => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+
+  const api = async (action, extra) => {
+    const token = Track.token(); if (!token) throw new Error('token');
+    const r = await fetch(Track.config.endpoint, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(Object.assign({ action, token }, extra || {})) });
+    return r.json();
+  };
+  const note = (box, text) => { box.className = 'muted'; box.textContent = text; };
+
+  // ---------------------------------------------------------------- homework: open assignments, overdue first
+  const showHomework = j => {
+    const box = $('#hw'); box.className = ''; box.innerHTML = '';
+    if (!j || !j.ok) { note(box, 'Could not load the homework.'); return; }
+    const now = Date.now();
+    const list = j.items.map(it => {
+      const pupils = it.pupils.map(p => ({ name: p[0], done: !!p[2] })), open = pupils.filter(p => !p.done);
+      return { it, pupils, open, overdue: !!(it.dueEnd && now > it.dueEnd) };
+    }).filter(x => x.open.length).sort((a, b) => (a.it.due < b.it.due ? -1 : a.it.due > b.it.due ? 1 : 0));
+    if (!list.length) { box.append(el('p', 'muted', j.items.length ? 'All homework is done. 🎉' : 'No homework assigned yet.')); return; }
+    list.slice(0, 8).forEach(x => {
+      const d = el('div', 'hw'), t = [x.it.cls, x.it.unit, x.it.topic].filter(Boolean).join(' · ');
+      const b = el('b', '', t); b.append(el('span', 'tag ' + (x.overdue ? 'bad' : 'warn'), (x.overdue ? 'overdue · ' : 'due ') + ymd(x.it.due)));
+      d.append(b, el('span', 'muted', 'done ' + (x.pupils.length - x.open.length) + ' / ' + x.pupils.length +
+        ' · not yet: ' + x.open.slice(0, 6).map(p => p.name).join(', ') + (x.open.length > 6 ? ' … +' + (x.open.length - 6) : '')));
+      box.append(d);
+    });
+    if (list.length > 8) box.append(el('p', 'muted', '… and ' + (list.length - 8) + ' more (Results › Homework).'));
+  };
+
+  // ---------------------------------------------------------------- activity: this week by class, today
+  const showActivity = j => {
+    const wk = $('#wk'), td = $('#td');
+    if (!j || !j.ok) { note(wk, 'Could not load the results.'); note(td, 'Could not load the results.'); return; }
+    const rows = j.rows.map(a => ({ t: a[0], last: a[1], first: a[2], cls: a[3] || '', unit: a[5], act: a[6], score: a[8], total: a[9], year: a[10] }));
+    const roster = j.roster.map(a => ({ year: a[0], cls: a[1], name: a[2], last: a[4] }));
+    const year = roster.reduce((m, r) => r.year > m ? r.year : m, '') || rows.reduce((m, r) => r.year > m ? r.year : m, '');
+    const cur = rows.filter(r => r.year === year), now = new Date(), today0 = day0(now);
+    const wd = (now.getDay() + 6) % 7, week0 = today0 - wd * 86400000, prev0 = week0 - 7 * 86400000;
+    // classes of this school year (from the Roster)
+    const classes = [...new Set(roster.filter(r => r.year === year).map(r => r.cls))].sort((a, b) => a.localeCompare(b, 'sl', { numeric: true }));
+    wk.className = ''; wk.innerHTML = '';
+    if (!classes.length) wk.append(el('p', 'muted', 'No classes in the Roster yet.'));
+    else {
+      const t = el('table'), hd = el('tr'); [['Class', ''], ['Pupils active', 'n'], ['Activities', 'n'], ['Last week', 'n'], ['Last activity', '']].forEach(([h, c]) => hd.append(el('th', c, h))); t.append(hd);
+      classes.forEach(c => {
+        const mine = cur.filter(r => r.cls === c), pup = roster.filter(r => r.year === year && r.cls === c);
+        const n = mine.filter(r => r.t >= week0).length, np = mine.filter(r => r.t >= prev0 && r.t < week0).length;
+        const act = pup.filter(p => p.last >= week0).length, lastT = mine.reduce((m, r) => Math.max(m, r.t), 0);
+        const tr = el('tr', n ? '' : 'quiet'); tr.append(el('td', '', c), el('td', 'n', act + ' / ' + pup.length), el('td', 'n', String(n)), el('td', 'n', String(np)), el('td', '', lastT ? dmy(lastT) : '–'));
+        t.append(tr);
+      });
+      wk.append(t, el('p', 'muted', 'Since Monday ' + dmy(week0) + ' Orange class name = nobody has practised this week yet.'));
+    }
+    // today
+    const tr = cur.filter(r => r.t >= today0).sort((a, b) => b.t - a.t);
+    td.className = ''; td.innerHTML = '';
+    const pupilsToday = new Set(tr.map(r => r.first + ' ' + r.last));
+    const big = el('div'); big.append(el('span', 'big', String(tr.length)), document.createTextNode(' activities by '), el('b', '', String(pupilsToday.size)), document.createTextNode(' pupils today'));
+    td.append(big);
+    if (tr.length) {
+      const ul = el('ul');
+      tr.slice(0, 6).forEach(r => ul.append(el('li', '', hm(r.t) + ' · ' + r.last + ' ' + r.first + (r.cls ? ' (' + r.cls + ')' : '') + ' · ' + r.act + ' · ' + Math.round(100 * r.score / (r.total || 1)) + ' %')));
+      td.append(ul);
+    } else td.append(el('p', 'muted', 'Nothing yet today.'));
+  };
+
+  // ---------------------------------------------------------------- shortcuts
+  const showGo = () => {
+    const box = $('#go'); box.innerHTML = '';
+    let last = null; try { last = JSON.parse(localStorage.getItem('board.last') || 'null'); } catch (e) {}
+    if (last && last.book) {
+      const a = el('a', 'btn', '▶ Continue on the Board: ' + last.book + (last.label ? ' · ' + last.label : '')); a.href = '../board/?book=' + encodeURIComponent(last.book) + '&si=' + encodeURIComponent(last.si || 0);
+      box.append(a, document.createTextNode(' '));
+    }
+    [['Board', 'board/'], ['Results', 'results/'], ['Teacher Links', 'links/'], ['Classroom Tools', 'tools/']].forEach(([t, p]) => { const a = el('a', 'btn', t); a.href = SITE + p; a.target = '_top'; box.append(a, document.createTextNode(' ')); });
+  };
+
+  const load = async () => {
+    if (!Track.token()) return;
+    loaded = true; $('#login').style.display = 'none'; $('#app').style.display = 'block'; $('#reload').style.display = ''; $('#who').textContent = Track.email || '';
+    showGo();
+    const [hw, st] = await Promise.all([api('hwlist').catch(() => null), api('stats').catch(() => null)]);
+    if ((hw && hw.error === 'token') || (st && st.error === 'token')) { loaded = false; $('#app').style.display = 'none'; $('#login').style.display = 'block'; $('#loginMsg').textContent = 'This Google account is not allowed to open this page.'; return; }
+    showHomework(hw); showActivity(st);
+  };
+
+  $('#date').textContent = new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
+  $('#reload').onclick = () => { $('#hw').textContent = $('#wk').textContent = $('#td').textContent = 'Loading…'; load(); };
+  $('#theme').onclick = () => { document.body.classList.toggle('light'); try { localStorage.setItem('board.light', document.body.classList.contains('light') ? '1' : ''); } catch (e) {} };
+  try { if (localStorage.getItem('board.light')) document.body.classList.add('light'); } catch (e) {}
+  if (window.top !== window.self) document.body.classList.add('emb');
+  if (window.Track && Track.enabled) {
+    Track.onChange(() => { if (Track.token() && !loaded) load(); });
+    Track.init(() => { if (Track.token()) load(); else Track.button($('#slot')); });
+  } else $('#loginMsg').textContent = 'Sign-in is not set up.';
+})();
+</script>
+</body>
+</html>
