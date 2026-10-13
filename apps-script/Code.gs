@@ -85,7 +85,7 @@ var UNITS = {
 
 // Change this text whenever the code of doPost changes: the health check compares it with what the published web app answers,
 // so it can tell you that the saved code has not been deployed as a new version yet.
-var CODE_VERSION = '2026-10-12.1';
+var CODE_VERSION = '2026-10-13.1';
 
 // ---------------------------------------------------------------- saving results
 
@@ -577,7 +577,9 @@ function boardSaveReply_(d) {
     } else if (b.t === 'ref' || b.t === 'p' || b.t === 'h') {       // h = a title line between exercises; keep = "belongs to the previous exercise"
       var o = { t: b.t, x: str(b.x, 4000) }; if (b.keep && b.t === 'p') o.keep = 1; blocks.push(o);
     } else if (b.t === 'li') {
-      blocks.push({ t: 'li', x: str(b.x, 4000), l: Math.max(0, Math.min(4, Math.floor(Number(b.l)) || 0)), n: str(b.n, 12) });
+      var li = { t: 'li', x: str(b.x, 4000), l: Math.max(0, Math.min(4, Math.floor(Number(b.l)) || 0)), n: str(b.n, 12) };
+      if (b.r) li.r = 1;                                              // r = "numbering restarts here" (set when you type a number or press the restart button)
+      blocks.push(li);
     } else return out_({ ok: false, error: 'data' });
   }
   var sec = { lvl: Math.max(0, Math.min(4, Math.floor(Number(s.lvl)) || 0)), h: str(s.h, 300), blocks: blocks };
