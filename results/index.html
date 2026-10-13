@@ -689,7 +689,7 @@
   const loadUnits = async book => {
     if (unitCache[book]) return unitCache[book];
     if (book === 'extra') {                                  // topics of sets.js + the new topics of levels-*.js
-      await loadScript('../exercises/sets.js'); await loadScript('../exercises/levels-1.js'); await loadScript('../exercises/levels-2.js'); await loadScript('../exercises/levels-3.js');
+      await loadScript('../exercises/sets.js'); await loadScript('../exercises/levels-1.js'); await loadScript('../exercises/levels-2.js'); await loadScript('../exercises/levels-3.js'); await loadScript('../exercises/levels-4.js');
       const list = (window.SETS || []).map(x => ({ id: x.id, title: x.title, unit: '' }));
       (window.EXTRA_LEVELS || []).forEach(x => { if (x.title && !list.some(l => l.id === x.id)) list.push({ id: x.id, title: x.title, unit: '' }); });
       return unitCache[book] = list;
