@@ -778,8 +778,9 @@
   // ---------------------------------------------------------------- homework (assign, then check who has done it)
   let hwData = null, hwState = '', hwForm = false;
   const unitCache = {};
-  const HW_ACTS = [['match', 'Match'], ['quiz', 'Quiz'], ['gap', 'Fill the gap'], ['test', 'Unit test'], ['test2', 'Unit test 2'], ['gcheck', 'Grammar quick check']];
-  const EXTRA_ACTS = ['match', 'quiz', 'gap'];                       // Extra practice has no unit tests and no grammar
+  const HW_ACTS = [['match', 'Match'], ['quiz', 'Quiz'], ['gap', 'Fill the gap'], ['test', 'Unit test'], ['test2', 'Unit test 2'], ['gcheck', 'Grammar quick check'],
+    ['wordsearch', 'Word search'], ['hangman', 'Hangman'], ['scramble', 'Word scramble'], ['crossword', 'Crossword']];   // puzzles (from 15 Oct 2026): done = the pupil finished the puzzle once; their results are in the "Puzzles" tab
+  const EXTRA_ACTS = ['match', 'quiz', 'gap', 'wordsearch', 'hangman', 'scramble', 'crossword'];   // Extra practice has no unit tests and no grammar
   const EXTRA_LEVELS = [['easy', 'Easy'], ['medium', 'Medium'], ['hard', 'Hard']];
   const api = async (action, extra) => {
     const token = Track.token(); if (!token) throw new Error('token');
@@ -796,7 +797,7 @@
   const loadUnits = async book => {
     if (unitCache[book]) return unitCache[book];
     if (book === 'extra') {                                  // topics of sets.js + the new topics of levels-*.js
-      await loadScript('../exercises/sets.js'); await loadScript('../exercises/levels-1.js'); await loadScript('../exercises/levels-2.js'); await loadScript('../exercises/levels-3.js'); await loadScript('../exercises/levels-4.js');
+      await loadScript('../exercises/sets.js'); await loadScript('../exercises/levels-1.js'); await loadScript('../exercises/levels-2.js'); await loadScript('../exercises/levels-3.js'); await loadScript('../exercises/levels-4.js'); await loadScript('../exercises/levels-5.js');
       const list = (window.SETS || []).map(x => ({ id: x.id, title: x.title, unit: '' }));
       (window.EXTRA_LEVELS || []).forEach(x => { if (x.title && !list.some(l => l.id === x.id)) list.push({ id: x.id, title: x.title, unit: '' }); });
       return unitCache[book] = list;
