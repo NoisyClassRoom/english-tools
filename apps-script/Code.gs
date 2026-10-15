@@ -85,7 +85,7 @@ var UNITS = {
 
 // Change this text whenever the code of doPost changes: the health check compares it with what the published web app answers,
 // so it can tell you that the saved code has not been deployed as a new version yet.
-var CODE_VERSION = '2026-10-15.6';
+var CODE_VERSION = '2026-10-15.7';
 
 // ---------------------------------------------------------------- saving results
 
@@ -105,6 +105,7 @@ function doPost(e) {
     if (d.action === 'boardsave') return boardSaveReply_(d); // teacher-only: one edited section of the board text
     if (d.action === 'boardmarks') return boardMarksReply_(d);       // teacher-only: pinned exercises and "where the class stopped"
     if (d.action === 'boardmarkset') return boardMarkSetReply_(d);   // teacher-only: pin / unpin an exercise, set / clear a class stop
+    if (d.action === 'pupilhome') return pupilHomeReply_(d);         // a pupil: homework + "My progress" in ONE request (faster than two)
     if (d.action === 'puzzlestats') return puzzleStatsReply_(d);       // teacher-only: results of the online puzzles (separate tab "Puzzles")
     if (d.action === 'ping') return out_({ ok: true, v: CODE_VERSION });   // no data; used by "Check that everything works" in the Sheet menu
     var who = verify_(d.token);
@@ -393,6 +394,16 @@ function hwProgress_(a, results, email, keys) {
   return { per: per, done: done, doneAt: doneAt, late: done && a.dueEnd > 0 && doneAt > a.dueEnd };
 }
 
+// One request for the exercise page: the pupil's homework and "My progress" ({ok, hw: {...homework reply}, prog: {...myprogress reply}}).
+function pupilHomeReply_(d) {
+  var who = verify_(d.token);
+  if (!who) return out_({ ok: false, error: 'token' });
+  var hw = null, prog = null;
+  try { hw = JSON.parse(homeworkReply_(d).getContent()); } catch (e) { hw = { ok: false }; }
+  try { prog = JSON.parse(myProgressReply_(d).getContent()); } catch (e2) { prog = { ok: false }; }
+  return out_({ ok: true, hw: hw, prog: prog });
+}
+
 // A pupil asks for their own homework (any signed-in school account; returns nothing for accounts without a class).
 function homeworkReply_(d) {
   var who = verify_(d.token);
@@ -456,7 +467,17 @@ function hwSaveReply_(d) {
   var lock = LockService.getScriptLock();
   lock.waitLock(20000);
   try {
-    var sh = hwSheet_(), now = new Date(), id = 'hw' + Utilities.formatDate(now, TZ, 'yyMMddHHmmss') + Math.floor(Math.random() * 90 + 10);
+    var sh = hwSheet_(), now = new Date();
+    // the same assignment saved twice within 10 minutes (e.g. the button was pressed again because the page was slow) is saved only once
+    if (sh.getLastRow() > 1) {
+      var recent = sh.getRange(Math.max(2, sh.getLastRow() - 14), 1, Math.min(15, sh.getLastRow() - 1), HWHEADER.length).getValues();
+      for (var q = 0; q < recent.length; q++) {
+        var x = recent[q];
+        if (x[1] instanceof Date && now - x[1] < 600000 && Number(x[13]) !== 1 && String(x[2]) === clip_(a.cls, 40) && String(x[3]) === clip_(a.book, 20) && String(x[4]) === clip_(a.set, 60) &&
+            String(x[7]) === acts.join(',') && hwDay_(x[9]) === due && String(x[11]) === names.join('; ') && Number(x[8]) === min) return out_({ ok: true, duplicate: true });
+      }
+    }
+    var id = 'hw' + Utilities.formatDate(now, TZ, 'yyMMddHHmmss') + Math.floor(Math.random() * 90 + 10);
     var row = [id, now, clip_(a.cls, 40), clip_(a.book, 20), clip_(a.set, 60), clip_(a.topic, 80), clip_(a.unit, 30), acts.join(','), min, due,
                clip_(a.note, 300), names.join('; '), schoolYear_(now), 0];
     sh.appendRow(row);
@@ -873,6 +894,9 @@ function fillDerived_(sh) {
 // Returns {email, first, last} from the verified token, or null.
 function verify_(token) {
   if (!token || !CLIENT_ID) return null;
+  // a token that was verified in the last 5 minutes is not sent to Google again (saves about half a second per request)
+  var cache = CacheService.getScriptCache(), ckey = 'v' + Utilities.base64EncodeWebSafe(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, token)).slice(0, 40);
+  try { var hit = cache.get(ckey); if (hit) { var o = JSON.parse(hit); if (o.exp > Date.now()) return o.who; } } catch (e0) {}
   var r = UrlFetchApp.fetch('https://oauth2.googleapis.com/tokeninfo?id_token=' + encodeURIComponent(token),
                             { muteHttpExceptions: true });
   if (r.getResponseCode() !== 200) return null;
@@ -882,7 +906,9 @@ function verify_(token) {
   if (Number(t.exp) * 1000 < Date.now()) return null;
   if (String(t.email_verified) !== 'true') return null;
   if (ALLOWED_DOMAIN && t.hd !== ALLOWED_DOMAIN) return null;
-  return { email: t.email, first: t.given_name || '', last: t.family_name || '' };
+  var who = { email: t.email, first: t.given_name || '', last: t.family_name || '' };
+  try { cache.put(ckey, JSON.stringify({ who: who, exp: Number(t.exp) * 1000 }), 300); } catch (e1) {}
+  return who;
 }
 
 // Trim, cap the length, and stop spreadsheet formulas ("=...", "+...") from running.
