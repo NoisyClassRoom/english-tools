@@ -960,6 +960,45 @@
     if (selPupil && by[selPupil]) pupilDetail(view, list.find(x => x.key === selPupil));
   };
 
+  // the five activities that make a unit "done" (only those the unit really has): Match, Quiz, Fill the gap, Unit test, Unit test 2
+  const COMP_ACTS = [['Match', s => (s.words || []).length], ['Quiz', s => (s.words || []).length], ['Fill the gap', s => (s.sentences || []).length],
+                     ['Unit test', s => (s.tests || []).length], ['Unit test 2', s => (s.tests2 || []).length]];
+  const classCache = {};
+  const loadClassSets = async book => {
+    if (classCache[book]) return classCache[book];
+    window.CLASS_SETS = null; window.HARD_TESTS = null; window.MORE_SETS = null; window.MORE2_SETS = null;
+    await loadScript('../exercises/class-' + book + '.js');
+    for (const f of ['hard-', 'more-', 'more2-']) await loadScript('../exercises/' + f + book + '.js');   // optional files: a missing one is fine
+    const sets = (window.CLASS_SETS || []).map(s => {
+      const mores = [(window.MORE_SETS || {})[s.id], (window.MORE2_SETS || {})[s.id]].filter(Boolean);
+      return Object.assign({}, s, { tests2: [...((window.HARD_TESTS || {})[s.id] || [])].concat(...mores.map(m => m.hard || [])),
+        sentences: (s.sentences || []).concat(...mores.map(m => m.gap || [])), tests: (s.tests || []).concat(...mores.map(m => m.easy || [])) });
+    });
+    return classCache[book] = sets.map((s, i) => ({ idx: i, unit: s.unit || '', title: s.title || '', acts: COMP_ACTS.filter(a => a[1](s)).map(a => a[0]) }));
+  };
+  const unitCompletion = async (box, p) => {
+    const books = [...new Set(p.rows.map(r => r.book).filter(b => b && b !== 'extra' && BOOKS[b]))];
+    box.innerHTML = '';
+    if (!books.length) { box.append(el('p', 'note', 'No coursebook units yet (Extra practice topics are optional and not counted).')); return; }
+    const sc = sortKey.pcomp = sortKey.pcomp || { k: 'Unit', asc: true };
+    for (const book of books) {
+      const sets = await loadClassSets(book);
+      const best = {}; p.rows.filter(r => r.book === book).forEach(r => { const k = String(r.unit).trim().toLowerCase() + '\u0001' + r.act; if (!(best[k] >= r.p)) best[k] = r.p; });
+      const items = sets.map(s => {
+        const key = s.title.trim().toLowerCase(), done = s.acts.filter(a => best[key + '\u0001' + a] != null);
+        return Object.assign({ key, done: done.length, total: s.acts.length, best }, s);
+      });
+      const started = items.filter(x => x.done > 0), full = items.filter(x => x.total && x.done === x.total);
+      box.append(el('p', 'note', (BOOKS[book] || book) + ': ' + full.length + ' of ' + items.length + ' units fully done · ' + (started.length - full.length) + ' started · ' + (items.length - started.length) + ' not started.'));
+      const cols = [{ h: 'Unit', k: x => x.idx, v: x => [x.unit, x.title].filter(Boolean).join(' · ') }];
+      COMP_ACTS.forEach(([a]) => cols.push({ h: a, k: x => x.best[x.key + '\u0001' + a] == null ? -1 : x.best[x.key + '\u0001' + a], num: true,
+        v: x => !x.acts.includes(a) ? '–' : x.best[x.key + '\u0001' + a] == null ? el('span', 'muted', '·') : badge(x.best[x.key + '\u0001' + a]) }));
+      cols.push({ h: 'Done', k: x => x.total ? x.done / x.total : 0, num: true, v: x => x.total && x.done === x.total ? '✓ all' : x.done + ' / ' + x.total });
+      box.append(table('pcomp', cols, items, 'Unit'));
+    }
+    box.append(el('p', 'note', '✓ = every activity of the unit has been finished at least once (best result shown). "·" = not done yet, "–" = the unit has no such activity.'));
+  };
+
   const pupilDetail = (view, p) => {
     const card = el('div', 'card'); card.append(el('h2', '', p.name + (p.cls ? ' · ' + p.cls : '')));
     card.classList.add('one');
@@ -977,6 +1016,10 @@
       { h: 'Best', k: x => x.best, v: x => badge(x.best), num: true },
       { h: 'Average', k: x => x.p, v: x => badge(x.p), num: true },
       { h: 'Last', k: x => x.last, v: x => fmtDate(x.last), num: true }], ul, 'Last'));
+    // unit completion: which activities of each coursebook unit the pupil has finished (the units come from the public exercise files)
+    const hc = el('h2', '', 'Unit completion'); hc.style.marginTop = '14px'; card.append(hc);
+    const comp = el('div'); comp.append(el('p', 'note', 'Loading the units…')); card.append(comp);
+    unitCompletion(comp, p);
     const h2 = el('h2', '', 'Latest activities'); h2.style.marginTop = '14px'; card.append(h2);
     card.append(table('pl', [
       { h: 'When', k: x => x.t, v: x => fmtTime(x.t) },
