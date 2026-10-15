@@ -111,7 +111,7 @@
     if (cache[key]) return cache[key];
     let list = [];
     if (book === 'extra') {
-      await loadScript('../exercises/sets.js'); for (const f of ['levels-1', 'levels-2', 'levels-3', 'levels-4']) await loadScript('../exercises/' + f + '.js');
+      await loadScript('../exercises/sets.js'); for (const f of ['levels-1', 'levels-2', 'levels-3', 'levels-4', 'levels-5']) await loadScript('../exercises/' + f + '.js');
       const base = window.SETS ? window.SETS.map(s => ({ id: s.id, title: s.title, words: s.words || [] })) : [];
       const toW = a => ({ en: a[0], sl: a[1], pic: a[2] });
       (window.EXTRA_LEVELS || []).forEach(x => {
