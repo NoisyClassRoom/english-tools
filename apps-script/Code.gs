@@ -85,7 +85,7 @@ var UNITS = {
 
 // Change this text whenever the code of doPost changes: the health check compares it with what the published web app answers,
 // so it can tell you that the saved code has not been deployed as a new version yet.
-var CODE_VERSION = '2026-10-15.2';
+var CODE_VERSION = '2026-10-15.3';
 
 // ---------------------------------------------------------------- saving results
 
@@ -1043,7 +1043,7 @@ function hcBackup_(add) {
 // 6) every exercise file on GitHub Pages exists, is not cut off and has no syntax error
 function hcFiles_(add) {
   var files = [['index.html', ''], ['exercises/index.html', ''], ['exercises/classes.js', 'CLASSES'], ['exercises/tracking.js', 'TRACK_CONFIG'], ['exercises/sets.js', 'window.SETS'],
-    ['exercises/hints.js', 'WORD_HINTS'], ['exercises/levels-1.js', 'EXTRA_LEVELS'], ['exercises/levels-2.js', 'EXTRA_LEVELS'], ['exercises/levels-3.js', 'EXTRA_LEVELS'], ['exercises/levels-4.js', 'EXTRA_LEVELS'], ['results/index.html', ''], ['board/index.html', ''], ['today/index.html', '']];
+    ['exercises/hints.js', 'WORD_HINTS'], ['exercises/levels-1.js', 'EXTRA_LEVELS'], ['exercises/levels-2.js', 'EXTRA_LEVELS'], ['exercises/levels-3.js', 'EXTRA_LEVELS'], ['exercises/levels-4.js', 'EXTRA_LEVELS'], ['exercises/explain.js', 'EXPLAIN'],['results/index.html', ''], ['board/index.html', ''], ['today/index.html', '']];
   CLASS_IDS.forEach(function (id) {
     [['class-', 'CLASS_SETS'], ['hard-', 'HARD_TESTS'], ['more-', 'MORE_SETS'], ['more2-', 'MORE2_SETS'], ['grammar-', 'GRAMMAR']].forEach(function (f) { files.push(['exercises/' + f[0] + id + '.js', f[1]]); });
   });
