@@ -85,7 +85,7 @@ var UNITS = {
 
 // Change this text whenever the code of doPost changes: the health check compares it with what the published web app answers,
 // so it can tell you that the saved code has not been deployed as a new version yet.
-var CODE_VERSION = '2026-10-15.1';
+var CODE_VERSION = '2026-10-15.2';
 
 // ---------------------------------------------------------------- saving results
 
@@ -255,8 +255,22 @@ function myProgressReply_(d) {
   });
   var today = key(now), k2 = days[today] ? today : prevDay(today), streak = 0;
   while (days[k2]) { streak++; k2 = prevDay(k2); }
+  // extras: questions answered, active days, longest streak, weekly averages of the last 8 weeks (oldest first), last 30 days vs the 30 before
+  var qTotal = 0, qRight = 0, perfect = 0, w8 = [], i, s30 = 0, n30 = 0, sP = 0, nP = 0;
+  for (i = 0; i < 8; i++) w8.push({ n: 0, sum: 0 });
+  mine.forEach(function (r) {
+    var t = r[0].getTime(), p = r[7] / r[8], age = now - t;
+    qTotal += r[8]; qRight += r[7]; if (p >= 1) perfect++;
+    var wi = Math.floor(age / (7 * DAY)); if (wi >= 0 && wi < 8) { w8[7 - wi].n++; w8[7 - wi].sum += p; }
+    if (age < 30 * DAY) { s30 += p; n30++; } else if (age < 60 * DAY) { sP += p; nP++; }
+  });
+  var dayKeys = Object.keys(days).sort(), longest = 0, run = 0, prevK = '';
+  dayKeys.forEach(function (k) { run = (prevK && prevDay(k) === prevK) ? run + 1 : 1; prevK = k; if (run > longest) longest = run; });
   mine.sort(function (a, b) { return b[0].getTime() - a[0].getTime(); });
   return out_({ ok: true, year: year, total: mine.length, avg: mine.length ? sum / mine.length : 0, week: week, streak: streak,
+    questions: qTotal, right: qRight, perfect: perfect, activeDays: dayKeys.length, longest: longest,
+    weeks: w8.map(function (o) { return o.n ? { n: o.n, avg: o.sum / o.n } : { n: 0, avg: 0 }; }),
+    last30: n30 ? { n: n30, avg: s30 / n30 } : null, prev30: nP ? { n: nP, avg: sP / nP } : null,
     units: order.slice(0, 80).map(function (k) { var o = units[k]; return { book: o.book, topic: o.topic, title: o.title, n: o.n, avg: o.sum / o.n, best: o.best, last: o.last }; }),
     recent: mine.slice(0, 6).map(function (r) { return [r[0].getTime(), String(r[15] || r[5]), String(r[6]), r[7] / r[8]]; }) });
 }
