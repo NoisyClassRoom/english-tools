@@ -322,7 +322,7 @@
     if (open) d.open = true;
     sm.append(el('small', '', j.total ? j.week + ' activities in the last 7 days' + (j.streak > 1 ? ' · ' + j.streak + ' days in a row 🔥' : '') : 'nothing yet this school year'));
     d.append(sm);
-    if (!j.total) { d.append(el('p', 'note', 'Finish an activity while you are signed in and your progress will show up here.')); box.append(d); box.classList.toggle('hidden', $('#home').classList.contains('hidden')); return; }
+    if (!j.total) { d.append(el('p', 'note', 'Finish an activity while you are signed in and your progress will show up here.')); if (j.puzzles) d.append(el('p', 'note', '🧩 ' + j.puzzles + ' puzzle' + (j.puzzles > 1 ? 's' : '') + ' finished this year.')); box.append(d); box.classList.toggle('hidden', $('#home').classList.contains('hidden')); return; }
     const tiles = el('div', 'tiles');
     [[String(j.week), 'last 7 days'], [(j.streak || 0) + (j.streak > 1 ? ' 🔥' : ''), 'days in a row'], [pc(j.avg), 'average result'], [String(j.total), 'activities this year']]
       .forEach(([n, t]) => { const x = el('div', 'tl'); x.append(el('b', '', n), el('span', '', t)); tiles.append(x); });
@@ -335,6 +335,7 @@
       const df = Math.round((j.last30.avg - j.prev30.avg) * 100);
       more.push((df > 0 ? '📈 +' + df + ' points' : df < 0 ? '📉 ' + df + ' points' : '➡️ same') + ' compared with the 30 days before (average ' + pc(j.last30.avg) + ')');
     }
+    if (j.puzzles) more.push('🧩 ' + j.puzzles + ' puzzle' + (j.puzzles > 1 ? 's' : '') + ' finished this year (' + (j.puzzlesWeek || 0) + ' in the last 7 days) – puzzles are not part of the numbers above');
     more.forEach(t => d.append(el('p', 'note', t)));
     // weekly average of the last 8 weeks as small bars
     if (j.weeks && j.weeks.some(w => w.n)) {
@@ -369,6 +370,8 @@
     if (j.perfect >= 1) bd.push('💯 A perfect score');
     if (j.perfect >= 10) bd.push('💎 10 perfect scores');
     if (j.units.filter(u => u.best >= 0.9).length >= 5) bd.push('⭐ 5 units at 90 %+');
+    if ((j.puzzles || 0) >= 5) bd.push('🧩 5 puzzles');
+    if ((j.puzzles || 0) >= 25) bd.push('🧩🧩 25 puzzles');
     if (bd.length) {
       d.append(el('h3', '', 'Your badges'));
       const bw = el('div', ''); bw.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px';
@@ -842,9 +845,10 @@
 
   // ----- puzzles (practice only: nothing is saved in the Results; the engine is exercises/puzzles.js) -----
   const clueOf = w => (w.pic ? w.pic + ' ' : '') + (w.sl || w.en);
-  const puzzleEnd = (title, again, text) => {
+  const puzzleEnd = (title, again, text, score, total) => {
     setBar(1); const s = stage(), r = el('div', 'result');
     r.append(el('div', 'big', '🏆'), el('div', 'score', title), el('p', 'hint', text || ''));
+    detail = []; report(score, total, r);                // saved in the separate "Puzzles" tab of the Sheet (word search / crossword: 1 of 1 = finished)
     const row = el('div', 'row center'), a = el('button', 'btn primary', 'Play again'), b = el('button', 'btn', 'Other activities');
     a.onclick = again; b.onclick = () => show('menu'); row.append(a, b); r.append(row); s.append(r);
   };
@@ -871,7 +875,7 @@
       for (let i = 0; i < p.item.word.length; i++) cells[p.r + p.dr * i][p.c + p.dc * i].classList.add('found');
       tags[hit].classList.add('got'); tags[hit].textContent = clueOf(p.item.w) + ' = ' + p.item.word;
       setBar(found / g.placed.length);
-      if (found === g.placed.length) setTimeout(() => puzzleEnd('All ' + found + ' words found!', wordsearch, 'Great searching!'), 600);
+      if (found === g.placed.length) setTimeout(() => puzzleEnd('All ' + found + ' words found!', wordsearch, 'Great searching!', 1, 1), 600);
     };
     const hint = el('button', 'btn', 'Show the English words'); hint.style.marginTop = '8px';
     hint.onclick = () => { showEn = !showEn; hint.textContent = showEn ? 'Hide the English words' : 'Show the English words'; tags.forEach((t, i) => { if (!done.has(i)) t.textContent = clueOf(g.placed[i].item.w) + (showEn ? ' = ' + g.placed[i].item.word : ''); }); };
@@ -896,7 +900,7 @@
       const end = good => {
         over = true; if (good) score++; draw(); keys.querySelectorAll('button').forEach(b => b.disabled = true);
         msg.textContent = good ? '✓ Well done!' : 'The word was: ' + target;
-        const nb = el('button', 'btn primary', i + 1 < words.length ? 'Next word' : 'Finish'); nb.onclick = () => { i++; setBar(i / words.length); if (i < words.length) round(); else puzzleEnd(score + ' / ' + words.length, () => { i = 0; score = 0; hangman(); }, 'Words guessed'); };
+        const nb = el('button', 'btn primary', i + 1 < words.length ? 'Next word' : 'Finish'); nb.onclick = () => { i++; setBar(i / words.length); if (i < words.length) round(); else puzzleEnd(score + ' / ' + words.length, () => { i = 0; score = 0; hangman(); }, 'Words guessed', score, words.length); };
         s.append(nb); nb.focus();
       };
       const guess = ch => {
@@ -925,7 +929,7 @@
       const row = el('div', 'row center'); row.style.marginTop = '14px'; const check = el('button', 'btn primary', 'Check'); row.append(check);
       let checked = false;
       check.onclick = () => {
-        if (checked) { i++; setBar(i / list.length); if (i < list.length) ask(); else puzzleEnd(score + ' / ' + list.length, () => { i = 0; score = 0; scramble(); }, 'Words solved'); return; }
+        if (checked) { i++; setBar(i / list.length); if (i < list.length) ask(); else puzzleEnd(score + ' / ' + list.length, () => { i = 0; score = 0; scramble(); }, 'Words solved', score, list.length); return; }
         const good = inp.value.trim().toLowerCase() === it.word; if (good) score++;
         inp.classList.add(good ? 'ok' : 'no'); inp.readOnly = true; if (!good) q.append(el('p', 'hint', '→ ' + it.word));
         checked = true; check.textContent = i + 1 < list.length ? 'Next' : 'Finish';
@@ -960,9 +964,10 @@
     check.onclick = () => {
       let all = true;
       for (let r = 0; r < cw.rows; r++) for (let c = 0; c < cw.cols; c++) if (inputs[r][c]) { const good = inputs[r][c].value.toLowerCase() === cw.cells[r][c]; if (!good) all = false; inputs[r][c].parentNode.className = inputs[r][c].value ? (good ? 'ok' : 'no') : ''; }
-      if (all) setTimeout(() => puzzleEnd('Crossword solved!', crossword, 'Well done!'), 600);
+      if (all && !revealed) setTimeout(() => puzzleEnd('Crossword solved!', crossword, 'Well done!', 1, 1), 600);   // not saved when the solution was shown
     };
-    show2.onclick = () => { for (let r = 0; r < cw.rows; r++) for (let c = 0; c < cw.cols; c++) if (inputs[r][c]) { inputs[r][c].value = cw.cells[r][c]; inputs[r][c].parentNode.className = ''; } };
+    let revealed = false;
+    show2.onclick = () => { revealed = true; for (let r = 0; r < cw.rows; r++) for (let c = 0; c < cw.cols; c++) if (inputs[r][c]) { inputs[r][c].value = cw.cells[r][c]; inputs[r][c].parentNode.className = ''; } };
     row.append(check, show2); row.style.margin = '12px 0';
     s.append(tbl, row, cl);
   }
