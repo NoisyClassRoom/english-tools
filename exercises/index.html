@@ -81,6 +81,32 @@
   .grid { display: flex; flex-wrap: wrap; justify-content: center; gap: 14px; }
   .tile { width: 210px; }
   .expl { margin: 14px auto 0; max-width: 560px; padding: 10px 14px; border-radius: 10px; background: var(--accent-soft); border-left: 4px solid var(--accent); font-size: 16px; line-height: 1.5; text-align: left; }
+  /* puzzles: word search, hangman, scramble, crossword */
+  .ws { display: grid; gap: 2px; width: min(100%, 460px); margin: 10px auto; user-select: none; }
+  .ws .wsc { aspect-ratio: 1; display: flex; align-items: center; justify-content: center; background: var(--card, #fff); border: 1px solid var(--line, #d9d9e3); border-radius: 6px; font-weight: 700; text-transform: uppercase; cursor: pointer; font-size: clamp(13px, 3.4vw, 20px); padding: 0; color: inherit; }
+  .ws .wsc.sel { background: var(--accent-soft); border-color: var(--accent); }
+  .ws .wsc.found { background: var(--good-soft); border-color: var(--good); color: var(--good); }
+  .ws .wsc.no { background: #fde2e2; }
+  .wslist { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin: 8px 0; }
+  .wslist span { padding: 3px 10px; border-radius: 999px; background: var(--accent-soft); font-size: 15px; }
+  .wslist span.got { text-decoration: line-through; opacity: .55; }
+  .hm { display: flex; gap: 16px; align-items: center; justify-content: center; flex-wrap: wrap; margin: 6px 0; }
+  .hm svg { width: 120px; height: 140px; stroke: currentColor; stroke-width: 4; fill: none; stroke-linecap: round; }
+  .hmword { font-size: 30px; letter-spacing: 6px; font-weight: 700; text-transform: uppercase; margin: 10px 0; min-height: 40px; }
+  .keys { display: flex; flex-wrap: wrap; gap: 5px; justify-content: center; max-width: 520px; margin: 8px auto; }
+  .keys button { width: 38px; height: 40px; border-radius: 8px; border: 1px solid var(--line, #d9d9e3); background: var(--card, #fff); font-weight: 700; cursor: pointer; text-transform: uppercase; color: inherit; }
+  .keys button.hit { background: var(--good-soft); border-color: var(--good); }
+  .keys button.miss { background: #fde2e2; opacity: .6; }
+  .tiles2 { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; margin: 12px 0; }
+  .tiles2 span { min-width: 38px; padding: 8px 6px; border-radius: 8px; background: var(--accent-soft); font-size: 24px; font-weight: 700; text-transform: uppercase; }
+  .cw { border-collapse: collapse; margin: 10px auto; }
+  .cw td { width: 34px; height: 34px; padding: 0; position: relative; border: 1px solid #8b93a7; background: var(--card, #fff); }
+  .cw td.black { background: transparent; border-color: transparent; }
+  .cw td .num { position: absolute; top: 0; left: 2px; font-size: 10px; line-height: 1; color: var(--muted, #667); pointer-events: none; }
+  .cw td input { width: 100%; height: 100%; border: 0; text-align: center; font-size: 18px; font-weight: 700; text-transform: uppercase; background: transparent; color: inherit; padding: 8px 0 0; }
+  .cw td.ok { background: var(--good-soft); } .cw td.no { background: #fde2e2; }
+  .clues { display: flex; gap: 24px; flex-wrap: wrap; justify-content: center; text-align: left; font-size: 15px; }
+  .clues ol { margin: 4px 0; padding-left: 0; list-style: none; } .clues li { margin: 2px 0; }
   .expl .sl { margin-top: 4px; color: var(--muted, #556); }
   .expl.more { font-size: 14px; }
   .gap-line .expl { display: block; margin: 6px 0 4px; font-size: 15px; }
@@ -175,6 +201,7 @@
 <script src="levels-3.js"></script>
 <script src="levels-4.js"></script>
 <script src="explain.js"></script>
+<script src="puzzles.js"></script>
 <script src="tracking.js"></script>
 <script>
 (() => {
@@ -490,7 +517,12 @@
     { id: 'quiz',  icon: '❓', name: 'Quiz', desc: 'Pick the right word', run: quiz },
     { id: 'gap',   icon: '✏️', name: 'Fill the gap', desc: 'Complete the sentences', run: gap, need: s => (s.sentences || []).length },
     { id: 'test',  icon: '📝', name: 'Unit test', desc: 'Grammar check', run: test, need: s => (s.tests || []).length },
-    { id: 'test2', icon: '🧠', name: 'Unit test 2', desc: 'A harder test', run: () => test('tests2'), need: s => (s.tests2 || []).length }
+    { id: 'test2', icon: '🧠', name: 'Unit test 2', desc: 'A harder test', run: () => test('tests2'), need: s => (s.tests2 || []).length },
+    // puzzles (practice only, not saved in the Results)
+    { id: 'wordsearch', icon: '🔍', name: 'Word search', desc: 'Find the hidden words', run: wordsearch, need: s => Puzzles.items(s.words, 3, 10).length >= 5 },
+    { id: 'hangman', icon: '🔠', name: 'Hangman', desc: 'Guess the word', run: hangman, need: s => (s.words || []).length >= 5 },
+    { id: 'scramble', icon: '🔀', name: 'Word scramble', desc: 'Put the letters in order', run: scramble, need: s => Puzzles.items(s.words, 4, 12).length >= 5 },
+    { id: 'crossword', icon: '🧩', name: 'Crossword', desc: 'Slovenian clues', run: crossword, need: s => Puzzles.items(s.words, 3, 10).length >= 6 }
   ];
   function openSet(s, lvl) {
     if (s.levels && !lvl) {
@@ -806,6 +838,133 @@
       box.append(choices); s.append(box);
     };
     ask();
+  }
+
+  // ----- puzzles (practice only: nothing is saved in the Results; the engine is exercises/puzzles.js) -----
+  const clueOf = w => (w.pic ? w.pic + ' ' : '') + (w.sl || w.en);
+  const puzzleEnd = (title, again, text) => {
+    setBar(1); const s = stage(), r = el('div', 'result');
+    r.append(el('div', 'big', '🏆'), el('div', 'score', title), el('p', 'hint', text || ''));
+    const row = el('div', 'row center'), a = el('button', 'btn primary', 'Play again'), b = el('button', 'btn', 'Other activities');
+    a.onclick = again; b.onclick = () => show('menu'); row.append(a, b); r.append(row); s.append(r);
+  };
+
+  // word search: tap the first and the last letter of a word; the list shows the Slovenian meanings
+  function wordsearch() {
+    const g = Puzzles.wordSearch(Puzzles.items(set.words, 3, 10), 8, 11), s = stage();
+    if (!g.placed.length) { s.append(el('p', 'hint', 'This unit has too few single words for a word search.')); return; }
+    s.append(el('p', 'hint', 'Find the English words. Tap the first and then the last letter of a word. The clues are in Slovenian.'));
+    const tbl = el('div', 'ws'); tbl.style.gridTemplateColumns = 'repeat(' + g.n + ', 1fr)';
+    const cells = g.grid.map((row, r) => row.map((ch, c) => { const b = el('button', 'wsc', ch); b.dataset.r = r; b.dataset.c = c; tbl.append(b); return b; }));
+    const list = el('div', 'wslist'), tags = g.placed.map(p => { const t = el('span', '', clueOf(p.item.w)); list.append(t); return t; });
+    let first = null, found = 0, showEn = false;
+    const endOf = p => [p.r + p.dr * (p.item.word.length - 1), p.c + p.dc * (p.item.word.length - 1)];
+    const done = new Set();
+    tbl.onclick = e => {
+      const b = e.target.closest('.wsc'); if (!b) return; const r = Number(b.dataset.r), c = Number(b.dataset.c);
+      if (!first) { first = [r, c]; b.classList.add('sel'); return; }
+      const [r0, c0] = first; cells[r0][c0].classList.remove('sel'); first = null;
+      if (r0 === r && c0 === c) return;
+      const hit = g.placed.findIndex((p, i) => { if (done.has(i)) return false; const [er, ec] = endOf(p); return (p.r === r0 && p.c === c0 && er === r && ec === c) || (p.r === r && p.c === c && er === r0 && ec === c0); });
+      if (hit < 0) { [cells[r0][c0], b].forEach(x => { x.classList.add('no'); setTimeout(() => x.classList.remove('no'), 350); }); return; }
+      const p = g.placed[hit]; done.add(hit); found++;
+      for (let i = 0; i < p.item.word.length; i++) cells[p.r + p.dr * i][p.c + p.dc * i].classList.add('found');
+      tags[hit].classList.add('got'); tags[hit].textContent = clueOf(p.item.w) + ' = ' + p.item.word;
+      setBar(found / g.placed.length);
+      if (found === g.placed.length) setTimeout(() => puzzleEnd('All ' + found + ' words found!', wordsearch, 'Great searching!'), 600);
+    };
+    const hint = el('button', 'btn', 'Show the English words'); hint.style.marginTop = '8px';
+    hint.onclick = () => { showEn = !showEn; hint.textContent = showEn ? 'Hide the English words' : 'Show the English words'; tags.forEach((t, i) => { if (!done.has(i)) t.textContent = clueOf(g.placed[i].item.w) + (showEn ? ' = ' + g.placed[i].item.word : ''); }); };
+    s.append(list, tbl, el('div', 'row center').appendChild(hint).parentNode);
+  }
+
+  // hangman: a Slovenian clue, guess the English word (also phrases); 7 wrong letters and the man is hanged
+  function hangman() {
+    const ok = w => { const e = Puzzles.clean(w.en); return /^[a-z' -]+$/.test(e) && e.replace(/[^a-z]/g, '').length >= 3 && e.length <= 22; };
+    const words = Puzzles.shuffle(set.words.filter(ok)).slice(0, 6); let i = 0, score = 0;
+    const PARTS = ['<line x1="10" y1="135" x2="90" y2="135"/>', '<line x1="30" y1="135" x2="30" y2="15"/><line x1="30" y1="15" x2="85" y2="15"/>', '<line x1="85" y1="15" x2="85" y2="32"/>',
+      '<circle cx="85" cy="44" r="12"/>', '<line x1="85" y1="56" x2="85" y2="95"/>', '<line x1="85" y1="66" x2="68" y2="84"/><line x1="85" y1="66" x2="102" y2="84"/>', '<line x1="85" y1="95" x2="70" y2="122"/><line x1="85" y1="95" x2="100" y2="122"/>'];
+    const round = () => {
+      const w = words[i], target = Puzzles.clean(w.en), s = stage(), guessed = new Set(); let wrong = 0, over = false;
+      s.append(el('p', 'hint', 'Word ' + (i + 1) + ' of ' + words.length + ' · guess the English word'), el('div', 'sl', clueOf(w)));
+      const box = el('div', 'hm'), svg = el('div'), word = el('div', 'hmword'); box.append(svg, word); s.append(box);
+      const keys = el('div', 'keys'), msg = el('p', 'hint'); s.append(keys, msg);
+      const draw = () => {
+        svg.innerHTML = '<svg viewBox="0 0 120 140">' + PARTS.slice(0, wrong).join('') + '</svg>';
+        word.textContent = target.split('').map(ch => /[a-z]/.test(ch) ? (guessed.has(ch) || over ? ch : '_') : ch).join(' ');
+      };
+      const end = good => {
+        over = true; if (good) score++; draw(); keys.querySelectorAll('button').forEach(b => b.disabled = true);
+        msg.textContent = good ? '✓ Well done!' : 'The word was: ' + target;
+        const nb = el('button', 'btn primary', i + 1 < words.length ? 'Next word' : 'Finish'); nb.onclick = () => { i++; setBar(i / words.length); if (i < words.length) round(); else puzzleEnd(score + ' / ' + words.length, () => { i = 0; score = 0; hangman(); }, 'Words guessed'); };
+        s.append(nb); nb.focus();
+      };
+      const guess = ch => {
+        if (over || guessed.has(ch)) return; guessed.add(ch);
+        const b = [...keys.children].find(x => x.textContent === ch.toUpperCase()); if (target.includes(ch)) b.classList.add('hit'); else { b.classList.add('miss'); wrong++; }
+        draw();
+        if (wrong >= PARTS.length) end(false); else if (target.split('').every(c => !/[a-z]/.test(c) || guessed.has(c))) end(true);
+      };
+      'abcdefghijklmnopqrstuvwxyz'.split('').forEach(ch => { const b = el('button', '', ch.toUpperCase()); b.onclick = () => guess(ch); keys.append(b); });
+      window.__hmKey = e => { if (mode && mode.id === 'hangman' && !$('#play').classList.contains('hidden') && /^[a-z]$/i.test(e.key) && !e.ctrlKey && !e.metaKey && !e.altKey) guess(e.key.toLowerCase()); };
+      draw();
+    };
+    if (!words.length) { stage().append(el('p', 'hint', 'This unit has too few words for Hangman.')); return; }
+    if (!window.__hmBound) { window.__hmBound = true; document.addEventListener('keydown', e => window.__hmKey && window.__hmKey(e)); }
+    round();
+  }
+
+  // word scramble: the letters of an English word are mixed up, the clue is Slovenian
+  function scramble() {
+    const list = Puzzles.shuffle(Puzzles.items(set.words, 4, 12)).slice(0, 8); let i = 0, score = 0;
+    const ask = () => {
+      const it = list[i], s = stage(), q = el('div', 'q');
+      q.append(el('p', 'hint', 'Word ' + (i + 1) + ' of ' + list.length + ' · put the letters in order'), el('div', 'sl', clueOf(it.w)));
+      const t = el('div', 'tiles2'); Puzzles.scramble(it.word).split('').forEach(ch => t.append(el('span', '', ch))); q.append(t);
+      const inp = el('input'); inp.type = 'text'; inp.autocomplete = 'off'; inp.autocapitalize = 'off'; inp.spellcheck = false; inp.style.cssText = 'text-align:center;font-size:20px;max-width:260px';
+      const row = el('div', 'row center'); row.style.marginTop = '14px'; const check = el('button', 'btn primary', 'Check'); row.append(check);
+      let checked = false;
+      check.onclick = () => {
+        if (checked) { i++; setBar(i / list.length); if (i < list.length) ask(); else puzzleEnd(score + ' / ' + list.length, () => { i = 0; score = 0; scramble(); }, 'Words solved'); return; }
+        const good = inp.value.trim().toLowerCase() === it.word; if (good) score++;
+        inp.classList.add(good ? 'ok' : 'no'); inp.readOnly = true; if (!good) q.append(el('p', 'hint', '→ ' + it.word));
+        checked = true; check.textContent = i + 1 < list.length ? 'Next' : 'Finish';
+      };
+      inp.onkeydown = e => { if (e.key === 'Enter') check.click(); };
+      q.append(inp, row); s.append(q); inp.focus();
+    };
+    if (!list.length) { stage().append(el('p', 'hint', 'This unit has too few words for a scramble.')); return; }
+    ask();
+  }
+
+  // crossword: Slovenian clues, English answers
+  function crossword() {
+    const cw = Puzzles.crossword(Puzzles.items(set.words, 3, 10), 10), s = stage();
+    if (cw.words.length < 3) { s.append(el('p', 'hint', 'This unit has too few single words for a crossword.')); return; }
+    s.append(el('p', 'hint', 'Fill in the English words. The clues are in Slovenian.'));
+    const nums = {}; cw.words.forEach(w => { nums[w.r + ',' + w.c] = w.n; });
+    const tbl = el('table', 'cw'), inputs = [];
+    for (let r = 0; r < cw.rows; r++) { const tr = el('tr'); inputs.push([]); for (let c = 0; c < cw.cols; c++) {
+      const td = el('td', cw.cells[r][c] ? '' : 'black'); inputs[r].push(null);
+      if (cw.cells[r][c]) {
+        const inp = el('input'); inp.maxLength = 1; inp.autocomplete = 'off'; inp.autocapitalize = 'off'; inp.spellcheck = false; inputs[r][c] = inp;
+        inp.oninput = () => { inp.value = inp.value.replace(/[^a-z]/gi, '').slice(-1).toLowerCase(); td.className = ''; if (inp.value) { const n = inputs[r][c + 1] || (inputs[r + 1] && inputs[r + 1][c]); if (n) n.focus(); } };
+        inp.onfocus = () => inp.select();
+        td.append(inp); if (nums[r + ',' + c]) td.append(el('span', 'num', nums[r + ',' + c]));
+      }
+      tr.append(td); } tbl.append(tr); }
+    const cl = el('div', 'clues');
+    ['across', 'down'].forEach(d => { const col = el('div'); col.append(el('b', '', d === 'across' ? 'Across →' : 'Down ↓')); const ol = el('ol');
+      cw.words.filter(w => w.dir === d).forEach(w => ol.append(el('li', '', w.n + '. ' + clueOf(w.item.w)))); col.append(ol); cl.append(col); });
+    const row = el('div', 'row center'), check = el('button', 'btn primary', 'Check'), show2 = el('button', 'btn', 'Show the solution');
+    check.onclick = () => {
+      let all = true;
+      for (let r = 0; r < cw.rows; r++) for (let c = 0; c < cw.cols; c++) if (inputs[r][c]) { const good = inputs[r][c].value.toLowerCase() === cw.cells[r][c]; if (!good) all = false; inputs[r][c].parentNode.className = inputs[r][c].value ? (good ? 'ok' : 'no') : ''; }
+      if (all) setTimeout(() => puzzleEnd('Crossword solved!', crossword, 'Well done!'), 600);
+    };
+    show2.onclick = () => { for (let r = 0; r < cw.rows; r++) for (let c = 0; c < cw.cols; c++) if (inputs[r][c]) { inputs[r][c].value = cw.cells[r][c]; inputs[r][c].parentNode.className = ''; } };
+    row.append(check, show2); row.style.margin = '12px 0';
+    s.append(tbl, row, cl);
   }
 
   // ----- gap fill -----
