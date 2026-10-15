@@ -196,7 +196,13 @@
     return shuffle(out);
   };
   const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
-  const norm = s => s.trim().toLowerCase().replace(/\s+/g, ' ');
+  // typed answers are compared in a normal form: contractions are opened (I'm = I am, don't = do not), so both are accepted.
+  // Only unambiguous forms are opened: 's and 'd are left alone (he's = he is / he has, I'd = I would / I had), except it's/he's/she's/that's/there's/what's/here's = ... is
+  const norm = s => s.trim().toLowerCase().replace(/[’‘`´]/g, "'").replace(/\s+/g, ' ')
+    .replace(/\bwon't\b/g, 'will not').replace(/\bcan't\b/g, 'can not').replace(/\bcannot\b/g, 'can not').replace(/\bshan't\b/g, 'shall not')
+    .replace(/\b(\w+)n't\b/g, '$1 not').replace(/\bi'm\b/g, 'i am')
+    .replace(/\b(\w+)'(re|ve|ll)\b/g, (m, w, x) => w + ' ' + (x === 're' ? 'are' : x === 've' ? 'have' : 'will'))
+    .replace(/\b(it|he|she|that|there|what|here)'s\b/g, '$1 is');
   const show = id => { ['home', 'menu', 'play'].forEach(x => $('#' + x).classList.toggle('hidden', x !== id)); $('#hw').classList.toggle('hidden', id === 'play' || !$('#hw').childNodes.length); $('#prog').classList.toggle('hidden', id !== 'home' || !$('#prog').childNodes.length); };
   const setBar = f => $('#bar').style.width = Math.round(f * 100) + '%';
 
@@ -619,11 +625,18 @@
   // ----- unit test (multiple choice grammar) -----
   function test(key = 'tests') {
     const qs = pick(set[key], 10, key); let i = 0, score = 0; detail = [];
+    // balanced answer positions: in a test each position (A-D) gets the right answer about equally often, never 3 times in a row
+    let slots; for (let tries = 0; tries < 50; tries++) {
+      slots = shuffle(qs.map((_, k) => k % 4));
+      if (!slots.some((p, k) => k > 1 && p === slots[k - 1] && p === slots[k - 2])) break;
+    }
     const ask = () => {
       const t = qs[i]; const s = stage(); const q = el('div', 'q');
       q.append(el('p', 'hint', `Question ${i + 1} of ${qs.length}`), el('div', 'stem', t.q));
       const box = el('div', 'choices');
-      shuffle(t.options).forEach(o => {
+      const opts = shuffle(t.options), at = opts.indexOf(t.answer), want = Math.min(slots[i], opts.length - 1);
+      if (at >= 0 && at !== want) [opts[at], opts[want]] = [opts[want], opts[at]];
+      opts.forEach(o => {
         const b = el('button', 'opt', o);
         b.onclick = () => {
           box.querySelectorAll('button').forEach(x => x.disabled = true);
