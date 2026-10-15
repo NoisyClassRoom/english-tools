@@ -776,7 +776,7 @@
     sel.onchange = draw; draw();
   };
   // ---------------------------------------------------------------- homework (assign, then check who has done it)
-  let hwData = null, hwState = '', hwForm = false;
+  let hwData = null, hwState = '', hwForm = false, hwNotice = '';
   const unitCache = {};
   const HW_ACTS = [['match', 'Match'], ['quiz', 'Quiz'], ['gap', 'Fill the gap'], ['test', 'Unit test'], ['test2', 'Unit test 2'], ['gcheck', 'Grammar quick check'],
     ['wordsearch', 'Word search'], ['hangman', 'Hangman'], ['scramble', 'Word scramble'], ['crossword', 'Crossword']];   // puzzles (from 15 Oct 2026): done = the pupil finished the puzzle once; their results are in the "Puzzles" tab
@@ -857,7 +857,7 @@
         const j = await api('hwsave', { hw: { cls: sCls.value, book: sBook.value, set: ex ? u.id + '.' + lv[0] : u.id, topic: ex ? u.title + ' · ' + lv[1] : u.title, unit: u.unit, acts, min: min.value === '' ? 0 : Number(min.value), due: due.value,
           note: note.value, pupils: whole.checked ? [] : chosen } });
         if (!j.ok) throw new Error('save');
-        hwForm = false; hwState = ''; hwData = null; render();
+        hwForm = false; hwState = ''; hwData = null; hwNotice = '✓ Homework saved: ' + [sCls.value, u.unit, u.title].filter(Boolean).join(' · ') + (j.duplicate ? ' (it was already saved a moment ago, so it was not saved twice)' : '') + '. The list below is loading…'; render();
       } catch (e) { save.disabled = false; msg.className = 'msg err'; msg.textContent = 'Could not save the homework. Try again.'; }
     };
     card.append(field('Class', sCls), field('Book', sBook), field('Unit', sUnit), levelRow, el('div', 'muted', 'Activities'), actBox,
@@ -899,6 +899,7 @@
     const nb = el('button', 'btn' + (hwForm ? ' on' : ''), hwForm ? 'Close the form' : 'New homework'); nb.onclick = () => { hwForm = !hwForm; render(); };
     const rb = el('button', 'btn', 'Reload'); rb.style.marginLeft = '8px'; rb.onclick = () => { hwState = ''; hwData = null; render(); };
     top.append(nb, rb); view.append(top);
+    if (hwNotice) { const nt = el('p', 'msg', hwNotice); nt.style.cssText = 'color:var(--good);font-weight:600'; top.append(nt); if (hwState === 'ok') hwNotice = ''; }
     if (hwForm) view.append(hwForm_());
     if (hwState !== 'ok') {
       if (hwState === '') loadHw();
