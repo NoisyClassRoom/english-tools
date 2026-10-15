@@ -65,6 +65,7 @@
       <div class="card"><h2>Last 7 days, by class</h2><div id="wk" class="muted">Loading…</div></div>
       <div class="card"><h2>Today so far</h2><div id="td" class="muted">Loading…</div></div>
       <div class="card wide" id="stopCard" style="display:none"><h2>📍 Where we stopped</h2><div id="stops"></div></div>
+      <div class="card wide" id="exCard" style="display:none"><h2>💬 Mistake explanations to write</h2><div id="ex"></div></div>
       <div class="card wide"><h2>Go to</h2><div id="go"></div></div>
     </div>
   </div>
@@ -158,6 +159,35 @@
     });
   };
 
+  // ---------------------------------------------------------------- reminder: often-missed questions that still have no explanation (exercises/explain.js)
+  // A question counts when it was answered at least 5 times and answered wrongly in 40 % or more; Quiz / Match (vocabulary) are left out.
+  // The card appears when at least 20 such questions have no explanation yet (and not for 14 days after "Later").
+  const EX_MIN_ANSWERS = 5, EX_MIN_WRONG = 0.4, EX_SHOW_AT = 20, EX_SNOOZE_DAYS = 14;
+  const showExplainReminder = async () => {
+    const card = $('#exCard'), box = $('#ex'); card.style.display = 'none';
+    try { const s = Number(localStorage.getItem('today.exSnooze') || 0); if (s > Date.now()) return; } catch (e) {}
+    const [qs, src] = await Promise.all([api('qstats').catch(() => null), fetch('../exercises/explain.js', { cache: 'no-cache' }).then(r => r.ok ? r.text() : '').catch(() => '')]);
+    if (!qs || !qs.ok || !src) return;
+    const win = { EXPLAIN: {} }; try { new Function('window', src)(win); } catch (e) { return; }      // explain.js only fills window.EXPLAIN
+    const have = win.EXPLAIN;
+    const year = qs.rows.reduce((m, a) => a[0] > m ? a[0] : m, '');
+    const by = {};
+    qs.rows.filter(a => a[0] === year && !/^(Quiz|Match)$/.test(a[4])).forEach(a => {
+      const k = String(a[5]).trim().toLowerCase() + '||' + String(a[6]).trim().toLowerCase(), o = by[k] = by[k] || { q: a[5], ans: a[6], n: 0, wrong: 0 };
+      o.n += a[7]; o.wrong += a[8];
+    });
+    const cand = Object.keys(by).map(k => ({ k, o: by[k] })).filter(x => x.o.n >= EX_MIN_ANSWERS && x.o.wrong / x.o.n >= EX_MIN_WRONG && !have[x.k] && !have[x.k.split('||')[0]])
+      .sort((a, b) => b.o.wrong - a.o.wrong || b.o.n - a.o.n);
+    if (cand.length < EX_SHOW_AT) return;
+    box.innerHTML = '';
+    box.append(el('p', '', 'There are ' + cand.length + ' often-missed questions without a short explanation yet (answered at least ' + EX_MIN_ANSWERS + ' times, wrong in ' + Math.round(EX_MIN_WRONG * 100) + ' % or more). Explanations already written: ' + Object.keys(have).length + '.'));
+    box.append(el('p', '', 'To get them written, open Claude and say: "Write more mistake explanations" (you will need to be signed in to Google on the Results page).'));
+    const d = el('details'), sm = el('summary', '', 'Show the first ' + Math.min(10, cand.length)); d.append(sm);
+    const ul = el('ul'); cand.slice(0, 10).forEach(x => ul.append(el('li', '', x.o.q + ' → ' + x.o.ans + ' (' + x.o.wrong + ' of ' + x.o.n + ' wrong)'))); d.append(ul); box.append(d);
+    const later = el('button', 'btn', 'Remind me in ' + EX_SNOOZE_DAYS + ' days'); later.onclick = () => { try { localStorage.setItem('today.exSnooze', String(Date.now() + EX_SNOOZE_DAYS * 86400000)); } catch (e) {} card.style.display = 'none'; };
+    box.append(later); card.style.display = '';
+  };
+
   // ---------------------------------------------------------------- shortcuts
   const showGo = () => {
     const box = $('#go'); box.innerHTML = '';
@@ -177,6 +207,7 @@
     showStops(mk);
     if ((hw && hw.error === 'token') || (st && st.error === 'token')) { loaded = false; $('#app').style.display = 'none'; $('#login').style.display = 'block'; $('#loginMsg').textContent = 'This Google account is not allowed to open this page.'; return; }
     showHomework(hw); showActivity(st);
+    showExplainReminder();
   };
 
   $('#date').textContent = new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
