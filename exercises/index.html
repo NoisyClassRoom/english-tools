@@ -277,7 +277,55 @@
     [[String(j.week), 'last 7 days'], [(j.streak || 0) + (j.streak > 1 ? ' 🔥' : ''), 'days in a row'], [pc(j.avg), 'average result'], [String(j.total), 'activities this year']]
       .forEach(([n, t]) => { const x = el('div', 'tl'); x.append(el('b', '', n), el('span', '', t)); tiles.append(x); });
     d.append(tiles);
-    const go = u => { const e = el('button', 'btn', 'Practise'); e.onclick = () => { location.search = '?class=' + encodeURIComponent(u.book) + '&topic=' + encodeURIComponent(u.topic); }; return e; };
+    // more numbers: questions, active days, change compared with the pupil's own last month
+    const more = [];
+    if (j.questions) more.push('📝 ' + j.questions + ' questions answered, ' + Math.round(100 * j.right / j.questions) + ' % right');
+    if (j.activeDays) more.push('📅 ' + j.activeDays + ' day' + (j.activeDays > 1 ? 's' : '') + ' of practice' + (j.longest > 1 ? ' · longest streak ' + j.longest + ' days' : ''));
+    if (j.last30 && j.prev30) {
+      const df = Math.round((j.last30.avg - j.prev30.avg) * 100);
+      more.push((df > 0 ? '📈 +' + df + ' points' : df < 0 ? '📉 ' + df + ' points' : '➡️ same') + ' compared with the 30 days before (average ' + pc(j.last30.avg) + ')');
+    }
+    more.forEach(t => d.append(el('p', 'note', t)));
+    // weekly average of the last 8 weeks as small bars
+    if (j.weeks && j.weeks.some(w => w.n)) {
+      d.append(el('h3', '', 'Your last 8 weeks'));
+      const ch = el('div', ''); ch.style.cssText = 'display:flex;align-items:flex-end;gap:6px;height:70px;margin:6px 0';
+      j.weeks.forEach((w, i) => {
+        const c = el('div', ''); c.style.cssText = 'flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%;font-size:.7rem;color:var(--muted,#667)';
+        const b = el('div', ''); b.style.cssText = 'width:100%;border-radius:4px 4px 0 0;background:' + (w.n ? 'var(--accent,#4a7bd0)' : 'transparent') + ';height:' + (w.n ? Math.max(4, Math.round(w.avg * 54)) : 0) + 'px';
+        b.title = w.n ? w.n + ' activities, average ' + pc(w.avg) : 'no activities';
+        c.append(el('span', '', w.n ? Math.round(w.avg * 100) : '·'), b); ch.append(c);
+      });
+      d.append(ch, el('p', 'note', 'Average result per week (oldest on the left, this week on the right).'));
+    }
+    // strongest / weakest unit (by average, units with at least 2 activities)
+    const ranked = j.units.filter(u => u.n >= 2).sort((a, b) => b.avg - a.avg);
+    if (ranked.length >= 2) {
+      const hi = ranked[0], lo = ranked[ranked.length - 1], r1 = el('div', 'row2'), r2 = el('div', 'row2');
+      d.append(el('h3', '', 'Strongest and weakest unit'));
+      r1.append(el('span', 'nm', '💪 ' + hi.title), el('span', 'pc', 'average ' + pc(hi.avg)));
+      r2.append(el('span', 'nm', '🎯 ' + lo.title), el('span', 'pc', 'average ' + pc(lo.avg)));
+      const pb = el('button', 'btn', 'Practise'); pb.onclick = () => { location.search = '?class=' + encodeURIComponent(lo.book) + '&topic=' + encodeURIComponent(lo.topic); }; r2.append(pb);
+      d.append(r1, r2);
+    }
+    // badges earned
+    const bd = [];
+    if (j.total >= 1) bd.push('🌱 First activity');
+    if (j.total >= 10) bd.push('🔟 10 activities');
+    if (j.total >= 50) bd.push('🏅 50 activities');
+    if (j.total >= 100) bd.push('🏆 100 activities');
+    if ((j.longest || 0) >= 3) bd.push('🔥 3 days in a row');
+    if ((j.longest || 0) >= 7) bd.push('🔥🔥 7 days in a row');
+    if (j.perfect >= 1) bd.push('💯 A perfect score');
+    if (j.perfect >= 10) bd.push('💎 10 perfect scores');
+    if (j.units.filter(u => u.best >= 0.9).length >= 5) bd.push('⭐ 5 units at 90 %+');
+    if (bd.length) {
+      d.append(el('h3', '', 'Your badges'));
+      const bw = el('div', ''); bw.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px';
+      bd.forEach(t => { const x = el('span', '', t); x.style.cssText = 'padding:3px 9px;border-radius:999px;background:rgba(120,120,120,.15);font-size:.85rem'; bw.append(x); });
+      d.append(bw);
+    }
+    const go =u => { const e = el('button', 'btn', 'Practise'); e.onclick = () => { location.search = '?class=' + encodeURIComponent(u.book) + '&topic=' + encodeURIComponent(u.topic); }; return e; };
     const need = j.units.filter(u => u.n >= 2 && u.avg < 0.7).sort((a, b) => a.avg - b.avg).slice(0, 3);
     if (need.length) {
       d.append(el('h3', '', 'A little more practice would help'));
