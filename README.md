@@ -95,6 +95,13 @@ Decisions:
 - Needs: an OAuth client ID in Google Cloud (may need the school's Google admin) and a check with the school's data-protection person.
 - Only the teacher can do the Google authorisation / deploy steps.
 
+## Speed notes (15 Oct 2026)
+
+- The exercise page asks for the pupil's homework and "My progress" in **one** request (script action `pupilhome`, which runs `homeworkReply_` and `myProgressReply_`); the old actions `homework` and `myprogress` still exist. Typical times measured from the teacher's computer: a request to the script takes 1.5 s even for `ping`, the Sheet-reading ones 3-5 s, occasionally up to 10 s when many pupils ask at the same time (the Apps Script web app runs every request separately).
+- `verify_` remembers a successfully verified Google sign-in token for 5 minutes (`CacheService`), so a pupil's second request does not go to Google again.
+- Saving the same homework twice within 10 minutes (same class, unit, activities, due date, pupils) saves it only once (`hwSaveReply_` answers `duplicate: true`); the Homework tab shows "✓ Homework saved".
+- The Today card's mistake-explanation reminder waits 8 seconds before it reads the (heavy) question data.
+
 ## Answer checking (exercise page)
 
 - Typed answers (Fill the gap, tests with a typed answer) are compared in a normal form (function `norm` in `exercises/index.html`): upper / lower case, extra spaces and curly apostrophes do not matter, and contractions are opened, so `I'm` = `I am`, `don't` = `do not`, `can't` = `cannot`, `they're` = `they are`, `it's` = `it is`. Forms with two meanings (`he's` = is / has, `I'd` = would / had) are NOT opened; list both spellings as alternatives in the data when both are right.
