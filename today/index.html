@@ -208,7 +208,8 @@
     showStops(mk);
     if ((hw && hw.error === 'token') || (st && st.error === 'token')) { loaded = false; $('#app').style.display = 'none'; $('#login').style.display = 'block'; $('#loginMsg').textContent = 'This Google account is not allowed to open this page.'; return; }
     showHomework(hw); showActivity(st);
-    showExplainReminder();
+    // the reminder needs the heavy question data: it waits a few seconds so that the homework and the numbers above appear first
+    setTimeout(showExplainReminder, 8000);
   };
 
   $('#date').textContent = new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
