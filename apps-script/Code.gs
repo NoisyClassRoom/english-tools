@@ -85,7 +85,7 @@ var UNITS = {
 
 // Change this text whenever the code of doPost changes: the health check compares it with what the published web app answers,
 // so it can tell you that the saved code has not been deployed as a new version yet.
-var CODE_VERSION = '2026-10-15.4';
+var CODE_VERSION = '2026-10-15.5';
 
 // ---------------------------------------------------------------- saving results
 
@@ -105,6 +105,7 @@ function doPost(e) {
     if (d.action === 'boardsave') return boardSaveReply_(d); // teacher-only: one edited section of the board text
     if (d.action === 'boardmarks') return boardMarksReply_(d);       // teacher-only: pinned exercises and "where the class stopped"
     if (d.action === 'boardmarkset') return boardMarkSetReply_(d);   // teacher-only: pin / unpin an exercise, set / clear a class stop
+    if (d.action === 'puzzlestats') return puzzleStatsReply_(d);       // teacher-only: results of the online puzzles (separate tab "Puzzles")
     if (d.action === 'ping') return out_({ ok: true, v: CODE_VERSION });   // no data; used by "Check that everything works" in the Sheet menu
     var who = verify_(d.token);
     if (!who) return out_({ ok: false, error: 'token' });
@@ -117,7 +118,8 @@ function doPost(e) {
     var lock = LockService.getScriptLock();
     lock.waitLock(20000);
     try {
-      var sh = resultsSheet_();
+      var isPuzzle = PUZZLE_ACTS.indexOf(text_(d.activity)) >= 0;       // puzzles go to their own tab
+      var sh = isPuzzle ? puzzleSheet_() : resultsSheet_();
       var id = text_(d.id);
       if (id && sh.getLastRow() > 1) {                      // the same result sent again (retry): already saved
         var recent = sh.getRange(2, NCOLS, Math.min(80, sh.getLastRow() - 1), 1).getValues();
@@ -243,6 +245,11 @@ function myProgressReply_(d) {
   if (sh && sh.getLastRow() > 1) sh.getRange(2, 1, sh.getLastRow() - 1, NCOLS).getValues().forEach(function (r) {
     if (r[0] instanceof Date && String(r[1]).toLowerCase() === email && String(r[10]) === year && r[8] > 0) mine.push(r);
   });
+  // puzzles (own tab, not part of the numbers below): how many this school year, and how many in the last 7 days
+  var puzzles = 0, puzzlesWeek = 0, ps = SpreadsheetApp.getActive().getSheetByName(PSHEET);
+  if (ps && ps.getLastRow() > 1) ps.getRange(2, 1, ps.getLastRow() - 1, 11).getValues().forEach(function (r) {
+    if (r[0] instanceof Date && String(r[1]).toLowerCase() === email && String(r[10]) === year) { puzzles++; if (r[0].getTime() >= Date.now() - 7 * 86400000) puzzlesWeek++; }
+  });
   var DAY = 86400000, now = Date.now(), days = {}, sum = 0, week = 0, units = {}, order = [];
   var key = function (t) { return Utilities.formatDate(new Date(t), TZ, 'yyyy-MM-dd'); };
   var prevDay = function (k) { return Utilities.formatDate(new Date(new Date(k + 'T12:00:00Z').getTime() - DAY), 'UTC', 'yyyy-MM-dd'); };
@@ -268,6 +275,7 @@ function myProgressReply_(d) {
   dayKeys.forEach(function (k) { run = (prevK && prevDay(k) === prevK) ? run + 1 : 1; prevK = k; if (run > longest) longest = run; });
   mine.sort(function (a, b) { return b[0].getTime() - a[0].getTime(); });
   return out_({ ok: true, year: year, total: mine.length, avg: mine.length ? sum / mine.length : 0, week: week, streak: streak,
+    puzzles: puzzles, puzzlesWeek: puzzlesWeek,
     questions: qTotal, right: qRight, perfect: perfect, activeDays: dayKeys.length, longest: longest,
     weeks: w8.map(function (o) { return o.n ? { n: o.n, avg: o.sum / o.n } : { n: 0, avg: 0 }; }),
     last30: n30 ? { n: n30, avg: s30 / n30 } : null, prev30: nP ? { n: nP, avg: sP / nP } : null,
@@ -737,6 +745,34 @@ function archiveSheet_() {
     sh.hideSheet();
   }
   return sh;
+}
+
+// The hidden "Puzzles" tab (added 15 Oct 2026): results of the online puzzles (word search, hangman, word scramble, crossword).
+// Same columns as Results, but a SEPARATE tab, so averages, the heat-map, homework, the analysis tabs and "My progress" are not affected.
+// Score / total: hangman and scramble = words right / words; word search and crossword = 1 / 1 when finished. Rows of leavers are
+// handled by the same cleanup as Results; earlier school years stay here (every row has its school year).
+var PSHEET = 'Puzzles';
+var PUZZLE_ACTS = ['Word search', 'Hangman', 'Word scramble', 'Crossword'];
+function puzzleSheet_() {
+  var ss = SpreadsheetApp.getActive();
+  var sh = ss.getSheetByName(PSHEET) || ss.insertSheet(PSHEET);
+  prepare_(sh);
+  if (!sh.isSheetHidden()) {
+    if (ss.getActiveSheet().getName() === PSHEET) ss.setActiveSheet(ss.getSheetByName(SHEET));
+    sh.hideSheet();
+  }
+  return sh;
+}
+// Teacher only: the puzzle results in the same row format as `stats` (rows only, no roster).
+function puzzleStatsReply_(d) {
+  var who = verify_(d.token);
+  if (!who || !isTeacher_(who.email)) return out_({ ok: false, error: 'token' });
+  var sh = SpreadsheetApp.getActive().getSheetByName(PSHEET), rows = [];
+  if (sh && sh.getLastRow() > 1) sh.getRange(2, 1, sh.getLastRow() - 1, 18).getValues().forEach(function (r) {
+    if (!(r[0] instanceof Date) || !r[1]) return;
+    rows.push([r[0].getTime(), r[3], r[2], r[11], r[4], r[15], r[6], r[14], r[7], r[8], String(r[10])]);
+  });
+  return out_({ ok: true, rows: rows });
 }
 
 // Makes sure a Results/Archive tab has the current header, formats and hidden helper columns.
@@ -1212,7 +1248,7 @@ function findLeavers_(years) {
   var ss = SpreadsheetApp.getActive(), maps = leaverMaps_(), cutoff = new Date();
   cutoff.setFullYear(cutoff.getFullYear() - years);
   var plan = { cutoff: cutoff, parts: [], pupils: {}, rows: 0, ids: {} };
-  [SHEET, ARCHIVE, 'Duplicates'].forEach(function (n) {
+  [SHEET, ARCHIVE, 'Duplicates', PSHEET].forEach(function (n) {
     var sh = ss.getSheetByName(n);
     if (!sh || sh.getLastRow() < 2) return;
     var cnt = sh.getLastRow() - 1, values = sh.getRange(2, 1, cnt, NCOLS).getValues(), keep = [], gone = 0;
