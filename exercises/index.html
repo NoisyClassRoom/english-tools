@@ -80,6 +80,10 @@
   .card { text-align: center; }
   .grid { display: flex; flex-wrap: wrap; justify-content: center; gap: 14px; }
   .tile { width: 210px; }
+  .expl { margin: 14px auto 0; max-width: 560px; padding: 10px 14px; border-radius: 10px; background: var(--accent-soft); border-left: 4px solid var(--accent); font-size: 16px; line-height: 1.5; text-align: left; }
+  .expl .sl { margin-top: 4px; color: var(--muted, #556); }
+  .expl.more { font-size: 14px; }
+  .gap-line .expl { display: block; margin: 6px 0 4px; font-size: 15px; }
   .hintsl { margin: 12px auto 0; max-width: 520px; padding: 8px 12px; border-radius: 10px; background: var(--accent-soft); font-size: 16px; line-height: 1.45; text-align: left; }
   .gram { text-align: left; max-width: 760px; margin: 0 auto; }
   .gsec { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px 20px; margin-bottom: 14px; }
@@ -170,6 +174,7 @@
 <script src="levels-2.js"></script>
 <script src="levels-3.js"></script>
 <script src="levels-4.js"></script>
+<script src="explain.js"></script>
 <script src="tracking.js"></script>
 <script>
 (() => {
@@ -203,6 +208,18 @@
     .replace(/\b(\w+)n't\b/g, '$1 not').replace(/\bi'm\b/g, 'i am')
     .replace(/\b(\w+)'(re|ve|ll)\b/g, (m, w, x) => w + ' ' + (x === 're' ? 'are' : x === 've' ? 'have' : 'will'))
     .replace(/\b(it|he|she|that|there|what|here)'s\b/g, '$1 is');
+  // short explanation after a wrong answer: window.EXPLAIN (explain.js) maps the question text (lower case) to [English, Slovenian].
+  // Without an entry, a question of a unit that has a Grammar text only points to it. Returns true when something was shown.
+  // A key can also be "question||right answer" (for questions that share their text, like "Which sentence is correct?"); it is tried first.
+  const explOf = (q, ans) => { const X = window.EXPLAIN || {}, k = String(q).trim().toLowerCase(); let e = X[k + '||' + String(ans == null ? '' : ans).trim().toLowerCase()] || X[k]; return e && !Array.isArray(e) ? [e] : e; };
+  const explBox = (q, into, ans) => {
+    const e = explOf(q, ans);
+    const box = el('div', 'expl');
+    if (e) { box.append(el('div', 'en', '💬 ' + e[0])); if (e[1]) box.append(el('div', 'sl', e[1])); }
+    else if (set && (set.grammar || []).length) { box.classList.add('more'); box.append(el('div', '', '📖 More about this in the Grammar of this unit. / Več o tem najdeš v slovnici te enote.')); }
+    else return false;
+    into.append(box); return e ? 2 : 1;           // 2 = a written explanation (the pupil presses Next), 1 = only the pointer to the Grammar (moves on by itself)
+  };
   const show = id => { ['home', 'menu', 'play'].forEach(x => $('#' + x).classList.toggle('hidden', x !== id)); $('#hw').classList.toggle('hidden', id === 'play' || !$('#hw').childNodes.length); $('#prog').classList.toggle('hidden', id !== 'home' || !$('#prog').childNodes.length); };
   const setBar = f => $('#bar').style.width = Math.round(f * 100) + '%';
 
@@ -644,7 +661,11 @@
           if (o === t.answer) { b.classList.add('done'); score++; }
           else { b.classList.add('wrong'); [...box.children].find(x => x.textContent === t.answer).classList.add('done'); }
           i++; setBar(i / qs.length);
-          setTimeout(() => i < qs.length ? ask() : finish(score, qs.length, () => test(key)), 1100);
+          const go = () => i < qs.length ? ask() : finish(score, qs.length, () => test(key));
+          const ex = o !== t.answer ? explBox(t.q, q, t.answer) : 0;
+          if (ex === 2) {                    // wrong answer with a written explanation: the pupil reads it and presses Next
+            const nb = el('button', 'btn primary', i < qs.length ? 'Next' : 'Finish'); nb.style.marginTop = '12px'; nb.onclick = go; q.append(nb); nb.focus();
+          } else setTimeout(go, ex ? 2400 : 1100);
         };
         box.append(b);
       });
@@ -759,7 +780,7 @@
           if (done) { next(); return; }
           const ok = [q.gap.answer, ...(q.gap.alt || [])].map(norm).includes(norm(inp.value));
           rec(q.rec[0], q.rec[1], inp.value.trim(), ok);
-          inp.classList.add(ok ? 'ok' : 'no'); inp.readOnly = true; if (ok) score++; else line.append(el('span', 'ans', '→ ' + q.gap.answer));
+          inp.classList.add(ok ? 'ok' : 'no'); inp.readOnly = true; if (ok) score++; else { line.append(el('span', 'ans', '→ ' + q.gap.answer)); explBox(q.rec[0], box, q.gap.answer); }
           done = true; check.textContent = i + 1 < qs.length ? 'Next' : 'Finish';
         };
         inp.onkeydown = e => { if (e.key === 'Enter') check.click(); };
@@ -775,7 +796,10 @@
           rec(q.rec[0], q.rec[1], o, o === q.answer, 90);
           if (o === q.answer) { b.classList.add('done'); score++; }
           else { b.classList.add('wrong'); [...choices.children].find(x => x.textContent === q.answer).classList.add('done'); }
-          setTimeout(next, 1000);
+          const ex = o !== q.answer ? explBox(q.rec[0], box, q.rec[1]) : 0;
+          if (ex === 2) {
+            const nb = el('button', 'btn primary', i + 1 < qs.length ? 'Next' : 'Finish'); nb.style.marginTop = '12px'; nb.onclick = next; box.append(nb); nb.focus();
+          } else setTimeout(next, ex ? 2400 : 1000);
         };
         choices.append(b);
       });
@@ -806,7 +830,7 @@
         const ok = [it.answer, ...(it.alt || [])].map(norm).includes(norm(inp.value));
         rec(it.text, it.answer, inp.value.trim(), ok);
         inp.classList.add(ok ? 'ok' : 'no'); inp.readOnly = true;
-        if (ok) score++; else line.append(el('span', 'ans', '→ ' + it.answer));
+        if (ok) score++; else { line.append(el('span', 'ans', '→ ' + it.answer)); if (explOf(it.text, it.answer)) explBox(it.text, line, it.answer); }
       });
       checked = true; setBar(1);
       const res = el('div', 'result'); res.append(el('div', 'score', `${score} / ${items.length}`));
