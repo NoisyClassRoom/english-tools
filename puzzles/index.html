@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Printable puzzles</title>
+<style>
+  :root {
+    --bg: #141418; --card: #1f1f26; --ink: #f2efe9; --muted: #a39f95; --line: #34343e; --field: #14141a;
+    --accent: #ff8a1f; --accent-soft: #3a2a18; --good: #34c06d; --bad: #ff5a5a; --radius: 14px;
+  }
+  body.light {
+    --bg: #f6f4ef; --card: #ffffff; --ink: #1f2a37; --muted: #6b7280; --line: #e5e1d8; --field: #ffffff;
+    --accent: #e8710a; --accent-soft: #fdeedd; --good: #1f9d55; --bad: #d64545;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .wrap { max-width: 1000px; margin: 0 auto; padding: 14px; }
+  h1 { margin: 0; font-size: 22px; } h2 { margin: 0 0 8px; font-size: 16px; color: var(--accent); }
+  .top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+  .top .sp { flex: 1; }
+  .btn { background: var(--field); color: var(--ink); border: 1px solid var(--line); border-radius: 10px; padding: 6px 12px; font: inherit; cursor: pointer; }
+  .btn:hover { border-color: var(--accent); } .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px; margin-bottom: 12px; }
+  .muted { color: var(--muted); }
+  #login { text-align: center; padding: 40px 14px; } #app { display: none; }
+  label { display: inline-block; margin: 0 14px 8px 0; } select, input[type=number] { background: var(--field); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 5px 8px; font: inherit; }
+  .units { columns: 2 280px; margin: 6px 0 10px; max-height: 260px; overflow: auto; border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
+  .units label { display: block; margin: 0 0 3px; }
+  /* the worksheets: always black on white, also on screen */
+  #sheets { color: #111; }
+  .sheet { background: #fff; color: #111; border-radius: 6px; padding: 18px 22px; margin-bottom: 14px; font-family: Arial, Helvetica, sans-serif; }
+  .sheet .hd { display: flex; justify-content: space-between; gap: 20px; font-size: 14px; margin-bottom: 8px; }
+  .sheet h3 { margin: 0 0 4px; font-size: 22px; } .sheet .sub { color: #555; margin: 0 0 12px; font-size: 14px; }
+  .ws { border-collapse: collapse; margin: 6px auto 12px; }
+  .ws td { width: 30px; height: 30px; text-align: center; font: 700 18px/30px "Courier New", monospace; text-transform: uppercase; border: 0; }
+  .ws.key td.in { background: #ffd9a6; border-radius: 15px; }
+  .wl { columns: 3 150px; margin: 0; padding: 0; list-style: none; font-size: 15px; } .wl li { margin: 0 0 5px; break-inside: avoid; }
+  .cw { border-collapse: collapse; margin: 6px auto 12px; }
+  .cw td { width: 32px; height: 32px; padding: 0; border: 1.5px solid #222; position: relative; text-align: center; font: 700 17px/32px Arial, sans-serif; text-transform: uppercase; background: #fff; }
+  .cw td.b { border: 0; background: transparent; }
+  .cw td .n { position: absolute; top: 1px; left: 2px; font: 600 9px/1 Arial, sans-serif; }
+  .clues { display: flex; gap: 30px; font-size: 14px; } .clues ol { margin: 4px 0 0; padding: 0; list-style: none; } .clues li { margin: 0 0 4px; }
+  .sc { font-size: 16px; padding: 0; list-style: none; margin: 0; } .sc li { margin: 0 0 16px; display: flex; gap: 12px; align-items: baseline; flex-wrap: wrap; }
+  .sc .sl { min-width: 190px; } .sc .letters { font: 700 20px "Courier New", monospace; letter-spacing: 6px; text-transform: uppercase; } .sc .line { flex: 1; min-width: 150px; border-bottom: 1px solid #333; height: 18px; }
+  .sc.key .line { border: 0; font-weight: 700; }
+  @media print {
+    @page { size: A4 portrait; margin: 14mm; }
+    body { background: #fff; } .wrap { max-width: none; padding: 0; }
+    .no-print, .top { display: none !important; }
+    .sheet { border-radius: 0; padding: 0; margin: 0; page-break-after: always; break-after: page; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .sheet:last-child { page-break-after: auto; break-after: auto; }
+    .sheet.keysheet.nokey { display: none; }
+  }
+</style>
+</head>
+<body>
+<script src="../exercises/tracking.js"></script>
+<script src="../exercises/puzzles.js"></script>
+<div class="wrap">
+  <div class="top no-print">
+    <h1>🧩 Printable puzzles</h1><span class="sp"></span>
+    <span class="muted" id="who"></span>
+    <button class="btn" id="theme">Light / dark</button>
+  </div>
+  <div id="login" class="card no-print">
+    <p id="loginMsg" class="muted">Sign in with your school Google account. Only the teacher account is allowed.</p>
+    <div id="slot"></div>
+  </div>
+  <div id="app">
+    <div class="card no-print">
+      <h2>1. Words</h2>
+      <label>Source <select id="src"></select></label>
+      <label id="lvlWrap" style="display:none">Level <select id="lvl"><option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option></select></label>
+      <div><b id="uTitle">Units</b> <span class="muted">(tick one or several: several units make a mixed sheet for a class or a team)</span>
+        <button class="btn" id="all" style="margin-left:8px">All</button> <button class="btn" id="none">None</button></div>
+      <div class="units" id="units">Loading…</div>
+      <h2>2. Puzzle</h2>
+      <label>Type <select id="type"><option value="ws">Word search</option><option value="cw">Crossword</option><option value="sc">Word scramble</option></select></label>
+      <label>Words <input type="number" id="count" min="5" max="25" value="12" style="width:70px"></label>
+      <label id="sizeWrap">Grid size <input type="number" id="size" min="10" max="18" value="14" style="width:70px"></label>
+      <label id="listWrap">Word list shows <select id="listMode"><option value="en">the English words</option><option value="sl">Slovenian clues</option></select></label>
+      <label><input type="checkbox" id="key" checked> answer key on a separate page</label>
+      <label><input type="checkbox" id="pupils" value="1" checked> name and date line</label>
+      <div style="margin-top:6px"><button class="btn primary" id="make">Make the worksheet</button> <button class="btn" id="print" style="display:none">🖨 Print</button>
+        <span class="muted" id="msg" style="margin-left:8px"></span></div>
+    </div>
+    <div id="sheets"></div>
+  </div>
+</div>
+<script>
+(() => {
+  'use strict';
+  const $ = s => document.querySelector(s);
+  const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+  const BOOKS = { '6b': 'Project 1 (6th grade)', '7a': 'Dream Team Starter (7th grade)', '7bc': 'Project 2 (7th grade)', '8a': 'Dream Team 1 (8th grade)', '8b': 'Project 3 (8th grade)', '9a': 'Dream Team 2 (9th grade)', '9b': 'Project 4 (9th grade)', 'extra': 'Extra practice topics' };
+  let loaded = false, current = [];            // current: [{ label, words }] of the chosen source
+
+  const api = async action => {
+    const token = Track.token(); if (!token) throw new Error('token');
+    const r = await fetch(Track.config.endpoint, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action, token }) });
+    return r.json();
+  };
+  const loadScript = src => new Promise(res => { const s = document.createElement('script'); s.src = src; s.onload = s.onerror = res; document.head.append(s); });
+
+  // ---- the word lists come from the public exercise files (no pupil data)
+  const cache = {};
+  const loadSource = async (book, level) => {
+    const key = book + '|' + (book === 'extra' ? level : '');
+    if (cache[key]) return cache[key];
+    let list = [];
+    if (book === 'extra') {
+      await loadScript('../exercises/sets.js'); for (const f of ['levels-1', 'levels-2', 'levels-3', 'levels-4']) await loadScript('../exercises/' + f + '.js');
+      const base = window.SETS ? window.SETS.map(s => ({ id: s.id, title: s.title, words: s.words || [] })) : [];
+      const toW = a => ({ en: a[0], sl: a[1], pic: a[2] });
+      (window.EXTRA_LEVELS || []).forEach(x => {
+        let b = base.find(s => s.id === x.id); if (!b) { b = { id: x.id, title: x.title, words: [] }; base.push(b); }
+        const l = x[level]; if (!l) { b.skip = true; return; }
+        b.lvWords = (level === 'easy' ? b.words : []).concat(l.w.map(toW));
+      });
+      list = base.filter(b => (b.lvWords || (!window.EXTRA_LEVELS.some(x => x.id === b.id) && b.words)) && !b.skip).map(b => ({ label: b.title + ' · ' + level[0].toUpperCase() + level.slice(1), words: b.lvWords || b.words }));
+    } else {
+      window.CLASS_SETS = null; await loadScript('../exercises/class-' + book + '.js');
+      list = (window.CLASS_SETS || []).map(s => ({ label: [s.unit, s.title].filter(Boolean).join(' · '), words: s.words || [] }));
+    }
+    return cache[key] = list;
+  };
+  const fillUnits = async () => {
+    const box = $('#units'); box.textContent = 'Loading…'; $('#msg').textContent = '';
+    const book = $('#src').value; $('#lvlWrap').style.display = book === 'extra' ? '' : 'none';
+    current = await loadSource(book, $('#lvl').value); box.innerHTML = '';
+    current.forEach((u, i) => { const l = el('label'), c = el('input'); c.type = 'checkbox'; c.value = i; l.append(c, document.createTextNode(' ' + u.label + ' (' + u.words.length + ' words)')); box.append(l); });
+    if (!current.length) box.textContent = 'Nothing found.';
+  };
+
+  // ---- sheets
+  const chosen = () => [...document.querySelectorAll('#units input:checked')].map(c => current[Number(c.value)]);
+  const bookName = () => $('#src').value === 'extra' ? 'Extra practice' : (BOOKS[$('#src').value] || '');
+  const sheet = (title, sub, isKey) => {
+    const s = el('div', 'sheet' + (isKey ? ' keysheet' : ''));
+    if ($('#pupils').checked && !isKey) { const hd = el('div', 'hd'); hd.append(el('span', '', 'Name: ______________________________'), el('span', '', 'Date: ______________')); s.append(hd); }
+    s.append(el('h3', '', title + (isKey ? ' – answer key' : '')), el('p', 'sub', sub)); return s;
+  };
+  const clue = w => (w.pic ? w.pic + ' ' : '') + (w.sl || w.en);
+  const makeWs = (title, sub, list, count, size, listMode, wantKey) => {
+    const g = Puzzles.wordSearch(list, count, size), out = [];
+    const grid = key => { const t = el('table', 'ws' + (key ? ' key' : '')); const inSet = new Set(); if (key) g.placed.forEach(p => { for (let i = 0; i < p.item.word.length; i++) inSet.add((p.r + p.dr * i) + ',' + (p.c + p.dc * i)); });
+      g.grid.forEach((row, r) => { const tr = el('tr'); row.forEach((ch, c) => tr.append(el('td', inSet.has(r + ',' + c) ? 'in' : '', ch))); t.append(tr); }); return t; };
+    const s = sheet(title, 'Word search · ' + sub + ' · Find ' + g.placed.length + ' words. They go → ↓ ↘ ↗.'); s.append(grid(false));
+    const ul = el('ul', 'wl'); Puzzles.shuffle(g.placed).forEach(p => ul.append(el('li', '', '☐ ' + (listMode === 'en' ? p.item.word : clue(p.item.w))))); s.append(ul); out.push(s);
+    if (wantKey) { const k = sheet(title, 'Word search', true); k.append(grid(true)); const u2 = el('ul', 'wl'); g.placed.forEach(p => u2.append(el('li', '', p.item.word + (listMode === 'sl' ? ' (' + clue(p.item.w) + ')' : '')))); k.append(u2); out.push(k); }
+    return { out, used: g.placed.length };
+  };
+  const makeCw = (title, sub, list, count, wantKey) => {
+    const cw = Puzzles.crossword(list, count), out = [];
+    const nums = {}; cw.words.forEach(w => { nums[w.r + ',' + w.c] = w.n; });
+    const grid = key => { const t = el('table', 'cw'); cw.cells.forEach((row, r) => { const tr = el('tr'); row.forEach((ch, c) => { const td = el('td', ch ? '' : 'b'); if (ch && nums[r + ',' + c]) td.append(el('span', 'n', nums[r + ',' + c])); if (ch && key) td.append(document.createTextNode(ch)); tr.append(td); }); t.append(tr); }); return t; };
+    const clues = () => { const d = el('div', 'clues'); ['across', 'down'].forEach(dir => { const col = el('div'); col.append(el('b', '', dir === 'across' ? 'Across →' : 'Down ↓')); const ol = el('ol');
+      cw.words.filter(w => w.dir === dir).forEach(w => ol.append(el('li', '', w.n + '. ' + clue(w.item.w)))); col.append(ol); d.append(col); }); return d; };
+    const s = sheet(title, 'Crossword · ' + sub + ' · Write the English words. The clues are in Slovenian.'); s.append(grid(false), clues()); out.push(s);
+    if (wantKey) { const k = sheet(title, 'Crossword', true); k.append(grid(true)); out.push(k); }
+    return { out, used: cw.words.length };
+  };
+  const makeSc = (title, sub, list, count, wantKey) => {
+    const picked = Puzzles.shuffle(list).slice(0, count), out = [];
+    const ul = (key) => { const o = el('ol', 'sc' + (key ? ' key' : '')); picked.forEach(it => { const li = el('li'); li.append(el('span', 'sl', clue(it.w)));
+      if (!key) li.append(el('span', 'letters', Puzzles.scramble(it.word).split('').join(' ')), el('span', 'line')); else li.append(el('span', 'line', it.word)); o.append(li); }); return o; };
+    const s = sheet(title, 'Word scramble · ' + sub + ' · Put the letters in the right order and write the English word.'); s.append(ul(false)); out.push(s);
+    if (wantKey) { const k = sheet(title, 'Word scramble', true); k.append(ul(true)); out.push(k); }
+    return { out, used: picked.length };
+  };
+  const make = () => {
+    const units = chosen(), box = $('#sheets'); box.innerHTML = ''; $('#print').style.display = 'none';
+    if (!units.length) { $('#msg').textContent = 'Tick at least one unit first.'; return; }
+    const type = $('#type').value, count = Math.max(5, Math.min(25, Number($('#count').value) || 12)), min = type === 'sc' ? 4 : 3, max = type === 'sc' ? 12 : (type === 'ws' ? Math.min(14, Number($('#size').value) - 1) : 12);
+    const list = Puzzles.items([].concat(...units.map(u => u.words)), min, max);
+    if (list.length < 5) { $('#msg').textContent = 'These units have only ' + list.length + ' single words that fit: tick more units.'; return; }
+    const title = units.length === 1 ? units[0].label : units.length + ' units mixed', sub = bookName() + (units.length > 1 ? ': ' + units.map(u => u.label).join(', ') : '');
+    const r = type === 'ws' ? makeWs(title, sub, list, count, Number($('#size').value) || 14, $('#listMode').value, $('#key').checked) : type === 'cw' ? makeCw(title, sub, list, count, $('#key').checked) : makeSc(title, sub, list, count, $('#key').checked);
+    r.out.forEach(s => box.append(s)); $('#print').style.display = '';
+    $('#msg').textContent = r.used + ' words used' + (r.used < count ? ' (of ' + count + ' wanted; the rest did not fit: press the button again for a new version)' : '') + '. Press Print and choose "Save as PDF" if you want a file.';
+  };
+  const syncType = () => { const t = $('#type').value; $('#sizeWrap').style.display = t === 'ws' ? '' : 'none'; $('#listWrap').style.display = t === 'ws' ? '' : 'none'; $('#count').value = t === 'cw' ? 10 : 12; };
+
+  const load = async () => {
+    if (!Track.token()) return;
+    const j = await api('boardmarks').catch(() => null);          // a teacher-only action: only the teacher account gets an answer
+    if (!j || !j.ok) { $('#login').style.display = 'block'; $('#app').style.display = 'none'; $('#loginMsg').textContent = 'This Google account is not allowed to open this page.'; return; }
+    loaded = true; $('#login').style.display = 'none'; $('#app').style.display = 'block'; $('#who').textContent = Track.email || '';
+    const s = $('#src'); Object.keys(BOOKS).forEach(k => { const o = el('option', '', BOOKS[k]); o.value = k; s.append(o); });
+    s.onchange = fillUnits; $('#lvl').onchange = fillUnits; $('#type').onchange = syncType;
+    $('#all').onclick = () => document.querySelectorAll('#units input').forEach(c => c.checked = true); $('#none').onclick = () => document.querySelectorAll('#units input').forEach(c => c.checked = false);
+    $('#make').onclick = make; $('#print').onclick = () => window.print();
+    syncType(); fillUnits();
+  };
+  $('#theme').onclick = () => { document.body.classList.toggle('light'); try { localStorage.setItem('puz.light', document.body.classList.contains('light') ? '1' : ''); } catch (e) {} };
+  try { if (localStorage.getItem('puz.light')) document.body.classList.add('light'); } catch (e) {}
+  if (window.Track && Track.enabled) {
+    Track.onChange(() => { if (Track.token() && !loaded) load(); });
+    Track.init(() => { if (Track.token()) load(); else Track.button($('#slot')); });
+  } else $('#loginMsg').textContent = 'Sign-in is not set up.';
+})();
+</script>
+</body>
+</html>
