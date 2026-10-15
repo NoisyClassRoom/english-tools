@@ -267,18 +267,21 @@
   };
   // ----- homework: the teacher's assignments for this pupil's class (asked from the server once signed in) -----
   const MODE_IDS = { match: 'Match', quiz: 'Quiz', gap: 'Fill the gap', test: 'Unit test', test2: 'Unit test 2', gcheck: 'Grammar quick check' };
-  let hwBusy = false;
-  const loadHw = async () => {
-    const box = $('#hw'); const token = Track.enabled && Track.token();
-    if (!token) { box.innerHTML = ''; box.classList.add('hidden'); return; }
-    if (hwBusy) return; hwBusy = true;
-    try {
-      const r = await fetch(Track.config.endpoint, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action: 'homework', token }) });
-      const j = await r.json();
-      if (j.ok) renderHw(j.items || []);
-    } catch (e) { /* homework is optional: stay quiet if it cannot be loaded */ } finally { hwBusy = false; }
+  // homework and "My progress" come in ONE request (action pupilhome): half the requests to the Sheet, which makes the page much quicker
+  // when a whole class opens it at the same time. loadHw and loadProgress are the same function and share a request that is already running.
+  let homeBusy = null;
+  const loadHome = () => {
+    const token = Track.enabled && Track.token();
+    if (!token) { ['#hw', '#prog'].forEach(s => { $(s).innerHTML = ''; $(s).classList.add('hidden'); }); return Promise.resolve(); }
+    if (homeBusy) return homeBusy;
+    homeBusy = fetch(Track.config.endpoint, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'pupilhome', token }) })
+      .then(r => r.json())
+      .then(j => { if (j && j.ok) { if (j.hw && j.hw.ok) renderHw(j.hw.items || []); if (j.prog && j.prog.ok) renderProgress(j.prog); } })
+      .catch(() => { /* homework and progress are optional: stay quiet if they cannot be loaded */ })
+      .finally(() => { homeBusy = null; });
+    return homeBusy;
   };
+  const loadHw = loadHome;
   const fmtDue = s => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s || ''); return m ? Number(m[3]) + '. ' + Number(m[2]) + '. ' + m[1] : ''; };
   const renderHw = items => {
     const box = $('#hw'); box.innerHTML = '';
@@ -307,16 +310,7 @@
     box.classList.toggle('hidden', !$('#play').classList.contains('hidden'));
   };
   // ----- my progress: the pupil's own numbers of this school year (asked from the server once signed in) -----
-  let progBusy = false;
-  const loadProgress = async () => {
-    const box = $('#prog'), token = Track.enabled && Track.token();
-    if (!token) { box.innerHTML = ''; box.classList.add('hidden'); return; }
-    if (progBusy) return; progBusy = true;
-    try {
-      const r = await fetch(Track.config.endpoint, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'myprogress', token }) });
-      const j = await r.json(); if (j.ok) renderProgress(j);
-    } catch (e) { /* optional: stay quiet if it cannot be loaded */ } finally { progBusy = false; }
-  };
+  const loadProgress = loadHome;
   const renderProgress = j => {
     const box = $('#prog'), open = box.querySelector('details') && box.querySelector('details').open; box.innerHTML = '';
     const pc = x => Math.round(x * 100) + ' %', d = el('details'), sm = el('summary', '', '📈 My progress');
