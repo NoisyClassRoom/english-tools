@@ -234,7 +234,7 @@
   };
 
   // ---------------------------------------------------------------- tabs
-  const TABS = [['overview', 'Overview'], ['report', 'Class report'], ['homework', 'Homework'], ['heat', 'Heat-map'], ['weak', 'Weak spots'], ['questions', 'Questions'], ['progress', 'Progress'], ['compare', 'Compare classes'], ['pupils', 'Pupils'], ['units', 'Units'], ['quiet', 'Not practising']];
+  const TABS = [['overview', 'Overview'], ['report', 'Class report'], ['homework', 'Homework'], ['heat', 'Heat-map'], ['weak', 'Weak spots'], ['questions', 'Questions'], ['progress', 'Progress'], ['compare', 'Compare classes'], ['pupils', 'Pupils'], ['units', 'Units'], ['puzzles', 'Puzzles'], ['quiet', 'Not practising']];
   const render = () => {
     const tabs = $('#tabs'); tabs.innerHTML = '';
     TABS.forEach(([id, name]) => { const b = el('button', 'btn' + (id === tab ? ' on' : ''), name); b.onclick = () => { tab = id; render(); }; tabs.append(b); });
@@ -257,7 +257,7 @@
     }
     if (tab === 'overview') overview(view, data); else if (tab === 'report') report(view, data); else if (tab === 'heat') heat(view, data); else if (tab === 'weak') weak(view, data); else if (tab === 'questions') questions(view); else if (tab === 'progress') progress(view, data);
     else if (tab === 'pupils') pupils(view, data);
-    else if (tab === 'units') units(view, data); else quiet(view);
+    else if (tab === 'units') units(view, data); else if (tab === 'puzzles') puzzles(view); else quiet(view);
   };
 
   const tile = (v, label) => { const t = el('div', 'tile'); t.append(el('b', '', v), el('span', '', label)); return t; };
@@ -636,6 +636,43 @@
       { h: 'Average', k: x => x.p, v: x => badge(x.p), num: true },
       { h: 'Weakest unit', k: x => x.worst, v: x => x.worst }], people, 'Average', x => { selPupil = x.key; tab = 'progress'; render(); }) : el('p', 'msg', 'Nobody is below 60 % in this selection.'));
     view.append(c3);
+  };
+  // ---------------------------------------------------------------- puzzles (own Sheet tab "Puzzles": not part of any other number)
+  let praw = null, pState = '';
+  const loadPuzzles = async () => {
+    const token = Track.token(); if (!token || pState === 'loading') return;
+    pState = 'loading';
+    try {
+      const r = await fetch(Track.config.endpoint, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'puzzlestats', token }) });
+      const j = await r.json();
+      if (!j.ok) pState = 'error';
+      else { praw = j.rows.map(a => ({ t: a[0], last: a[1], first: a[2], cls: a[3] || '', book: a[4], unit: a[5], act: a[6], score: a[8], total: a[9], year: a[10], p: a[9] ? a[8] / a[9] : 0, key: a[1] + '|' + a[2] })); pState = 'ok'; }
+    } catch (e) { pState = 'error'; }
+    if (tab === 'puzzles' || tab === 'pupils') render();
+  };
+  const puzzleRows = () => {
+    const from = F.from ? new Date(F.from + 'T00:00:00').getTime() : 0, to = F.to ? new Date(F.to + 'T23:59:59').getTime() : Infinity;
+    return (praw || []).filter(r => (!F.year || r.year === F.year) && clsOk(r.cls) && whoOk(r.cls) && (!F.book || r.book === F.book) && r.t >= from && r.t <= to);
+  };
+  const puzzles = view => {
+    if (pState === '') loadPuzzles();
+    const card = el('div', 'card'); view.append(card);
+    card.append(el('p', 'note', 'Online puzzles (word search, hangman, word scramble, crossword) saved by pupils who were signed in. They are kept in their own Sheet tab ("Puzzles") and are NOT part of the average, heat-map, reports, homework or the pupils\' "My progress" numbers. Word search and crossword count when finished; for hangman and scramble the result is words right / words.'));
+    if (pState !== 'ok') { card.append(el('p', pState === 'error' ? 'msg err' : 'msg', pState === 'error' ? 'The puzzle data could not be loaded.' : 'Loading the puzzle data…')); return; }
+    const d = puzzleRows();
+    if (!d.length) { card.append(el('p', 'msg', 'No puzzle results for this selection yet.')); return; }
+    const tiles = el('div', 'tiles'), pupilsSet = new Set(d.map(r => r.key));
+    tiles.append(tile(d.length, 'puzzles finished'), tile(pupilsSet.size, 'pupils'), tile(new Set(d.map(r => r.unit)).size, 'units / topics'), tile(fmtDate(d.reduce((m, r) => r.t > m ? r.t : m, 0)), 'last puzzle'));
+    card.append(tiles);
+    const grp = (keyF, extra) => { const by = {}; d.forEach(r => (by[keyF(r)] = by[keyF(r)] || []).push(r)); return Object.keys(by).map(k => Object.assign({ k, n: by[k].length, pupils: new Set(by[k].map(r => r.key)).size, last: by[k].reduce((m, r) => r.t > m ? r.t : m, 0), rows: by[k] }, extra ? extra(by[k]) : {})); };
+    card.append(el('h2', '', 'By puzzle'));
+    card.append(table('pzT', [{ h: 'Puzzle', k: x => x.k, v: x => x.k }, { h: 'Finished', k: x => x.n, v: x => x.n, num: true }, { h: 'Pupils', k: x => x.pupils, v: x => x.pupils, num: true },
+      { h: 'Average result', k: x => x.avg, v: x => /^(Hangman|Word scramble)$/.test(x.k) ? badge(x.avg) : '–', num: true }], grp(r => r.act, a => ({ avg: avg(a, r => r.p) })), 'Finished'));
+    card.append(el('h2', '', 'By pupil')); card.lastChild.style.marginTop = '14px';
+    card.append(table('pzP', [{ h: 'Pupil', k: x => x.name, v: x => x.name }, { h: 'Class', k: x => x.cls, v: x => x.cls }, { h: 'Finished', k: x => x.n, v: x => x.n, num: true },
+      { h: 'Last', k: x => x.last, v: x => fmtDate(x.last), num: true }], grp(r => r.key, a => ({ name: a[0].last + ' ' + a[0].first, cls: [...new Set(a.map(r => r.cls).filter(Boolean))].join(', ') })), 'Finished'));
+    const h3 = el('h2', '', 'By unit / topic'); h3.style.marginTop = '14px'; card.append(h3);
+    card.append(table('pzU', [{ h: 'Unit', k: x => x.k, v: x => x.k }, { h: 'Finished', k: x => x.n, v: x => x.n, num: true }, { h: 'Pupils', k: x => x.pupils, v: x => x.pupils, num: true }], grp(r => r.unit || '(no unit)'), 'Finished'));
   };
   // ---------------------------------------------------------------- questions (which exact questions are failed)
   let qraw = null, qState = '';
@@ -1085,6 +1122,8 @@
     const tiles = el('div', 'tiles');
     tiles.append(tile(p.n, 'activities'), tile(p.q, 'questions'), tile(pct(p.p), 'average'), tile(p.lv.toFixed(1), 'avg level'), tile(p.hard, 'hard tests'));
     card.append(tiles);
+    if (pState === '') loadPuzzles();                   // puzzles are a separate tab of the Sheet: shown as one line, never mixed into the numbers
+    if (pState === 'ok') { const np = puzzleRows().filter(r => r.key === p.key); if (np.length) card.append(el('p', 'note', '🧩 Puzzles finished: ' + np.length + ' (' + [...new Set(np.map(r => r.act))].join(', ') + '), last ' + fmtDate(np.reduce((m, r) => r.t > m ? r.t : m, 0)) + '. Not counted in the numbers above.')); }
     const byUnit = {}; p.rows.forEach(r => (byUnit[r.unit] = byUnit[r.unit] || []).push(r));
     const ul = Object.keys(byUnit).map(u => ({ u, n: byUnit[u].length, best: Math.max(...byUnit[u].map(r => r.p)), p: avg(byUnit[u], r => r.p), last: Math.max(...byUnit[u].map(r => r.t)) }));
     const h = el('h2', '', 'Units'); h.style.marginTop = '14px'; card.append(h);
