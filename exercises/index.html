@@ -329,13 +329,14 @@
     return (window.CLASS_SETS || []).map(s => ({ label: [s.unit, s.title].filter(Boolean).join(' · '), book: c, set: s.id, topic: s.title,
       nActs: MODES.filter(m => ['match', 'quiz', 'gap', 'test', 'test2'].includes(m.id) && (!m.need || m.need(s))).length }));
   };
-  let goalChoosing = false;
+  let goalChoosing = false, srlOn = false;
   const postGoal = async (action, extra) => {
     const r = await fetch(Track.config.endpoint, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(Object.assign({ action, token: Track.token() }, extra || {})) });
     return r.json();
   };
   const renderGoal = srl => {
     const box = $('#goal'); box.innerHTML = '';
+    srlOn = !!(srl && srl.on);                                  // the prediction before a test and the reflection after it follow the same switch
     if (!srl || !srl.on || !(Track.enabled && Track.token())) { box.classList.add('hidden'); return; }
     const card = el('div', 'item'), bi = (en, sl) => { const d = el('div'); d.append(el('b', '', en), el('div', 'muted', sl)); d.querySelector('.muted').style.fontSize = '14px'; return d; };
     card.append(bi('🎯 My goal this week', 'Moj cilj ta teden'));
@@ -345,10 +346,10 @@
     };
     // last week's goal, shown once
     let seenKey = 'srl.lastShown'; let seen = ''; try { seen = localStorage.getItem(seenKey) || ''; } catch (e) {}
-    if (srl.last && seen !== srl.week && !srl.goal) {
-      const t = GOAL_WORDS[srl.last.type](srl.last), note = el('div', 'note');
-      note.append(document.createTextNode('Last week / Prejšnji teden: ' + t[0] + ' – '), el('b', '', srl.last.reached ? 'reached ✓ / dosežen' : 'not reached / ni dosežen'));
-      const ok = el('button', 'btn', 'OK'); ok.style.marginLeft = '8px'; ok.onclick = () => { try { localStorage.setItem(seenKey, srl.week); } catch (e) {} renderGoal(srl); }; note.append(ok); card.append(note);
+    if (srl.last && seen !== srl.last.week && !srl.goal) {        // the most recent earlier goal (the pupil may skip weeks), shown once
+      const t = GOAL_WORDS[srl.last.type](srl.last), note = el('div', 'note'), wk = /^(\d{4})-(\d{2})-(\d{2})$/.exec(srl.last.week);
+      note.append(document.createTextNode('Your last goal' + (wk ? ' (week of ' + Number(wk[3]) + '. ' + Number(wk[2]) + '.)' : '') + ' / Tvoj zadnji cilj: ' + t[0] + ' – '), el('b', '', srl.last.reached ? 'reached ✓ / dosežen' : 'not reached / ni dosežen'));
+      const ok = el('button', 'btn', 'OK'); ok.style.marginLeft = '8px'; ok.onclick = () => { try { localStorage.setItem(seenKey, srl.last.week); } catch (e) {} renderGoal(srl); }; note.append(ok); card.append(note);
     }
     if (srl.goal && !goalChoosing) {
       const g = srl.goal, t = GOAL_WORDS[g.type](g);
@@ -488,15 +489,19 @@
   // lim: how many characters of the chosen / typed answer are kept (multiple choice 90, typed words 40)
   const rec = (q, a, chosen, ok, lim = 40) => detail.push([String(q).slice(0, 110), String(a).slice(0, 90), String(chosen == null ? '' : chosen).slice(0, lim), ok ? 1 : 0]);
   // shows "saved / sign in" under the score; safe to call for every finished activity
-  const report = (score, total, into) => {
+  // lastRid = the id of the result that was just reported; whenSaved(f) runs f as soon as that result is saved (used by the "Next I will..." choice)
+  let lastRid = '', rSaved = false, rWait = [];
+  const whenSaved = f => { if (rSaved) f(); else rWait.push(f); };
+  const report = (score, total, into, pred) => {
     const qs = detail; detail = [];
     if (!Track.enabled || !set || !mode) return;
     const cls = new URLSearchParams(location.search).get('class') || '';
     const msg = el('p', 'savemsg', 'Saving…'); into.append(msg);
     const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);   // the same result is never stored twice, even if it is sent again
-    Track.save({ id, cls, unit: set.unit || '', topic: set.title, activity: mode.name, score, total, qs }, st => {
+    lastRid = id; rSaved = false; rWait = [];
+    Track.save({ id, cls, unit: set.unit || '', topic: set.title, activity: mode.name, score, total, qs, srl: pred ? { c: pred.c, t: pred.t } : undefined }, st => {
       msg.className = 'savemsg ' + (st === 'saved' ? 'ok' : st === 'off' ? '' : 'warn');
-      if (st === 'saved') { loadHw(); loadProgress(); }              // homework ticks and the progress numbers update
+      if (st === 'saved') { rSaved = true; const w = rWait; rWait = []; w.forEach(f => f()); loadHw(); loadProgress(); }              // homework ticks and the progress numbers update
       msg.textContent = st === 'saved' ? '✓ Result saved'
         : st === 'signin' ? 'Sign in with Google (top of the page) to save this result.'
         : st === 'retry' ? 'Saving is taking longer than usual - trying again...'
@@ -658,14 +663,15 @@
   }
 
   const stage = () => { const s = $('#stage'); s.innerHTML = ''; return s; };
-  const finish = (score, total, again) => {
+  const finish = (score, total, again, opts) => {
     setBar(1);
     const s = stage(); const r = el('div', 'result');
     const pct = total ? score / total : 1;
     r.append(el('div', 'big', pct === 1 ? '🏆' : pct >= .6 ? '👏' : '💪'),
              el('div', 'score', total ? `${score} / ${total}` : 'Well done!'),
              el('p', 'hint', pct === 1 ? 'Perfect!' : pct >= .6 ? 'Good job! Try again for a perfect score.' : 'Keep practising – you can do it!'));
-    if (total) report(score, total, r);
+    if (total) report(score, total, r, opts && opts.pred);
+    if (total && opts && opts.after) opts.after(r);                    // the prediction line and "Next I will..." (self-regulation, only while switched on)
     const row = el('div', 'row center');
     const a = el('button', 'btn primary', 'Play again'); a.onclick = again;
     const b = el('button', 'btn', 'Other activities'); b.onclick = () => show('menu');
@@ -762,7 +768,61 @@
   }
 
   // ----- unit test (multiple choice grammar) -----
+  // Self-regulation (only while the teacher has switched it on and the pupil is signed in): before the test "How sure are you?",
+  // after it "Next I will...". Both can be skipped; a skipped prediction or choice stores nothing.
   function test(key = 'tests') {
+    if (srlOn && Track.enabled && Track.token()) askConfidence(p => testRun(key, p)); else testRun(key, null);
+  }
+  function askConfidence(go) {
+    const s = stage(); setBar(0); const wrap = el('div', 'q'); s.append(wrap);
+    const mkSkip = () => { const b = el('button', 'btn', 'Skip / Preskoči'); b.style.marginTop = '16px'; b.onclick = () => go(null); return b; };
+    const step1 = () => {
+      wrap.innerHTML = ''; wrap.append(el('p', 'hint', 'Before you start / Preden začneš'), el('div', 'sl', 'What do you aim for? / Kaj ciljaš?'));
+      const row = el('div', 'choices'); [[65, 3], [80, 4], [90, 5]].forEach(([t, g]) => { const b = el('button', 'opt', t + ' % or more (grade ' + g + ' / ocena ' + g + ')'); b.onclick = () => step2(t); row.append(b); });
+      wrap.append(row, mkSkip());
+    };
+    const step2 = t => {
+      wrap.innerHTML = ''; wrap.append(el('p', 'hint', 'How sure are you that you will get ' + t + ' % or more? / Kako prepričan/a si, da boš dosegel/-a ' + t + ' % ali več?'));
+      const row = el('div', 'choices'); [[1, '😟', 'Not sure', 'Nisem prepričan/a'], [2, '🙂', 'A bit', 'Malo'], [3, '😀', 'Quite sure', 'Kar precej'], [4, '🤩', 'Very sure', 'Zelo']].forEach(([c, e, en, sl]) => {
+        const b = el('button', 'opt', e + ' ' + en + ' · ' + sl); b.onclick = () => go({ c, t }); row.append(b); });
+      wrap.append(row, mkSkip());
+    };
+    step1();
+  }
+  const CONF_WORDS = ['', 'Not sure', 'A bit', 'Quite sure', 'Very sure'];
+  function afterTest(r, key, pred, score, total) {
+    if (!(srlOn && Track.enabled && Track.token())) return;
+    const p = total ? score / total : 0;
+    if (pred) {
+      const reached = p * 100 >= pred.t - 1e-9, sure = pred.c >= 3;
+      const hint = sure && !reached ? 'Next time check with My mistakes or Grammar before the test. / Naslednjič pred testom preveri Moje napake ali slovnico.'
+        : !sure && reached ? 'You know more than you think! / Veš več, kot misliš!' : 'Good guess, you know where you stand. / Dobra ocena, veš, kje si.';
+      r.append(el('p', 'hint', 'You aimed for ' + pred.t + ' % and said "' + CONF_WORDS[pred.c] + '": you got ' + Math.round(p * 100) + ' %.'), el('p', 'hint', hint));
+    }
+    // "Next I will...": one tap; the button also does what it says (a shortcut); the choice is stored once the result is saved
+    const box = el('div', 'hintsl'); box.append(el('b', '', 'Next I will… / Naslednjič bom …'));
+    const row = el('div', 'row center'); row.style.cssText = 'flex-wrap:wrap;margin-top:8px';
+    const byId = id => MODES.find(m => m.id === id);
+    const choices = [['mistakes', '🔁 practise my mistakes', () => startMistakes()]];
+    if ((set.grammar || []).length) choices.push(['grammar', '📖 read the Grammar', () => startMode(byId('grammar'))]);
+    choices.push(['words', '🃏 repeat the words', () => startMode(byId('flash'))]);
+    if (key === 'tests' && (set.tests2 || []).length) choices.push(['harder', '⬆️ try Unit test 2', () => startMode(byId('test2'))]);
+    else if (key === 'gcheck' && (set.tests || []).length) choices.push(['harder', '⬆️ try the Unit test', () => startMode(byId('test'))]);
+    choices.push(['happy', '✅ I\'m happy with this result', null]);
+    const rid = lastRid;
+    choices.forEach(([id, label, act]) => {
+      const b = el('button', 'btn', label); b.style.margin = '3px';
+      b.onclick = () => {
+        row.querySelectorAll('button').forEach(x => x.disabled = true); b.classList.add('primary');
+        whenSaved(() => { postGoal('reflectset', { rid, value: id }).catch(() => {}); });
+        if (act) setTimeout(act, 250); else box.append(el('p', 'note', 'Great! / Odlično!'));
+      };
+      row.append(b);
+    });
+    const skip = el('button', 'btn', 'Skip / Preskoči'); skip.style.margin = '3px'; skip.onclick = () => box.remove(); row.append(skip);
+    box.append(row); r.append(box);
+  }
+  function testRun(key, pred) {
     const qs = pick(set[key], 10, key); let i = 0, score = 0; detail = [];
     // balanced answer positions: in a test each position (A-D) gets the right answer about equally often, never 3 times in a row
     let slots; for (let tries = 0; tries < 50; tries++) {
@@ -783,7 +843,7 @@
           if (o === t.answer) { b.classList.add('done'); score++; }
           else { b.classList.add('wrong'); [...box.children].find(x => x.textContent === t.answer).classList.add('done'); }
           i++; setBar(i / qs.length);
-          const go = () => i < qs.length ? ask() : finish(score, qs.length, () => test(key));
+          const go = () => i < qs.length ? ask() : finish(score, qs.length, () => test(key), { pred, after: r => afterTest(r, key, pred, score, qs.length) });
           const ex = o !== t.answer ? explBox(t.q, q, t.answer) : 0;
           if (ex === 2) {                    // wrong answer with a written explanation: the pupil reads it and presses Next
             const nb = el('button', 'btn primary', i < qs.length ? 'Next' : 'Finish'); nb.style.marginTop = '12px'; nb.onclick = go; q.append(nb); nb.focus();
