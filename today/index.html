@@ -196,7 +196,7 @@
       const a = el('a', 'btn', '▶ Continue on the Board: ' + last.book + (last.label ? ' · ' + last.label : '')); a.href = '../board/?book=' + encodeURIComponent(last.book) + '&si=' + encodeURIComponent(last.si || 0);
       box.append(a, document.createTextNode(' '));
     }
-    { const a = el('a', 'btn', '🧩 Printable puzzles'); a.href = '../puzzles/'; a.target = '_blank'; box.append(a, document.createTextNode(' ')); }
+    [['🧩 Printable puzzles', '../puzzles/'], ['🖨 Printable tests', '../tests/']].forEach(([t, h]) => { const a = el('a', 'btn', t); a.href = h; a.target = '_blank'; box.append(a, document.createTextNode(' ')); });
     [['Board', 'board/'], ['Results', 'results/'], ['Teacher Links', 'links/'], ['Classroom Tools', 'tools/']].forEach(([t, p]) => { const a = el('a', 'btn', t); a.href = SITE + p; a.target = '_top'; box.append(a, document.createTextNode(' ')); });
   };
 
