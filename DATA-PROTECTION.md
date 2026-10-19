@@ -25,6 +25,8 @@ Draft for the school's data-protection officer (DPO). It describes what the tool
 
 - since 15 Oct 2026, online puzzles (word search, hangman, word scramble, crossword): a signed-in pupil who finishes a puzzle gets it saved like another result (e-mail, name, class, unit, puzzle type, score), in a separate hidden tab of the same Sheet. No single answers are stored. The tab follows the same rules as the results: same school-year column, same cleanup of pupils who left, same access (the teacher only; a pupil sees only a count of their own puzzles).
 
+- since 19 Oct 2026, a weekly summary e-mail: once a week the script sends the teacher a short e-mail with class-level numbers (how many pupils were active, how many activities, how many pupils have not practised for two weeks, open homework per assignment). It contains no pupil names or e-mail addresses and goes only to the teacher's own school address.
+
 **Not collected:** passwords, photos, phone numbers, addresses, location, advertising or analytics cookies. Free text is limited to the short word typed in a fill-the-gap exercise (see above).
 
 **Where the data is.** One private Google Sheet in the teacher's school Google Workspace account (domain os-verzej.si). It is not shared with anyone else. The class list (pupil name, school year, class; imported from the school register) is a tab in the same Sheet. Sign-in is limited to the school domain; the server rejects accounts from other domains.
@@ -67,6 +69,8 @@ Draft for the school's data-protection officer (DPO). It describes what the tool
 - od 12. 10. 2026 »Moj napredek«: prijavljen učenec vidi povzetek svojih rezultatov v tekočem šolskem letu (število dejavnosti, zaporedne dni, povprečje, najboljše in najšibkejše enote, zadnje rezultate). Skripta poišče samo učenčeve lastne vrstice in pošlje povzetek na učenčevo stran; ne zbira se nič novega in podatki drugih učencev se ne vrnejo.
 
 - od 15. 10. 2026 spletne uganke (iskanje besed, vislice, premešane črke, križanka): prijavljen učenec, ki uganko reši, dobi rezultat shranjen kot vsak drug rezultat (e-pošta, ime, razred, enota, vrsta uganke, točke), v ločenem skritem zavihku iste preglednice. Posamezni odgovori se ne shranjujejo. Za zavihek veljajo ista pravila kot za rezultate: stolpec šolskega leta, enako čiščenje podatkov učencev, ki so šolo zapustili, enak dostop (samo učitelj; učenec vidi le število svojih ugank).
+
+- od 19. 10. 2026 tedenski povzetek po e-pošti: enkrat na teden skripta pošlje učitelju kratko e-sporočilo s podatki na ravni razredov (koliko učencev je vadilo, koliko dejavnosti, koliko učencev dva tedna ni vadilo, odprte domače naloge po nalogah). Ne vsebuje imen učencev ali njihovih e-poštnih naslovov in gre samo na učiteljev šolski naslov.
 
 **Ne zbiramo:** gesel, fotografij, telefonskih številk, naslovov, lokacije, prostih besedilnih odgovorov, oglaševalskih ali analitičnih piškotkov.
 
