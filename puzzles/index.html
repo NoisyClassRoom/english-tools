@@ -45,6 +45,8 @@
   .sc { font-size: 16px; padding: 0; list-style: none; margin: 0; } .sc li { margin: 0 0 16px; display: flex; gap: 12px; align-items: baseline; flex-wrap: wrap; }
   .sc .sl { min-width: 190px; } .sc .letters { font: 700 20px "Courier New", monospace; letter-spacing: 6px; text-transform: uppercase; } .sc .line { flex: 1; min-width: 150px; border-bottom: 1px solid #333; height: 18px; }
   .sc.key .line { border: 0; font-weight: 700; }
+  .qrbox { display: flex; flex-direction: column; align-items: center; width: 120px; margin: 10px 0 0 auto; font: 11px/1.3 Arial, sans-serif; text-align: center; break-inside: avoid; }
+  .qrbox svg { width: 96px; height: 96px; }
   @media print {
     @page { size: A4 portrait; margin: 14mm; }
     body { background: #fff; } .wrap { max-width: none; padding: 0; }
@@ -58,6 +60,7 @@
 <body>
 <script src="../exercises/tracking.js"></script>
 <script src="../exercises/puzzles.js"></script>
+<script src="../vendor/qrcode.min.js"></script>
 <div class="wrap">
   <div class="top no-print">
     <h1>🧩 Printable puzzles</h1><span class="sp"></span>
@@ -84,6 +87,7 @@
       <label id="listWrap">Word list shows <select id="listMode"><option value="en">the English words</option><option value="sl">Slovenian clues</option></select></label>
       <label><input type="checkbox" id="key" checked> answer key on a separate page</label>
       <label><input type="checkbox" id="pupils" value="1" checked> name and date line</label>
+      <label><input type="checkbox" id="qr" checked> QR code: pupils scan it to play the same puzzle online</label>
       <div style="margin-top:6px"><button class="btn primary" id="make">Make the worksheet</button> <button class="btn" id="print" style="display:none">🖨 Print</button>
         <span class="muted" id="msg" style="margin-left:8px"></span></div>
     </div>
@@ -120,10 +124,10 @@
         const l = x[level]; if (!l) { b.skip = true; return; }
         b.lvWords = (level === 'easy' ? b.words : []).concat(l.w.map(toW));
       });
-      list = base.filter(b => (b.lvWords || (!window.EXTRA_LEVELS.some(x => x.id === b.id) && b.words)) && !b.skip).map(b => ({ label: b.title + ' · ' + level[0].toUpperCase() + level.slice(1), words: b.lvWords || b.words }));
+      list = base.filter(b => (b.lvWords || (!window.EXTRA_LEVELS.some(x => x.id === b.id) && b.words)) && !b.skip).map(b => ({ id: b.id, label: b.title + ' · ' + level[0].toUpperCase() + level.slice(1), words: b.lvWords || b.words }));
     } else {
       window.CLASS_SETS = null; await loadScript('../exercises/class-' + book + '.js');
-      list = (window.CLASS_SETS || []).map(s => ({ label: [s.unit, s.title].filter(Boolean).join(' · '), words: s.words || [] }));
+      list = (window.CLASS_SETS || []).map(s => ({ id: s.id, label: [s.unit, s.title].filter(Boolean).join(' · '), words: s.words || [] }));
     }
     return cache[key] = list;
   };
@@ -171,6 +175,20 @@
     if (wantKey) { const k = sheet(title, 'Word scramble', true); k.append(ul(true)); out.push(k); }
     return { out, used: picked.length };
   };
+  // QR code to the same unit online (one unit = straight into that puzzle; several units = the unit list of the book)
+  const playUrl = (units, mode) => {
+    const book = $('#src').value, q = new URLSearchParams(); q.set('class', book);
+    if (units.length === 1 && units[0].id) { q.set('set', units[0].id); if (book === 'extra') q.set('level', $('#lvl').value); if (mode) q.set('mode', mode); }
+    return new URL('../exercises/', location.href).href + '?' + q.toString();
+  };
+  const qrBlock = (url, caption) => {
+    const qr = qrcode(0, 'M'); qr.addData(url); qr.make();
+    const n = qr.getModuleCount(); let d = '';
+    for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (qr.isDark(r, c)) d += 'M' + c + ',' + r + 'h1v1h-1z';
+    const w = el('div', 'qrbox');
+    w.innerHTML = '<svg viewBox="-2 -2 ' + (n + 4) + ' ' + (n + 4) + '" shape-rendering="crispEdges"><rect x="-2" y="-2" width="' + (n + 4) + '" height="' + (n + 4) + '" fill="#fff"/><path d="' + d + '" fill="#000"/></svg>';
+    w.append(el('div', '', caption)); w.title = url; return w;
+  };
   const make = () => {
     const units = chosen(), box = $('#sheets'); box.innerHTML = ''; $('#print').style.display = 'none';
     if (!units.length) { $('#msg').textContent = 'Tick at least one unit first.'; return; }
@@ -179,6 +197,7 @@
     if (list.length < 5) { $('#msg').textContent = 'These units have only ' + list.length + ' single words that fit: tick more units.'; return; }
     const title = units.length === 1 ? units[0].label : units.length + ' units mixed', sub = bookName() + (units.length > 1 ? ': ' + units.map(u => u.label).join(', ') : '');
     const r = type === 'ws' ? makeWs(title, sub, list, count, Number($('#size').value) || 14, $('#listMode').value, $('#key').checked) : type === 'cw' ? makeCw(title, sub, list, count, $('#key').checked) : makeSc(title, sub, list, count, $('#key').checked);
+    if ($('#qr').checked && window.qrcode) r.out[0].append(qrBlock(playUrl(units, { ws: 'wordsearch', cw: 'crossword', sc: 'scramble' }[type]), 'Scan to play this online'));
     r.out.forEach(s => box.append(s)); $('#print').style.display = '';
     $('#msg').textContent = r.used + ' words used' + (r.used < count ? ' (of ' + count + ' wanted; the rest did not fit: press the button again for a new version)' : '') + '. Press Print and choose "Save as PDF" if you want a file.';
   };
