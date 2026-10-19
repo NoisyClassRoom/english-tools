@@ -27,6 +27,8 @@ Draft for the school's data-protection officer (DPO). It describes what the tool
 
 - since 19 Oct 2026, a weekly summary e-mail: once a week the script sends the teacher a short e-mail with class-level numbers (how many pupils were active, how many activities, how many pupils have not practised for two weeks, open homework per assignment). It contains no pupil names or e-mail addresses and goes only to the teacher's own school address.
 
+- planned, switched on only after the data-protection officer has seen this text (self-regulated learning, the school's development topic): "My goal". A signed-in pupil may choose one weekly learning goal from a fixed list (for example "get 80 % in a unit", "do 5 activities this week"). Stored in a separate hidden tab of the same Sheet: date, school year, e-mail, class, the week, the type of goal, the unit and the target number. Nothing is typed by the pupil. Whether the goal was reached is calculated from the results and is not stored. The pupil sees only their own goals; the teacher sees only class-level numbers. The rows follow the same rules as the results (school year, cleanup of pupils who left, access only for the teacher).
+
 **Not collected:** passwords, photos, phone numbers, addresses, location, advertising or analytics cookies. Free text is limited to the short word typed in a fill-the-gap exercise (see above).
 
 **Where the data is.** One private Google Sheet in the teacher's school Google Workspace account (domain os-verzej.si). It is not shared with anyone else. The class list (pupil name, school year, class; imported from the school register) is a tab in the same Sheet. Sign-in is limited to the school domain; the server rejects accounts from other domains.
@@ -71,6 +73,8 @@ Draft for the school's data-protection officer (DPO). It describes what the tool
 - od 15. 10. 2026 spletne uganke (iskanje besed, vislice, premešane črke, križanka): prijavljen učenec, ki uganko reši, dobi rezultat shranjen kot vsak drug rezultat (e-pošta, ime, razred, enota, vrsta uganke, točke), v ločenem skritem zavihku iste preglednice. Posamezni odgovori se ne shranjujejo. Za zavihek veljajo ista pravila kot za rezultate: stolpec šolskega leta, enako čiščenje podatkov učencev, ki so šolo zapustili, enak dostop (samo učitelj; učenec vidi le število svojih ugank).
 
 - od 19. 10. 2026 tedenski povzetek po e-pošti: enkrat na teden skripta pošlje učitelju kratko e-sporočilo s podatki na ravni razredov (koliko učencev je vadilo, koliko dejavnosti, koliko učencev dva tedna ni vadilo, odprte domače naloge po nalogah). Ne vsebuje imen učencev ali njihovih e-poštnih naslovov in gre samo na učiteljev šolski naslov.
+
+- načrtovano, vklopljeno šele, ko bo pooblaščenec za varstvo podatkov videl to besedilo (samoregulacija učenja, razvojna tema šole): »Moj cilj«. Prijavljen učenec lahko iz vnaprej določenega seznama izbere en tedenski učni cilj (na primer »doseči 80 % pri enoti«, »opraviti 5 dejavnosti ta teden«). Shrani se v ločen skrit zavihek iste preglednice: datum, šolsko leto, e-pošta, razred, teden, vrsta cilja, enota in ciljno število. Učenec nič ne vpisuje. Ali je bil cilj dosežen, se izračuna iz rezultatov in se ne shranjuje. Učenec vidi samo svoje cilje, učitelj le številke na ravni razreda. Za vrstice veljajo ista pravila kot za rezultate (šolsko leto, čiščenje podatkov učencev, ki so šolo zapustili, dostop samo za učitelja).
 
 **Ne zbiramo:** gesel, fotografij, telefonskih številk, naslovov, lokacije, prostih besedilnih odgovorov, oglaševalskih ali analitičnih piškotkov.
 
