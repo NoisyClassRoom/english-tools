@@ -85,7 +85,7 @@ var UNITS = {
 
 // Change this text whenever the code of doPost changes: the health check compares it with what the published web app answers,
 // so it can tell you that the saved code has not been deployed as a new version yet.
-var CODE_VERSION = '2026-10-19.2';
+var CODE_VERSION = '2026-10-19.3';
 
 // ---------------------------------------------------------------- saving results
 
@@ -105,6 +105,8 @@ function doPost(e) {
     if (d.action === 'boardsave') return boardSaveReply_(d); // teacher-only: one edited section of the board text
     if (d.action === 'boardmarks') return boardMarksReply_(d);       // teacher-only: pinned exercises and "where the class stopped"
     if (d.action === 'boardmarkset') return boardMarkSetReply_(d);   // teacher-only: pin / unpin an exercise, set / clear a class stop
+    if (d.action === 'goalset') return goalSetReply_(d);             // a pupil: sets the weekly goal (only while SRL_ON = 1)
+    if (d.action === 'goalmistakes') return goalMistakesReply_(d);   // a pupil: the units where they have open mistakes (for the goal picker)
     if (d.action === 'pupilhome') return pupilHomeReply_(d);         // a pupil: homework + "My progress" in ONE request (faster than two)
     if (d.action === 'puzzlestats') return puzzleStatsReply_(d);       // teacher-only: results of the online puzzles (separate tab "Puzzles")
     if (d.action === 'ping') return out_({ ok: true, v: CODE_VERSION });   // no data; used by "Check that everything works" in the Sheet menu
@@ -401,7 +403,9 @@ function pupilHomeReply_(d) {
   var hw = null, prog = null;
   try { hw = JSON.parse(homeworkReply_(d).getContent()); } catch (e) { hw = { ok: false }; }
   try { prog = JSON.parse(myProgressReply_(d).getContent()); } catch (e2) { prog = { ok: false }; }
-  return out_({ ok: true, hw: hw, prog: prog });
+  var srl = { on: false };                                            // self-regulation prompts: only while the teacher has switched them on (srlSwitch)
+  try { if (srlOn_()) srl = srlState_(who); } catch (e3) { srl = { on: false }; }
+  return out_({ ok: true, hw: hw, prog: prog, srl: srl });
 }
 
 // A pupil asks for their own homework (any signed-in school account; returns nothing for accounts without a class).
@@ -1057,6 +1061,12 @@ function hcSheet_(add) {
   if (ro) add(ro.getLastRow() > 1 ? 'ok' : 'warn', 'Roster: ' + Math.max(0, ro.getLastRow() - 1) + ' rows' + (ro.getLastRow() > 1 ? '.' : ' - empty, so pupils have no class.'));
   var cells = sheets.reduce(function (a, s) { return a + s.getMaxRows() * s.getMaxColumns(); }, 0), pct = Math.round(cells / 100000);
   add(pct >= 85 ? 'bad' : pct >= 60 ? 'warn' : 'ok', 'The Sheet uses ' + pct + ' % of the 10 million cells Google allows' + (pct >= 60 ? ' - consider "Move earlier school years to Archive" or deleting old results.' : '.'));
+  // self-regulation tabs (created when the first row is written): how much they hold, and whether the pupil prompts are on
+  [[PSHEET, 'puzzle results'], [GSHEET, 'weekly goals']].forEach(function (t) {
+    var sh = ss.getSheetByName(t[0]);
+    if (sh) add('ok', 'The hidden tab "' + t[0] + '" (' + t[1] + '): ' + Math.max(0, sh.getLastRow() - 1) + ' rows.');
+  });
+  add('ok', 'Self-regulation prompts for pupils (My goal ...): ' + (srlOn_() ? 'ON.' : 'OFF (menu English hub > Self-regulation prompts).'));
   var mails = String(PropertiesService.getScriptProperties().getProperty('TEACHER_EMAILS') || '').split(/[\s,;]+/).filter(String);
   add(mails.length ? 'ok' : 'bad', mails.length ? mails.length + ' teacher account(s) are allowed (Results, Board, Today).' : 'No teacher account is set (script property TEACHER_EMAILS): the teacher pages will refuse everybody.');
   if (rs && rs.getLastRow() > 1) {
@@ -1127,6 +1137,166 @@ function hcFiles_(add) {
 function hcSite_(add) {
   var r = UrlFetchApp.fetch('https://noisy.splet.arnes.si/', { muteHttpExceptions: true, followRedirects: true });
   add(r.getResponseCode() === 200 ? 'ok' : 'bad', r.getResponseCode() === 200 ? 'The website noisy.splet.arnes.si answers.' : 'The website answers with HTTP ' + r.getResponseCode() + '.');
+}
+
+// ---------------------------------------------------------------- self-regulation (SELF-REGULATION-PLAN.md, features 1-4)
+// The new pupil prompts are OFF until the teacher switches them on (menu "English hub > Self-regulation prompts", script property
+// SRL_ON = 1): while off, pupilhome answers {on:false}, nothing is stored and `goalset` refuses.
+// Feature 1 "My goal": hidden tab Goals (one row per pupil and week; picking again overwrites it). Whether a goal was reached is
+// COMPUTED from Results / Puzzles / Questions, never stored. Types: score (best result of the week in a unit >= target %: 65, 80 or 90),
+// count (target activities this week: 3, 5 or 10; puzzles count too), mistakes (no open mistakes left in a unit; for an older week:
+// a "Mistakes practice" of that unit was done), finish (all of the unit's activities done this week; target = how many there are).
+var GSHEET = 'Goals';
+var GHEADER = ['Time', 'School year', 'E-mail', 'Class', 'Week start', 'Type', 'Book', 'Set', 'Topic', 'Target'];
+var GOAL_TARGETS = { score: [65, 80, 90], count: [3, 5, 10], mistakes: [0] };
+var UNIT_ACTS = ['Match', 'Quiz', 'Fill the gap', 'Unit test', 'Unit test 2'];
+
+function srlOn_() { return PropertiesService.getScriptProperties().getProperty('SRL_ON') === '1'; }
+
+function goalsSheet_() {
+  var ss = SpreadsheetApp.getActive(), sh = ss.getSheetByName(GSHEET);
+  if (!sh) {
+    sh = ss.insertSheet(GSHEET); sh.appendRow(GHEADER); sh.setFrozenRows(1); sh.getRange(1, 1, 1, GHEADER.length).setFontWeight('bold');
+    sh.getRange('A:A').setNumberFormat('dd.mm.yyyy hh:mm'); sh.getRange('B:I').setNumberFormat('@'); sh.getRange('J:J').setNumberFormat('0');
+    var first = ss.getSheets().filter(function (s) { return s.getName() !== GSHEET; })[0]; if (first) ss.setActiveSheet(first);
+    sh.hideSheet();
+  }
+  return sh;
+}
+
+// 'yyyy-MM-dd' of the Monday of the week that contains ms; and the [start, end) milliseconds of such a week
+function srlWeek_(ms) {
+  var noon = Utilities.parseDate(Utilities.formatDate(new Date(ms), TZ, 'yyyy-MM-dd') + ' 12:00', TZ, 'yyyy-MM-dd HH:mm').getTime();
+  return Utilities.formatDate(new Date(noon - (Number(Utilities.formatDate(new Date(ms), TZ, 'u')) - 1) * 86400000), TZ, 'yyyy-MM-dd');
+}
+function srlWeekRange_(ymd) {
+  var s = Utilities.parseDate(ymd + ' 00:00', TZ, 'yyyy-MM-dd HH:mm').getTime();
+  var next = Utilities.formatDate(new Date(s + 7 * 86400000 + 12 * 3600000), TZ, 'yyyy-MM-dd');
+  return [s, Utilities.parseDate(next + ' 00:00', TZ, 'yyyy-MM-dd HH:mm').getTime()];
+}
+
+function srlGoals_(email, year) {
+  var sh = SpreadsheetApp.getActive().getSheetByName(GSHEET), out = [];
+  if (!sh || sh.getLastRow() < 2) return out;
+  sh.getRange(2, 1, sh.getLastRow() - 1, GHEADER.length).getValues().forEach(function (r, i) {
+    if (String(r[2]).toLowerCase() !== email || String(r[1]) !== year) return;
+    out.push({ rowNo: i + 2, week: String(r[4]), type: String(r[5]), book: String(r[6]), set: String(r[7]), topic: String(r[8]), target: Number(r[9]) });
+  });
+  return out;
+}
+
+// the pupil's own finished activities (Results + Puzzles) since fromMs
+function srlRows_(email, fromMs) {
+  var out = [], ss = SpreadsheetApp.getActive();
+  [SHEET, PSHEET].forEach(function (n) {
+    var sh = ss.getSheetByName(n); if (!sh || sh.getLastRow() < 2) return;
+    sh.getRange(2, 1, sh.getLastRow() - 1, 9).getValues().forEach(function (r) {
+      if (r[0] instanceof Date && r[8] > 0 && String(r[1]).toLowerCase() === email && r[0].getTime() >= fromMs) out.push({ t: r[0].getTime(), book: String(r[4]), topic: String(r[5]), act: String(r[6]), p: r[7] / r[8] });
+    });
+  });
+  return out;
+}
+
+// open mistakes of one pupil per unit: { 'book\u0001unit title': number } (the same rule as "My mistakes": the latest answer was wrong)
+function openMistakesMap_(email) {
+  var ss = SpreadsheetApp.getActive(), rs = ss.getSheetByName(SHEET), qs = ss.getSheetByName(QSHEET), map = {};
+  if (!rs || !qs || rs.getLastRow() < 2 || qs.getLastRow() < 2) return map;
+  var n = rs.getLastRow() - 1, mails = rs.getRange(2, 2, n, 1).getValues(), rids = rs.getRange(2, NCOLS, n, 1).getValues(), ids = {}, agg = {};
+  for (var i = 0; i < n; i++) if (rids[i][0] && String(mails[i][0]).toLowerCase() === email) ids[String(rids[i][0])] = 1;
+  qs.getRange(2, 1, qs.getLastRow() - 1, QHEADER.length).getValues().forEach(function (r) {
+    if (!ids[String(r[1])]) return;
+    var unit = String(r[2]) + '\u0001' + String(r[3]), k = unit + '\u0002' + r[5] + '\u0001' + r[6], t = r[0] instanceof Date ? r[0].getTime() : 0, o = agg[k];
+    if (!o) o = agg[k] = { unit: unit, act: '', t: 0, ok: 1 };
+    if (String(r[4]) !== MISTAKES_ACT && !o.act) o.act = String(r[4]);
+    if (t >= o.t) { o.t = t; o.ok = Number(r[8]) ? 1 : 0; }
+  });
+  Object.keys(agg).forEach(function (k) { var o = agg[k]; if (!o.ok && o.act) map[o.unit] = (map[o.unit] || 0) + 1; });
+  return map;
+}
+
+// how far a goal got: { cur, reached } (openMap = live open mistakes, only for a goal of this week)
+function srlEval_(g, rows, openMap) {
+  var rg = srlWeekRange_(g.week), cur = 0, reached = false;
+  var sub = rows.filter(function (r) { return r.t >= rg[0] && r.t < rg[1]; });
+  var mine = sub.filter(function (r) { return r.book === g.book && r.topic === g.topic; });
+  if (g.type === 'count') { cur = sub.length; reached = cur >= g.target; }
+  else if (g.type === 'score') { var best = 0; mine.forEach(function (r) { if (PUZZLE_ACTS.indexOf(r.act) < 0 && r.p > best) best = r.p; }); cur = Math.round(best * 100); reached = cur >= g.target; }
+  else if (g.type === 'finish') { var seen = {}; mine.forEach(function (r) { if (UNIT_ACTS.indexOf(r.act) >= 0) seen[r.act] = 1; }); cur = Object.keys(seen).length; reached = cur >= g.target; }
+  else if (g.type === 'mistakes') {
+    if (openMap) { cur = openMap[g.book + '\u0001' + g.topic] || 0; reached = cur === 0; }
+    else { reached = mine.some(function (r) { return r.act === MISTAKES_ACT; }); cur = reached ? 0 : null; }
+  }
+  return { week: g.week, type: g.type, book: g.book, set: g.set, topic: g.topic, target: g.target, cur: cur, reached: reached };
+}
+
+// what the pupil's page needs: this week's goal with its progress, last week's goal, and how many goals were reached this school year
+function srlState_(who) {
+  var email = String(who.email).toLowerCase(), now = Date.now(), year = schoolYear_(new Date(now)), weekNow = srlWeek_(now);
+  var weekLast = srlWeek_(srlWeekRange_(weekNow)[0] - 12 * 3600000);
+  var goals = srlGoals_(email, year), cur = null, last = null;
+  goals.forEach(function (g) { if (g.week === weekNow) cur = g; else if (g.week === weekLast) last = g; });
+  var st = { on: true, week: weekNow, goal: null, last: null, reached: 0, total: goals.length };
+  if (!goals.length) return st;
+  var from = Math.min.apply(null, goals.map(function (g) { return srlWeekRange_(g.week)[0]; })), rows = srlRows_(email, from);
+  var openMap = cur && cur.type === 'mistakes' ? openMistakesMap_(email) : null;
+  goals.forEach(function (g) { if (srlEval_(g, rows, g === cur ? openMap : null).reached) st.reached++; });
+  if (cur) st.goal = srlEval_(cur, rows, openMap);
+  if (last) st.last = srlEval_(last, rows, null);
+  return st;
+}
+
+function goalSetReply_(d) {
+  var who = verify_(d.token);
+  if (!who) return out_({ ok: false, error: 'token' });
+  if (!srlOn_()) return out_({ ok: false, error: 'off' });
+  var g = d.goal || {}, type = String(g.type), target = Math.round(Number(g.target));
+  var book = clip_(g.book, 20), set = clip_(g.set, 60), topic = clip_(g.topic, 120);
+  var okT = type === 'finish' ? (target >= 1 && target <= 6) : (GOAL_TARGETS[type] && GOAL_TARGETS[type].indexOf(target) >= 0);
+  if (!okT || (type !== 'count' && (BOOK_IDS.indexOf(book) < 1 || !topic))) return out_({ ok: false, error: 'data' });
+  if (type === 'count') { book = ''; set = ''; topic = ''; }
+  var email = String(who.email).toLowerCase(), now = new Date(), year = schoolYear_(now), week = srlWeek_(now.getTime());
+  var lock = LockService.getScriptLock(); lock.waitLock(20000);
+  try {
+    var sh = goalsSheet_(), cls = classFor_(rosterRows_(), who.email, who.first, who.last, year);
+    var row = [now, year, email, cls, week, type, book, set, topic, target], mine = srlGoals_(email, year).filter(function (x) { return x.week === week; })[0];
+    if (mine) sh.getRange(mine.rowNo, 1, 1, GHEADER.length).setValues([row]);
+    else { sh.appendRow(row); sh.getRange(sh.getLastRow(), 1, 1, GHEADER.length).setValues([row]); }
+  } finally { lock.releaseLock(); }
+  return out_({ ok: true, srl: srlState_(who) });
+}
+
+// the units where this pupil has open mistakes: { ok, units: [{book, topic, n}] } (most first)
+function goalMistakesReply_(d) {
+  var who = verify_(d.token);
+  if (!who) return out_({ ok: false, error: 'token' });
+  if (!srlOn_()) return out_({ ok: false, error: 'off' });
+  var map = openMistakesMap_(String(who.email).toLowerCase());
+  return out_({ ok: true, units: Object.keys(map).map(function (k) { var p = k.split('\u0001'); return { book: p[0], topic: p[1], n: map[k] }; }).sort(function (a, b) { return b.n - a.n; }).slice(0, 40) });
+}
+
+// a dry run for the editor (Run > srlSelfTestLog): week helpers and the goal rules on made-up rows; reads and writes nothing
+function srlSelfTestLog() {
+  var now = Date.now(), w = srlWeek_(now), rg = srlWeekRange_(w);
+  Logger.log('this week: ' + w + ' (' + Utilities.formatDate(new Date(rg[0]), TZ, 'EEE d.M. HH:mm') + ' to ' + Utilities.formatDate(new Date(rg[1]), TZ, 'EEE d.M. HH:mm') + '), last week: ' + srlWeek_(rg[0] - 12 * 3600000) + ', length ' + Math.round((rg[1] - rg[0]) / 3600000) + ' h');
+  var rows = [{ t: rg[0] + 3600000, book: '8b', topic: 'My life', act: 'Quiz', p: 0.7 }, { t: rg[0] + 7200000, book: '8b', topic: 'My life', act: 'Unit test', p: 0.9 },
+              { t: rg[0] + 9000000, book: '8b', topic: 'My life', act: 'Word search', p: 1 }, { t: rg[0] - 3600000, book: '8b', topic: 'My life', act: 'Quiz', p: 1 }];
+  [{ type: 'score', target: 80 }, { type: 'score', target: 90 }, { type: 'count', target: 3 }, { type: 'finish', target: 2 }, { type: 'finish', target: 3 }, { type: 'mistakes', target: 0 }].forEach(function (g) {
+    g.week = w; g.book = g.type === 'count' ? '' : '8b'; g.topic = g.type === 'count' ? '' : 'My life'; g.set = '';
+    var a = srlEval_(g, rows, null), b = g.type === 'mistakes' ? srlEval_(g, rows, { '8b\u0001My life': 2 }) : null;
+    Logger.log(g.type + ' ' + g.target + ' -> cur ' + a.cur + ' reached ' + a.reached + (b ? ' | with 2 open mistakes: cur ' + b.cur + ' reached ' + b.reached : ''));
+  });
+  Logger.log('expected: score80 cur 90 reached; score90 reached (90); count3 cur 3 reached (the puzzle counts, last week row does not); finish2 cur 2 reached; finish3 cur 2 not reached; mistakes without map: not reached; with 2 open: cur 2 not reached');
+}
+
+// Sheet menu: show whether the pupil prompts are on, and switch them on or off
+function srlSwitch() {
+  var ui = SpreadsheetApp.getUi(), on = srlOn_(), p = PropertiesService.getScriptProperties();
+  var r = ui.alert('Self-regulation prompts for pupils: ' + (on ? 'ON' : 'OFF'),
+    on ? 'The pupils see "My goal" and the other new prompts of the self-regulation plan. Switch them OFF? (Nothing is deleted.)'
+       : 'Switch them ON for all signed-in pupils? Do this only after the data-protection officer has seen the updated DATA-PROTECTION.md.', ui.ButtonSet.YES_NO);
+  if (r !== ui.Button.YES) return;
+  p.setProperty('SRL_ON', on ? '0' : '1');
+  ui.alert('Self-regulation prompts are now ' + (on ? 'OFF' : 'ON') + '.');
 }
 
 // ---------------------------------------------------------------- Monday summary e-mail (19 Oct 2026)
@@ -1296,6 +1466,8 @@ function onOpen() {
     .addItem('Send the summary e-mail now', 'summaryNow')
     .addItem('Switch the Monday summary off...', 'summaryStop')
     .addSeparator()
+    .addItem('Self-regulation prompts for pupils: on / off...', 'srlSwitch')
+    .addSeparator()
     .addItem('Check that everything works', 'healthCheck')
     .addToUi();
 }
@@ -1457,6 +1629,17 @@ function findLeavers_(years) {
     });
     if (changed) plan.hw = { sh: hs, n: hn, keep: hkeep };
   }
+  // tabs of the self-regulation plan with another layout that hold pupil e-mails: [tab, number of columns, column of the e-mail]
+  plan.extra = []; plan.extraRows = 0;
+  [[GSHEET, GHEADER.length, 2]].forEach(function (x) {
+    var sh = ss.getSheetByName(x[0]); if (!sh || sh.getLastRow() < 2) return;
+    var cnt = sh.getLastRow() - 1, vals = sh.getRange(2, 1, cnt, x[1]).getValues(), keep = [], gone = 0;
+    vals.forEach(function (r) {
+      var a = maps.byEmail[String(r[x[2]]).trim().toLowerCase()];
+      if (a != null && a < cutoff.getTime()) { gone++; plan.extraRows++; } else keep.push(r);
+    });
+    if (gone) plan.extra.push({ sh: sh, n: cnt, width: x[1], keep: keep });
+  });
   return plan;
 }
 
@@ -1480,7 +1663,7 @@ function deleteLeavers_(years, auto) {
   var total = 0, count = 0, hwDone = 0;
   try {
     var plan = findLeavers_(years);
-    if (!plan.rows && !plan.hwNames) { say('Nobody left the school more than ' + years + ' year(s) ago (before ' + Utilities.formatDate(plan.cutoff, TZ, 'dd.MM.yyyy') + '), so there is nothing to delete.'); return; }
+    if (!plan.rows && !plan.hwNames && !plan.extraRows) { say('Nobody left the school more than ' + years + ' year(s) ago (before ' + Utilities.formatDate(plan.cutoff, TZ, 'dd.MM.yyyy') + '), so there is nothing to delete.'); return; }
     var list = Object.keys(plan.pupils).map(function (k) { return plan.pupils[k]; }).sort(function (a, b) { return a.name.localeCompare(b.name, 'sl'); });
     if (ui) {
       var names = list.slice(0, 25).map(function (p) { return p.name + ' (' + p.n + ' results, last year at school ' + schoolYear_(new Date(p.left - 86400000 * 30)) + ')'; }).join('\n');
@@ -1505,6 +1688,10 @@ function deleteLeavers_(years, auto) {
         if (qkeep.length) q.getRange(2, 1, qkeep.length, QHEADER.length).setValues(qkeep);
       }
     }
+    (plan.extra || []).forEach(function (x) {                     // Goals (and later the other self-regulation tabs): the rows of the pupils who left
+      x.sh.getRange(2, 1, x.n, x.width).clearContent();
+      if (x.keep.length) x.sh.getRange(2, 1, x.keep.length, x.width).setValues(x.keep);
+    });
     if (plan.hw) {
       plan.hw.sh.getRange(2, 1, plan.hw.n, HWHEADER.length).clearContent();
       if (plan.hw.keep.length) plan.hw.sh.getRange(2, 1, plan.hw.keep.length, HWHEADER.length).setValues(plan.hw.keep);
