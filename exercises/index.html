@@ -168,6 +168,7 @@
 <main>
   <div id="who" class="who hidden"></div>
   <div id="hw" class="hw hidden"></div>
+  <div id="goal" class="hw goal hidden"></div>
   <div id="prog" class="hw prog hidden"></div>
   <div id="home">
     <h1 id="homeTitle">English Exercises</h1>
@@ -248,7 +249,7 @@
     else return false;
     into.append(box); return e ? 2 : 1;           // 2 = a written explanation (the pupil presses Next), 1 = only the pointer to the Grammar (moves on by itself)
   };
-  const show = id => { ['home', 'menu', 'play'].forEach(x => $('#' + x).classList.toggle('hidden', x !== id)); $('#hw').classList.toggle('hidden', id === 'play' || !$('#hw').childNodes.length); $('#prog').classList.toggle('hidden', id !== 'home' || !$('#prog').childNodes.length); };
+  const show = id => { ['home', 'menu', 'play'].forEach(x => $('#' + x).classList.toggle('hidden', x !== id)); $('#hw').classList.toggle('hidden', id === 'play' || !$('#hw').childNodes.length); $('#prog').classList.toggle('hidden', id !== 'home' || !$('#prog').childNodes.length); $('#goal').classList.toggle('hidden', id !== 'home' || !$('#goal').childNodes.length); };
   const setBar = f => $('#bar').style.width = Math.round(f * 100) + '%';
 
   let set = null, mode = null;
@@ -272,11 +273,11 @@
   let homeBusy = null;
   const loadHome = () => {
     const token = Track.enabled && Track.token();
-    if (!token) { ['#hw', '#prog'].forEach(s => { $(s).innerHTML = ''; $(s).classList.add('hidden'); }); return Promise.resolve(); }
+    if (!token) { ['#hw', '#prog', '#goal'].forEach(s => { $(s).innerHTML = ''; $(s).classList.add('hidden'); }); return Promise.resolve(); }
     if (homeBusy) return homeBusy;
     homeBusy = fetch(Track.config.endpoint, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'pupilhome', token }) })
       .then(r => r.json())
-      .then(j => { if (j && j.ok) { if (j.hw && j.hw.ok) renderHw(j.hw.items || []); if (j.prog && j.prog.ok) renderProgress(j.prog); } })
+      .then(j => { if (j && j.ok) { if (j.hw && j.hw.ok) renderHw(j.hw.items || []); if (j.prog && j.prog.ok) renderProgress(j.prog); renderGoal(j.srl); } })
       .catch(() => { /* homework and progress are optional: stay quiet if they cannot be loaded */ })
       .finally(() => { homeBusy = null; });
     return homeBusy;
@@ -308,6 +309,96 @@
       c.append(row); box.append(c);
     });
     box.classList.toggle('hidden', !$('#play').classList.contains('hidden'));
+  };
+  // ----- my goal (self-regulation plan, feature 1): shown only while the teacher has switched it on (srl.on); one goal per week -----
+  const GOAL_WORDS = { score: t => ['Get ' + t.target + ' % or more in ' + t.topic, 'Doseči ' + t.target + ' % ali več pri: ' + t.topic],
+    count: t => ['Do ' + t.target + ' activities this week', 'Opraviti ' + t.target + ' dejavnosti ta teden'],
+    mistakes: t => ['Clear My mistakes in ' + t.topic, 'Odpraviti napake pri: ' + t.topic],
+    finish: t => ['Finish all activities of ' + t.topic, 'Opraviti vse dejavnosti enote: ' + t.topic] };
+  const goalProgress = g => g.type === 'score' ? 'best so far ' + g.cur + ' %' : g.type === 'count' ? g.cur + ' of ' + g.target + ' activities'
+    : g.type === 'finish' ? g.cur + ' of ' + g.target + ' activities of the unit' : g.cur == null ? 'not done yet' : g.cur === 0 ? 'no open mistakes left' : g.cur + ' open mistake' + (g.cur > 1 ? 's' : '') + ' left';
+  const goalFrac = g => g.reached ? 1 : g.type === 'score' ? Math.min(1, g.cur / g.target) : g.type === 'mistakes' ? 0 : Math.min(1, (g.cur || 0) / g.target);
+  const goalLink = (g, mode) => {
+    if (!g.set) return '?class=' + encodeURIComponent(g.book) + '&topic=' + encodeURIComponent(g.topic) + (mode ? '&mode=' + mode : '');     // a unit found by its title (mistakes goals)
+    const [sid, lvl] = String(g.set).split('.'); return '?class=' + encodeURIComponent(g.book) + '&set=' + encodeURIComponent(sid) + (lvl ? '&level=' + encodeURIComponent(lvl) : '') + (mode ? '&mode=' + mode : '');
+  };
+  // the units this page offers for a goal: the units of the class page, or the Extra practice topics with a level
+  const goalUnits = () => {
+    const c = new URLSearchParams(location.search).get('class') || '';
+    if (c === 'extra') { const out = []; SHARED.forEach(s => s.levels && Object.keys(LEVELS).forEach(k => { if (s.levels[k]) out.push({ label: (s.icon || '') + ' ' + s.title + ' · ' + LEVELS[k][1], book: 'extra', set: s.id + '.' + k, topic: s.title + ' · ' + LEVELS[k][1], nActs: 3 }); })); return out; }
+    return (window.CLASS_SETS || []).map(s => ({ label: [s.unit, s.title].filter(Boolean).join(' · '), book: c, set: s.id, topic: s.title,
+      nActs: MODES.filter(m => ['match', 'quiz', 'gap', 'test', 'test2'].includes(m.id) && (!m.need || m.need(s))).length }));
+  };
+  let goalChoosing = false;
+  const postGoal = async (action, extra) => {
+    const r = await fetch(Track.config.endpoint, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(Object.assign({ action, token: Track.token() }, extra || {})) });
+    return r.json();
+  };
+  const renderGoal = srl => {
+    const box = $('#goal'); box.innerHTML = '';
+    if (!srl || !srl.on || !(Track.enabled && Track.token())) { box.classList.add('hidden'); return; }
+    const card = el('div', 'item'), bi = (en, sl) => { const d = el('div'); d.append(el('b', '', en), el('div', 'muted', sl)); d.querySelector('.muted').style.fontSize = '14px'; return d; };
+    card.append(bi('🎯 My goal this week', 'Moj cilj ta teden'));
+    const setGoal = async goal => {
+      try { const j = await postGoal('goalset', { goal }); if (j.ok) { goalChoosing = false; renderGoal(j.srl); } else card.append(el('p', 'note', 'Could not save the goal. Try again.')); }
+      catch (e) { card.append(el('p', 'note', 'Could not save the goal. Try again.')); }
+    };
+    // last week's goal, shown once
+    let seenKey = 'srl.lastShown'; let seen = ''; try { seen = localStorage.getItem(seenKey) || ''; } catch (e) {}
+    if (srl.last && seen !== srl.week && !srl.goal) {
+      const t = GOAL_WORDS[srl.last.type](srl.last), note = el('div', 'note');
+      note.append(document.createTextNode('Last week / Prejšnji teden: ' + t[0] + ' – '), el('b', '', srl.last.reached ? 'reached ✓ / dosežen' : 'not reached / ni dosežen'));
+      const ok = el('button', 'btn', 'OK'); ok.style.marginLeft = '8px'; ok.onclick = () => { try { localStorage.setItem(seenKey, srl.week); } catch (e) {} renderGoal(srl); }; note.append(ok); card.append(note);
+    }
+    if (srl.goal && !goalChoosing) {
+      const g = srl.goal, t = GOAL_WORDS[g.type](g);
+      card.append(el('div', '', t[0]), el('div', 'muted', t[1]));
+      const bar = el('div', 'progress'); bar.style.cssText = 'margin:8px 0 4px;height:12px'; const fill = el('div'); fill.style.width = Math.round(goalFrac(g) * 100) + '%'; bar.append(fill); card.append(bar);
+      card.append(el('div', 'muted', g.reached ? '✓ Goal reached! / Cilj dosežen! (' + goalProgress(g) + ')' : goalProgress(g)));
+      const row = el('div', 'acts'); row.style.marginTop = '8px';
+      if (g.type !== 'count') { const o = el('button', 'btn primary', g.type === 'mistakes' ? 'Practise my mistakes' : 'Open the unit'); o.onclick = () => { location.search = goalLink(g, g.type === 'mistakes' ? 'mistakes' : ''); }; row.append(o); }
+      const ch = el('button', 'btn', 'Change goal / Spremeni cilj'); ch.onclick = () => { goalChoosing = true; renderGoal(srl); }; row.append(ch); card.append(row);
+    } else {
+      // choose a goal: type, then target / unit; "Not now" hides it until next week
+      let skipped = ''; try { skipped = sessionStorage.getItem('srl.skip') || ''; } catch (e) {}
+      if (skipped === srl.week && !goalChoosing && !srl.goal) { box.classList.add('hidden'); return; }
+      const units = goalUnits(), pick = el('div'); card.append(el('div', 'muted', 'Choose one / Izberi enega:'), pick);
+      const types = [['score', '🏆 Get a good result in a unit', 'Dober rezultat pri enoti', true], ['count', '🔢 Do a number of activities', 'Število dejavnosti', false],
+        ['mistakes', '🔁 Clear My mistakes in a unit', 'Odpraviti napake pri enoti', true], ['finish', '✅ Finish all activities of a unit', 'Opraviti vse dejavnosti enote', true]];
+      const step2 = el('div'); step2.style.marginTop = '8px';
+      const showType = async type => {
+        step2.innerHTML = ''; let target = null, unit = null;
+        const sel = el('select'); sel.style.cssText = 'max-width:100%;padding:6px;margin:4px 0';
+        const go = el('button', 'btn primary', 'Set my goal / Nastavi cilj'); go.disabled = true;
+        const upd = () => { go.disabled = !(target != null && (type === 'count' || unit)); };
+        if (type === 'score' || type === 'count') {
+          const tr = el('div'); tr.append(el('span', 'muted', type === 'score' ? 'At least / Vsaj: ' : 'How many / Koliko: '));
+          (type === 'score' ? [65, 80, 90] : [3, 5, 10]).forEach(v => { const b = el('button', 'btn', v + (type === 'score' ? ' %' : '')); b.style.marginRight = '6px'; b.onclick = () => { target = v; [...tr.querySelectorAll('.btn')].forEach(x => x.classList.remove('primary')); b.classList.add('primary'); upd(); }; tr.append(b); });
+          step2.append(tr);
+        }
+        if (type !== 'count') {
+          let list = units.map(u => ({ label: u.label, u }));
+          if (type === 'mistakes') {
+            step2.append(el('div', 'muted', 'Looking for your mistakes… / Iščem tvoje napake …'));
+            try { const j = await postGoal('goalmistakes'); list = (j.units || []).map(m => ({ label: m.topic + ' (' + m.n + ')', u: { book: m.book, topic: m.topic, set: '' } })); } catch (e) { list = []; }
+            step2.removeChild(step2.lastChild);
+            if (!list.length) { step2.append(el('div', 'note', 'No open mistakes at the moment – nice! / Trenutno ni odprtih napak – odlično!')); return; }
+          } else if (!units.length) { step2.append(el('div', 'note', 'Open your class (book) page to choose a unit. / Odpri stran svojega razreda (učbenika), da izbereš enoto.')); return; }
+          const o0 = el('option', '', 'Choose a unit / Izberi enoto…'); o0.value = ''; sel.append(o0);
+          list.forEach((x, i) => { const o = el('option', '', x.label); o.value = String(i); sel.append(o); });
+          sel.onchange = () => { unit = sel.value === '' ? null : list[Number(sel.value)].u; if (type === 'finish' && unit) target = unit.nActs; if (type === 'mistakes') target = 0; upd(); };
+          step2.append(sel);
+        } else upd();
+        go.onclick = () => { go.disabled = true; setGoal({ type, target, book: unit ? unit.book : '', set: unit ? unit.set : '', topic: unit ? unit.topic : '' }); };
+        step2.append(el('div'), go);
+      };
+      types.forEach(([id, en, sl, needsUnit]) => { const b = el('button', 'btn', en); b.title = sl; b.style.cssText = 'margin:0 6px 6px 0'; b.onclick = () => { [...pick.querySelectorAll('.btn')].forEach(x => x.classList.remove('primary')); b.classList.add('primary'); showType(id); }; pick.append(b); });
+      card.append(step2);
+      const skip = el('button', 'btn', 'Not now / Ne zdaj'); skip.style.marginTop = '8px'; skip.onclick = () => { goalChoosing = false; try { sessionStorage.setItem('srl.skip', srl.week); } catch (e) {} if (srl.goal) renderGoal(srl); else box.classList.add('hidden'); }; card.append(skip);
+    }
+    if (srl.reached) card.append(el('div', 'muted', '🏅 Goals reached this year / Doseženi cilji: ' + srl.reached));
+    box.append(card);
+    box.classList.toggle('hidden', $('#home').classList.contains('hidden'));
   };
   // ----- my progress: the pupil's own numbers of this school year (asked from the server once signed in) -----
   const loadProgress = loadHome;
@@ -561,6 +652,7 @@
     if (!s0) return;
     openSet(s0, lvl);
     if (wantMode === 'gcheck') { if ((set.gcheck || []).length) startCheck(); return; }
+    if (wantMode === 'mistakes') { startMistakes(); return; }                 // a link from "My goal": clear the mistakes of this unit
     const m = wantMode && MODES.find(x => x.id === wantMode && (!x.need || x.need(set)));
     if (m) startMode(m);
   }
