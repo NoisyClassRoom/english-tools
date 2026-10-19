@@ -99,8 +99,8 @@
       <label><input type="checkbox" id="key" checked> answer key on a separate page</label>
       <label><input type="checkbox" id="nameLine" checked> name, class and date line</label>
       <div>Grades (minimum % for 5 / 4 / 3 / 2):
-        <input type="number" id="g5" value="90" min="1" max="100" style="width:64px"> <input type="number" id="g4" value="75" min="1" max="100" style="width:64px">
-        <input type="number" id="g3" value="60" min="1" max="100" style="width:64px"> <input type="number" id="g2" value="50" min="1" max="100" style="width:64px"> <label style="margin:0"><input type="checkbox" id="gradeBox" checked> print the grade table</label></div>
+        <input type="number" id="g5" value="90" min="1" max="100" style="width:64px"> <input type="number" id="g4" value="80" min="1" max="100" style="width:64px">
+        <input type="number" id="g3" value="65" min="1" max="100" style="width:64px"> <input type="number" id="g2" value="40" min="1" max="100" style="width:64px"> <label style="margin:0"><input type="checkbox" id="gradeBox" checked> print the grade table</label></div>
       <div style="margin-top:8px"><button class="btn primary" id="make">Make the test</button> <button class="btn" id="print" style="display:none">🖨 Print</button>
         <span class="muted" id="msg" style="margin-left:8px"></span></div>
     </div>
@@ -235,7 +235,7 @@
     const num = id => Math.max(0, Math.min(Number($(id).max), Math.floor(Number($(id).value) || 0)));
     const o = { nSl2En: num('#nSl2En'), nEn2Sl: num('#nEn2Sl'), nMatch: num('#nMatch'), nMc: num('#nMc'), nGap: num('#nGap'),
       groups: $('#groups').checked, key: $('#key').checked, nameLine: $('#nameLine').checked, gradeBox: $('#gradeBox').checked,
-      g5: Number($('#g5').value) || 90, g4: Number($('#g4').value) || 75, g3: Number($('#g3').value) || 60, g2: Number($('#g2').value) || 50,
+      g5: Number($('#g5').value) || 90, g4: Number($('#g4').value) || 80, g3: Number($('#g3').value) || 65, g2: Number($('#g2').value) || 40,
       title: $('#title').value.trim() || (units.length === 1 ? units[0].label : units.map(u => u.label.replace(/ ·.*$/, '')).join(', ')),
       sub: ($('#src').value === 'extra' ? 'Extra practice' : BOOKS[$('#src').value]) + (units.length > 1 ? ' · ' + units.length + ' units' : '') };
     const words = [], seenSl = new Set(), seenEn = new Set();
