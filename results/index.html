@@ -518,66 +518,109 @@
     card.append(el('p', 'foot', 'Confidential: this report contains pupils\' names. Results are the finished activities saved in NoisyClassRoom; "below 60 %" is the pupil\'s average over the selected results.'));
   };
   // ---------------------------------------------------------------- pupil report (one A4 page: analysis, no single exercises)
+  // The printed report comes in English or Slovenian (buttons above it; the choice is remembered in this browser).
+  let repLang = 'en'; try { if (localStorage.getItem('res.replang') === 'sl') repLang = 'sl'; } catch (e) {}
+  const tocke = n => { const a = Math.abs(n); return a === 1 ? 'odstotna točka' : a === 2 ? 'odstotni točki' : a <= 4 ? 'odstotne točke' : 'odstotnih točk'; };
+  const RT = {
+    en: {
+      title: 'Pupil report', cls: 'Class', allBooks: 'all books', year: 'School year', allYears: 'all school years', printed: 'printed',
+      tFin: 'finished activities', tQ: 'questions answered', tAvg: 'average result', tGrp: 'average of the group', tDays: 'days of practice', tHard: 'hard tests',
+      short: 'In short', acts: n => n + (n === 1 ? ' activity' : ' activities'),
+      f1: (last, acts, a) => 'Last practised: ' + last + '. In the last 30 days: ' + acts + (a ? ' (average ' + a + ')' : '') + '.',
+      f2: df => 'Compared with the 30 days before: ' + (df > 0 ? '+' + df + ' percentage points (improving)' : df < 0 ? df + ' percentage points' : 'no change') + '.',
+      f3: (lv, p) => 'Level of the activities: average ' + lv + ' (1 = easy, 3 = hard); ' + p + ' % of the activities were hard tests.',
+      week: 'Activity and results per week', legA: 'average result of the week', legB: 'number of activities',
+      strong: 'Strongest units', weakH: 'Units that need more practice', noWeak: 'No unit with an average below 80 %. Well done.',
+      hUnit: 'Unit', hAct: 'Activities', hAvg: 'Average', compH: 'Unit completion', loadU: 'Loading the units…',
+      hwH: 'Homework', hwErr: 'The homework could not be loaded.', hwLoad: 'Loading the homework… (the report updates by itself)',
+      hwLine: h => h.assigned + ' assigned: ' + h.onTime + ' on time, ' + h.late + ' late, ' + h.missing + ' missing.', hwNone: 'No homework was assigned to this pupil (or it could not be matched to the Roster).',
+      foot: 'Confidential: this report is about one pupil. Results are the finished activities saved in NoisyClassRoom (Flashcards and Grammar texts are not recorded).',
+      noBooks: 'No coursebook units yet (Extra practice topics are optional and not counted).',
+      bookLine: (b, full, total, st, no) => b + ': ' + full + ' of ' + total + ' units fully done · ' + st + ' started · ' + no + ' not started.',
+      hDone: 'Done', hBest: 'Average of best', notStarted: 'not started', all: '✓ all', note: '✓ all = every activity of the unit (Match, Quiz, Fill the gap, Unit tests) has been finished at least once.',
+      date: t => t ? new Date(t).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—', dec: s => s
+    },
+    sl: {
+      title: 'Poročilo o učencu', cls: 'Razred', allBooks: 'vse knjige', year: 'Šolsko leto', allYears: 'vsa šolska leta', printed: 'natisnjeno',
+      tFin: 'opravljene dejavnosti', tQ: 'odgovorjena vprašanja', tAvg: 'povprečen rezultat', tGrp: 'povprečje skupine', tDays: 'dnevi vadbe', tHard: 'težji testi',
+      short: 'Na kratko', acts: n => n + (n === 1 ? ' dejavnost' : ' dejavnosti'),
+      f1: (last, acts, a) => 'Zadnja vaja: ' + last + '. V zadnjih 30 dneh: ' + acts + (a ? ' (povprečje ' + a + ')' : '') + '.',
+      f2: df => 'V primerjavi s prejšnjimi 30 dnevi: ' + (df > 0 ? '+' + df + ' ' + tocke(df) + ' (napredek)' : df < 0 ? df + ' ' + tocke(df) : 'brez spremembe') + '.',
+      f3: (lv, p) => 'Težavnost dejavnosti: povprečje ' + lv + ' (1 = lahko, 3 = težko); ' + p + ' % dejavnosti je bilo težjih testov.',
+      week: 'Dejavnost in rezultati po tednih', legA: 'povprečen rezultat tedna', legB: 'število dejavnosti',
+      strong: 'Najboljše enote', weakH: 'Enote, ki potrebujejo več vaje', noWeak: 'Nobena enota nima povprečja pod 80 %. Odlično.',
+      hUnit: 'Enota', hAct: 'Dejavnosti', hAvg: 'Povprečje', compH: 'Opravljene enote', loadU: 'Nalagam enote …',
+      hwH: 'Domače naloge', hwErr: 'Domačih nalog ni bilo mogoče naložiti.', hwLoad: 'Nalagam domače naloge … (poročilo se samo osveži)',
+      hwLine: h => 'Določenih: ' + h.assigned + ' · pravočasno oddanih: ' + h.onTime + ' · z zamudo: ' + h.late + ' · manjkajočih: ' + h.missing + '.', hwNone: 'Domače naloge niso bile določene.',
+      foot: 'Zaupno: poročilo se nanaša na enega učenca. Rezultati so opravljene dejavnosti, shranjene v NoisyClassRoom (kartice in slovnična besedila se ne beležijo).',
+      noBooks: 'Še ni enot iz učbenika (dodatne vaje niso obvezne in se ne štejejo).',
+      bookLine: (b, full, total, st, no) => b + ': ' + full + ' od ' + total + ' enot v celoti opravljenih · ' + st + ' začetih · ' + no + ' nezačetih.',
+      hDone: 'Opravljeno', hBest: 'Povprečje najboljših', notStarted: 'nezačeto', all: '✓ vse', note: '✓ vse = vse dejavnosti enote (povezovanje, kviz, dopolnjevanje, testi) so bile opravljene vsaj enkrat.',
+      date: t => t ? new Date(t).toLocaleDateString('sl-SI', { day: 'numeric', month: 'numeric', year: 'numeric' }) : '—', dec: s => String(s).replace('.', ',')
+    }
+  };
   const pupilReport = (view, p) => {
+    const R = RT[repLang], lang = repLang;
     const bar = el('div', 'tools no-print'), back = el('button', 'btn', '← Back to the pupil'); back.onclick = () => { tab = 'pupils'; render(); };
     const pb = el('button', 'btn primary', 'Print pupil report'); pb.onclick = () => printPage(false);
-    bar.append(back, pb, el('span', 'muted', ' The report is made for A4 portrait. It uses the filters above (school year, book, dates).')); view.append(bar);
+    bar.append(back, pb);
+    [['en', 'English'], ['sl', 'Slovenščina']].forEach(([l, t]) => { const b = el('button', 'btn' + (l === lang ? ' on' : ''), t); b.onclick = () => { repLang = l; try { localStorage.setItem('res.replang', l); } catch (e) {} render(); }; bar.append(b); });
+    bar.append(el('span', 'muted', ' Language of the printed report. A4 portrait; it uses the filters above (school year, book, dates).')); view.append(bar);
     const wrap = el('div', 'report'), card = el('div', 'card'); wrap.append(card); view.append(wrap);
     const year = F.year || roster.map(r => r.year).sort().pop() || '', rowsP = p.rows.slice().sort((a, b) => a.t - b.t), DAY = 86400000, now = Date.now();
-    card.append(el('h1', '', 'Pupil report: ' + p.name), el('p', 'sub', [p.cls ? 'Class ' + p.cls : '', F.book ? (BOOKS[F.book] || F.book) : 'all books', year ? 'School year ' + year : 'all school years',
-      F.from || F.to ? (F.from || '…') + ' – ' + (F.to || '…') : '', 'printed ' + new Date().toLocaleDateString('en-GB')].filter(Boolean).join(' · ')));
-    // comment for the printout (this browser only)
+    card.append(el('h1', '', R.title + ': ' + p.name), el('p', 'sub', [p.cls ? R.cls + ' ' + p.cls : '', F.book ? (BOOKS[F.book] || F.book) : R.allBooks, year ? R.year + ' ' + year : R.allYears,
+      F.from || F.to ? (F.from || '…') + ' – ' + (F.to || '…') : '', R.printed + ' ' + R.date(now)].filter(Boolean).join(' · ')));
+    // comment for the printout (this browser only; write it in the language of the report)
     const nkey = 'res.pnote|' + p.key + '|' + year; let saved = ''; try { saved = localStorage.getItem(nkey) || ''; } catch (e) {}
     const box = el('div', 'cm-edit no-print'), pr = el('div', 'cm-print'), ta = el('textarea');
-    const lab = el('label', 'muted', 'Your comment for the printout (stays in this browser, it is not saved in the Sheet):'); lab.style.display = 'block';
-    ta.rows = 2; ta.maxLength = 600; ta.placeholder = 'e.g. A good start. Please practise the past simple before the test.'; ta.value = saved; pr.textContent = saved;
+    const lab = el('label', 'muted', 'Your comment for the printout (stays in this browser, it is not saved in the Sheet; write it in the language of the report):'); lab.style.display = 'block';
+    ta.rows = 2; ta.maxLength = 600; ta.placeholder = lang === 'sl' ? 'npr. Dober začetek. Pred testom naj vadi pretekli čas.' : 'e.g. A good start. Please practise the past simple before the test.'; ta.value = saved; pr.textContent = saved;
     ta.oninput = () => { pr.textContent = ta.value; try { ta.value.trim() ? localStorage.setItem(nkey, ta.value) : localStorage.removeItem(nkey); } catch (e) {} };
     box.append(lab, ta); card.append(box, pr);
 
     // numbers
     const groupAvg = avg(filtered(), r => r.p), days = new Set(rowsP.map(r => dayKey(r.t))), l30 = rowsP.filter(r => now - r.t < 30 * DAY), p30 = rowsP.filter(r => now - r.t >= 30 * DAY && now - r.t < 60 * DAY);
     const tiles = el('div', 'tiles');
-    tiles.append(tile(p.n, 'finished activities'), tile(p.q, 'questions answered'), tile(pct(p.p), 'average result'), tile(filtered().length ? pct(groupAvg) : '—', 'average of the group'),
-      tile(days.size, 'days of practice'), tile(p.hard, 'hard tests'));
+    tiles.append(tile(p.n, R.tFin), tile(p.q, R.tQ), tile(pct(p.p), R.tAvg), tile(filtered().length ? pct(groupAvg) : '—', R.tGrp), tile(days.size, R.tDays), tile(p.hard, R.tHard));
     card.append(tiles);
     const facts = [];
-    facts.push('Last practised: ' + fmtDate(p.last) + '. In the last 30 days: ' + l30.length + ' activit' + (l30.length === 1 ? 'y' : 'ies') + (l30.length ? ' (average ' + pct(avg(l30, r => r.p)) + ')' : '') + '.');
-    if (l30.length && p30.length) { const df = Math.round((avg(l30, r => r.p) - avg(p30, r => r.p)) * 100); facts.push('Compared with the 30 days before: ' + (df > 0 ? '+' + df + ' percentage points (improving)' : df < 0 ? df + ' percentage points' : 'no change') + '.'); }
-    facts.push('Level of the activities: average ' + p.lv.toFixed(1) + ' (1 = easy, 3 = hard); ' + Math.round(100 * rowsP.filter(r => r.lvl === 3).length / (rowsP.length || 1)) + ' % of the activities were hard tests.');
-    sortKey.prS = sortKey.prS || { k: 'Average', asc: false }; sortKey.prW = sortKey.prW || { k: 'Average', asc: true };
-    card.append(el('h2', '', 'In short')); facts.forEach(t => card.append(el('p', 'note', '• ' + t)));
+    facts.push(R.f1(R.date(p.last), R.acts(l30.length), l30.length ? pct(avg(l30, r => r.p)) : ''));
+    if (l30.length && p30.length) facts.push(R.f2(Math.round((avg(l30, r => r.p) - avg(p30, r => r.p)) * 100)));
+    facts.push(R.f3(R.dec(p.lv.toFixed(1)), Math.round(100 * rowsP.filter(r => r.lvl === 3).length / (rowsP.length || 1))));
+    card.append(el('h2', '', R.short)); facts.forEach(t => card.append(el('p', 'note', '• ' + t)));
 
     // progress over time
     const ch = weeklySvg(rowsP);
-    if (ch) { card.append(el('h2', '', 'Activity and results per week')); const hold = el('div'); hold.innerHTML = ch; card.append(hold);
-      const lg = el('div', 'legend'); lg.innerHTML = '<span><i class="sw" style="background:var(--accent)"></i>average result of the week</span><span><i class="sw" style="background:var(--line)"></i>number of activities</span>'; card.append(lg); }
+    if (ch) { card.append(el('h2', '', R.week)); const hold = el('div'); hold.innerHTML = ch; card.append(hold);
+      const lg = el('div', 'legend'); lg.innerHTML = '<span><i class="sw" style="background:var(--accent)"></i>' + R.legA + '</span><span><i class="sw" style="background:var(--line)"></i>' + R.legB + '</span>'; card.append(lg); }
 
-    // strongest and weakest units
+    // strongest and weakest units (the sort state is kept per language: it is keyed by the column title)
+    const sS = 'prS' + lang, sW = 'prW' + lang; sortKey[sS] = sortKey[sS] || { k: R.hAvg, asc: false }; sortKey[sW] = sortKey[sW] || { k: R.hAvg, asc: true };
     const byU = {}; rowsP.forEach(r => (byU[r.unit || '(no unit)'] = byU[r.unit || '(no unit)'] || []).push(r));
     const ul = Object.keys(byU).map(u => ({ u, n: byU[u].length, p: avg(byU[u], r => r.p) })).filter(x => x.n >= 2);
     if (ul.length >= 2) {
-      const cols = [{ h: 'Unit', k: x => x.u, v: x => x.u }, { h: 'Activities', k: x => x.n, v: x => x.n, num: true }, { h: 'Average', k: x => x.p, v: x => badge(x.p), num: true }];
-      card.append(el('h2', '', 'Strongest units')); card.append(table('prS', cols, ul.slice().sort((a, b) => b.p - a.p).slice(0, 3), 'Average')); card.lastChild.style.maxHeight = 'none';
+      const cols = [{ h: R.hUnit, k: x => x.u, v: x => x.u }, { h: R.hAct, k: x => x.n, v: x => x.n, num: true }, { h: R.hAvg, k: x => x.p, v: x => badge(x.p), num: true }];
+      card.append(el('h2', '', R.strong)); card.append(table(sS, cols, ul.slice().sort((a, b) => b.p - a.p).slice(0, 3), R.hAvg)); card.lastChild.style.maxHeight = 'none';
       const weakU = ul.filter(x => x.p < 0.8).sort((a, b) => a.p - b.p).slice(0, 3);
-      card.append(el('h2', '', 'Units that need more practice'));
-      if (weakU.length) { card.append(table('prW', cols, weakU, 'Average')); card.lastChild.style.maxHeight = 'none'; }
-      else card.append(el('p', 'note', 'No unit with an average below 80 %. Well done.'));
+      card.append(el('h2', '', R.weakH));
+      if (weakU.length) { card.append(table(sW, cols, weakU, R.hAvg)); card.lastChild.style.maxHeight = 'none'; }
+      else card.append(el('p', 'note', R.noWeak));
     }
 
     // unit completion (compact)
-    card.append(el('h2', '', 'Unit completion')); const comp = el('div'); comp.append(el('p', 'note', 'Loading the units…')); card.append(comp);
-    unitCompletion(comp, p, true);
+    card.append(el('h2', '', R.compH)); const comp = el('div'); comp.append(el('p', 'note', R.loadU)); card.append(comp);
+    unitCompletion(comp, p, true, lang);
 
     // homework
     if (hwState === '') loadHw();
-    card.append(el('h2', '', 'Homework'));
-    if (hwState === 'error') card.append(el('p', 'msg', 'The homework could not be loaded.'));
-    else if (hwState !== 'ok') card.append(el('p', 'msg', 'Loading the homework… (the report updates by itself)'));
+    card.append(el('h2', '', R.hwH));
+    if (hwState === 'error') card.append(el('p', 'msg', R.hwErr));
+    else if (hwState !== 'ok') card.append(el('p', 'msg', R.hwLoad));
     else {
       const sums = hwItems().map(hwSummary), h = sums.length ? hwByPupil(sums).get(nk(p.name)) : null;
-      card.append(el('p', 'note', h ? h.assigned + ' assigned: ' + h.onTime + ' on time, ' + h.late + ' late, ' + h.missing + ' missing.' : 'No homework was assigned to this pupil (or it could not be matched to the Roster).'));
+      card.append(el('p', 'note', h ? R.hwLine(h) : R.hwNone));
     }
-    card.append(el('p', 'foot', 'Confidential: this report is about one pupil. Results are the finished activities saved in NoisyClassRoom (Flashcards and Grammar texts are not recorded).'));
+    card.append(el('p', 'foot', R.foot));
   };
   // ---------------------------------------------------------------- weak spots
   const weak = (view, data) => {
@@ -1085,11 +1128,12 @@
     });
     return classCache[book] = sets.map((s, i) => ({ idx: i, unit: s.unit || '', title: s.title || '', acts: COMP_ACTS.filter(a => a[1](s)).map(a => a[0]) }));
   };
-  const unitCompletion = async (box, p, compact) => {
+  const unitCompletion = async (box, p, compact, lang) => {
+    const R = RT[lang || 'en'];                         // texts of the compact (printed) version come in English or Slovenian
     const books = [...new Set(p.rows.map(r => r.book).filter(b => b && b !== 'extra' && BOOKS[b]))];
     box.innerHTML = '';
-    if (!books.length) { box.append(el('p', 'note', 'No coursebook units yet (Extra practice topics are optional and not counted).')); return; }
-    sortKey.pcomp = sortKey.pcomp || { k: 'Unit', asc: true }; sortKey.pcomp2 = sortKey.pcomp2 || { k: 'Unit', asc: true };
+    if (!books.length) { box.append(el('p', 'note', R.noBooks)); return; }
+    sortKey.pcomp = sortKey.pcomp || { k: 'Unit', asc: true }; sortKey['pcomp2' + (lang || 'en')] = sortKey['pcomp2' + (lang || 'en')] || { k: R.hUnit, asc: true };
     for (const book of books) {
       const sets = await loadClassSets(book);
       const best = {}; p.rows.filter(r => r.book === book).forEach(r => { const k = String(r.unit).trim().toLowerCase() + '\u0001' + r.act; if (!(best[k] >= r.p)) best[k] = r.p; });
@@ -1098,20 +1142,20 @@
         return Object.assign({ key, done: done.length, total: s.acts.length, best }, s);
       });
       const started = items.filter(x => x.done > 0), full = items.filter(x => x.total && x.done === x.total);
-      box.append(el('p', 'note', (BOOKS[book] || book) + ': ' + full.length + ' of ' + items.length + ' units fully done · ' + (started.length - full.length) + ' started · ' + (items.length - started.length) + ' not started.'));
-      const cols = [{ h: 'Unit', k: x => x.idx, v: x => [x.unit, x.title].filter(Boolean).join(' · ') }];
+      box.append(el('p', 'note', R.bookLine(BOOKS[book] || book, full.length, items.length, started.length - full.length, items.length - started.length)));
+      const cols = [{ h: compact ? R.hUnit : 'Unit', k: x => x.idx, v: x => [x.unit, x.title].filter(Boolean).join(' · ') }];
       if (compact) {            // pupil report: only the unit, whether it is done and the average of its best results
-        cols.push({ h: 'Done', k: x => x.total ? x.done / x.total : 0, num: true, v: x => !x.done ? 'not started' : x.done === x.total ? '✓ all' : x.done + ' / ' + x.total },
-          { h: 'Average of best', k: x => { const v = x.acts.map(a => x.best[x.key + '\u0001' + a]).filter(v => v != null); return v.length ? avg(v, y => y) : -1; }, num: true,
+        cols.push({ h: R.hDone, k: x => x.total ? x.done / x.total : 0, num: true, v: x => !x.done ? R.notStarted : x.done === x.total ? R.all : x.done + ' / ' + x.total },
+          { h: R.hBest, k: x => { const v = x.acts.map(a => x.best[x.key + '\u0001' + a]).filter(v => v != null); return v.length ? avg(v, y => y) : -1; }, num: true,
             v: x => { const v = x.acts.map(a => x.best[x.key + '\u0001' + a]).filter(v => v != null); return v.length ? badge(avg(v, y => y)) : '—'; } });
-        box.append(table('pcomp2', cols, items, 'Unit')); box.lastChild.style.maxHeight = 'none'; continue;
+        box.append(table('pcomp2' + (lang || 'en'), cols, items, R.hUnit)); box.lastChild.style.maxHeight = 'none'; continue;
       }
       COMP_ACTS.forEach(([a]) => cols.push({ h: a, k: x => x.best[x.key + '\u0001' + a] == null ? -1 : x.best[x.key + '\u0001' + a], num: true,
         v: x => !x.acts.includes(a) ? '–' : x.best[x.key + '\u0001' + a] == null ? el('span', 'muted', '·') : badge(x.best[x.key + '\u0001' + a]) }));
       cols.push({ h: 'Done', k: x => x.total ? x.done / x.total : 0, num: true, v: x => x.total && x.done === x.total ? '✓ all' : x.done + ' / ' + x.total });
       box.append(table('pcomp', cols, items, 'Unit'));
     }
-    box.append(el('p', 'note', compact ? '✓ all = every activity of the unit (Match, Quiz, Fill the gap, Unit tests) has been finished at least once.'
+    box.append(el('p', 'note', compact ? R.note
       : '✓ = every activity of the unit has been finished at least once (best result shown). "·" = not done yet, "–" = the unit has no such activity.'));
   };
 
