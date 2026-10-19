@@ -85,7 +85,7 @@ var UNITS = {
 
 // Change this text whenever the code of doPost changes: the health check compares it with what the published web app answers,
 // so it can tell you that the saved code has not been deployed as a new version yet.
-var CODE_VERSION = '2026-10-19.1';
+var CODE_VERSION = '2026-10-19.2';
 
 // ---------------------------------------------------------------- saving results
 
@@ -1108,7 +1108,7 @@ function hcBackup_(add) {
 // 6) every exercise file on GitHub Pages exists, is not cut off and has no syntax error
 function hcFiles_(add) {
   var files = [['index.html', ''], ['exercises/index.html', ''], ['exercises/classes.js', 'CLASSES'], ['exercises/tracking.js', 'TRACK_CONFIG'], ['exercises/sets.js', 'window.SETS'],
-    ['exercises/hints.js', 'WORD_HINTS'], ['exercises/levels-1.js', 'EXTRA_LEVELS'], ['exercises/levels-2.js', 'EXTRA_LEVELS'], ['exercises/levels-3.js', 'EXTRA_LEVELS'], ['exercises/levels-4.js', 'EXTRA_LEVELS'], ['exercises/levels-5.js', 'EXTRA_LEVELS'],['exercises/explain.js', 'EXPLAIN'], ['exercises/puzzles.js', 'Puzzles'], ['puzzles/index.html', ''], ['tests/index.html', ''],['results/index.html', ''], ['board/index.html', ''], ['today/index.html', '']];
+    ['exercises/hints.js', 'WORD_HINTS'], ['exercises/levels-1.js', 'EXTRA_LEVELS'], ['exercises/levels-2.js', 'EXTRA_LEVELS'], ['exercises/levels-3.js', 'EXTRA_LEVELS'], ['exercises/levels-4.js', 'EXTRA_LEVELS'], ['exercises/levels-5.js', 'EXTRA_LEVELS'],['exercises/explain.js', 'EXPLAIN'], ['exercises/puzzles.js', 'Puzzles'], ['puzzles/index.html', ''], ['tests/index.html', ''], ['vendor/qrcode.min.js', 'qrcode'], ['results/index.html', ''], ['board/index.html', ''], ['today/index.html', '']];
   CLASS_IDS.forEach(function (id) {
     [['class-', 'CLASS_SETS'], ['hard-', 'HARD_TESTS'], ['more-', 'MORE_SETS'], ['more2-', 'MORE2_SETS'], ['grammar-', 'GRAMMAR']].forEach(function (f) { files.push(['exercises/' + f[0] + id + '.js', f[1]]); });
   });
@@ -1127,6 +1127,147 @@ function hcFiles_(add) {
 function hcSite_(add) {
   var r = UrlFetchApp.fetch('https://noisy.splet.arnes.si/', { muteHttpExceptions: true, followRedirects: true });
   add(r.getResponseCode() === 200 ? 'ok' : 'bad', r.getResponseCode() === 200 ? 'The website noisy.splet.arnes.si answers.' : 'The website answers with HTTP ' + r.getResponseCode() + '.');
+}
+
+// ---------------------------------------------------------------- Monday summary e-mail (19 Oct 2026)
+// Every Monday about 07:00 the teacher(s) in TEACHER_EMAILS get one short e-mail: activity of the last 7 days by class (with the
+// 7 days before), classes with no activity, pupils who have not practised for 14+ days (numbers only: NO pupil names are e-mailed),
+// homework that is open and overdue / due this week (numbers per assignment), puzzles, the number of often-missed questions without
+// an explanation (explain.js), the backup and the health check (only what is not OK). Menu "English hub": set up / send now / stop.
+// Needs the permission to send e-mail (a Google screen appears once when it is set up or sent the first time).
+var SUMMARY_FN = 'weeklySummary';
+
+function summaryData_() {
+  var DAY = 86400000, now = Date.now(), w0 = now - 7 * DAY, p0 = w0 - 7 * DAY, q0 = now - 14 * DAY, year = schoolYear_(new Date());
+  var ss = SpreadsheetApp.getActive(), roster = rosterRows_().filter(function (r) { return r.year === year || !r.year; });
+  var classes = {}, order = [];
+  roster.forEach(function (r) {
+    var c = classes[r.cls]; if (!c) { c = classes[r.cls] = { cls: r.cls, pupils: 0, active: {}, n: 0, np: 0, last: 0, quiet: 0 }; order.push(r.cls); }
+    c.pupils++;
+  });
+  var lastByEmail = {}, lastByName = {};
+  var sh = ss.getSheetByName(SHEET);
+  if (sh && sh.getLastRow() > 1) sh.getRange(2, 1, sh.getLastRow() - 1, 12).getValues().forEach(function (r) {
+    if (!(r[0] instanceof Date) || String(r[10]) !== year) return;
+    var t = r[0].getTime(), email = String(r[1]).toLowerCase(), nk = nameKey_(r[2] + ' ' + r[3]), c = classes[String(r[11])];
+    if (t > (lastByEmail[email] || 0)) lastByEmail[email] = t;
+    if (t > (lastByName[nk] || 0)) lastByName[nk] = t;
+    if (!c) return;
+    if (t > c.last) c.last = t;
+    if (t >= w0) { c.n++; c.active[email] = 1; } else if (t >= p0) c.np++;
+  });
+  roster.forEach(function (r) {                                   // pupils with nothing for 14+ days (or never)
+    var t = Math.max(r.email ? (lastByEmail[r.email] || 0) : 0, r.name ? (lastByName[r.name] || 0) : 0);
+    if (t < q0) classes[r.cls].quiet++;
+  });
+  var puzzles = 0, ps = ss.getSheetByName(PSHEET);
+  if (ps && ps.getLastRow() > 1) ps.getRange(2, 1, ps.getLastRow() - 1, 11).getValues().forEach(function (r) { if (r[0] instanceof Date && r[0].getTime() >= w0 && String(r[10]) === year) puzzles++; });
+  // homework: open assignments that are overdue (up to 21 days) or due in the next 7 days
+  var hw = [], results = hwResults_();
+  hwAll_().filter(function (a) { return a.year === year; }).forEach(function (a) {
+    var people = roster.filter(function (r) { return r.cls === a.cls && (!a.keys.length || a.keys.indexOf(r.name) >= 0); }), open = 0;
+    people.forEach(function (p) { if (!hwProgress_(a, results, p.email, p.name ? [p.name] : []).done) open++; });
+    var overdue = a.dueEnd > 0 && now > a.dueEnd;
+    if (!open || !people.length) return;
+    if (overdue && now - a.dueEnd > 21 * DAY) return;
+    if (!overdue && a.dueEnd - now > 7 * DAY) return;
+    hw.push({ cls: a.cls, unit: [a.unit, a.topic].filter(String).join(' · '), due: a.due, overdue: overdue, open: open, total: people.length });
+  });
+  // often-missed questions that still have no explanation (the same rule as the card on the Today page)
+  var unexplained = null;
+  try {
+    var src = UrlFetchApp.fetch(SITE_BASE + 'exercises/explain.js?x=' + now, { muteHttpExceptions: true }).getContentText(), have = {}, m, re = /^\s*"((?:[^"\\]|\\.)*)"\s*:/gm;
+    while ((m = re.exec(src))) have[m[1].replace(/\\"/g, '"')] = 1;
+    var by = {};
+    questionStats_().filter(function (a) { return a[0] === year && !/^(Quiz|Match)$/.test(a[4]); }).forEach(function (a) {
+      var k = String(a[5]).trim().toLowerCase() + '||' + String(a[6]).trim().toLowerCase(), o = by[k] = by[k] || { k: k, n: 0, w: 0 };
+      o.n += a[7]; o.w += a[8];
+    });
+    unexplained = Object.keys(by).filter(function (k) { var o = by[k]; return o.n >= 5 && o.w / o.n >= 0.4 && !have[k] && !have[k.split('||')[0]]; }).length;
+  } catch (e) {}
+  var health = null;
+  try { health = healthRun_().filter(function (r) { return r[0] === 'warn' || r[0] === 'bad'; }); } catch (e2) { health = [['bad', 'The health check itself failed: ' + e2]]; }
+  return { year: year, w0: w0, now: now, classes: order.sort(function (a, b) { return a.localeCompare(b, 'sl', { numeric: true }); }).map(function (c) { return classes[c]; }),
+    puzzles: puzzles, hw: hw, unexplained: unexplained, health: health, backup: backupLast_(), backupOn: weeklyTrigger_().length > 0 };
+}
+
+function summaryHtml_(d) {
+  var esc = function (s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }, f = function (t) { return Utilities.formatDate(new Date(t), TZ, 'd. M.'); };
+  var td = 'style="padding:3px 10px;border-bottom:1px solid #ddd"', tdn = 'style="padding:3px 10px;border-bottom:1px solid #ddd;text-align:right"';
+  var h = '<div style="font:14px/1.5 Arial,sans-serif;color:#222;max-width:680px"><h2 style="margin:0 0 4px">NoisyClassRoom: the week ' + f(d.w0) + ' – ' + f(d.now) + '</h2>';
+  var total = d.classes.reduce(function (s, c) { return s + c.n; }, 0), prev = d.classes.reduce(function (s, c) { return s + c.np; }, 0);
+  h += '<p>' + total + ' finished activities in the last 7 days (the 7 days before: ' + prev + ')' + (d.puzzles ? ', and ' + d.puzzles + ' puzzles (counted separately)' : '') + '.</p>';
+  h += '<table style="border-collapse:collapse;width:100%"><tr style="background:#f2efe9"><th ' + td + ' align="left">Class</th><th ' + tdn + '>Pupils active</th><th ' + tdn + '>Activities</th><th ' + tdn + '>Before</th><th ' + tdn + '>No practice 14+ days</th><th ' + td + ' align="left">Last activity</th></tr>';
+  d.classes.forEach(function (c) {
+    var act = Object.keys(c.active).length, quietRow = !c.n;
+    h += '<tr' + (quietRow ? ' style="color:#b45309"' : '') + '><td ' + td + '><b>' + esc(c.cls) + '</b></td><td ' + tdn + '>' + act + ' / ' + c.pupils + '</td><td ' + tdn + '>' + c.n + '</td><td ' + tdn + '>' + c.np + '</td><td ' + tdn + '>' + c.quiet + '</td><td ' + td + '>' + (c.last ? f(c.last) : '–') + '</td></tr>';
+  });
+  h += '</table>';
+  var silent = d.classes.filter(function (c) { return !c.n; }).map(function (c) { return c.cls; });
+  if (silent.length) h += '<p style="color:#b45309">⚠ No activity at all in: ' + esc(silent.join(', ')) + '.</p>';
+  h += '<h3 style="margin:16px 0 4px">Homework</h3>';
+  if (!d.hw.length) h += '<p>Nothing open that is overdue or due in the next 7 days. 🎉</p>';
+  else h += '<ul>' + d.hw.map(function (x) { return '<li>' + esc(x.cls) + ' · ' + esc(x.unit) + ' – ' + (x.overdue ? '<b style="color:#b91c1c">overdue</b> since ' : 'due ') + esc(x.due) + ': ' + x.open + ' of ' + x.total + ' pupils not finished</li>'; }).join('') + '</ul>';
+  h += '<h3 style="margin:16px 0 4px">Other</h3><ul>';
+  if (d.unexplained != null) h += '<li>Often-missed questions without a short explanation: <b>' + d.unexplained + '</b>' + (d.unexplained >= 20 ? ' – time to write the next batch (open the Results page, then ask Claude to "write more mistake explanations").' : '.') + '</li>';
+  h += '<li>Backup: ' + (d.backupOn ? 'weekly backup is on' : '<b style="color:#b91c1c">weekly backup is OFF</b>') + (d.backup ? ', last copy ' + esc(d.backup) : ', no copy yet') + '.</li>';
+  if (d.health && d.health.length) h += '<li>Health check: ' + d.health.map(function (r) { return (r[0] === 'bad' ? '❌ ' : '⚠️ ') + esc(r[1]); }).join('; ') + '</li>';
+  else h += '<li>Health check: everything works ✅</li>';
+  h += '</ul><p style="color:#777;font-size:12px">Pupil names are never sent by e-mail: open the Today and Results pages for details (' + SITE_BASE + 'today/). This e-mail is sent every Monday; switch it off in the Sheet menu English hub.</p></div>';
+  return h;
+}
+
+function summaryRecipients_() {
+  return String(PropertiesService.getScriptProperties().getProperty('TEACHER_EMAILS') || '').split(/[\s,;]+/).filter(function (e) { return /@/.test(e); });
+}
+
+function summarySend_() {
+  var to = summaryRecipients_();
+  if (!to.length) throw new Error('No teacher e-mail address (script property TEACHER_EMAILS).');
+  var d = summaryData_();
+  MailApp.sendEmail({ to: to.join(','), subject: 'NoisyClassRoom: weekly summary (' + Utilities.formatDate(new Date(d.w0), TZ, 'd. M.') + ' – ' + Utilities.formatDate(new Date(d.now), TZ, 'd. M.') + ')',
+    htmlBody: summaryHtml_(d), name: 'NoisyClassRoom' });
+  PropertiesService.getScriptProperties().setProperty('LAST_SUMMARY', String(Date.now()));
+  return to.length;
+}
+
+function weeklySummary() {                                    // runs from the time trigger
+  try { summarySend_(); PropertiesService.getScriptProperties().deleteProperty('LAST_SUMMARY_ERROR'); }
+  catch (e) { PropertiesService.getScriptProperties().setProperty('LAST_SUMMARY_ERROR', Utilities.formatDate(new Date(), TZ, 'd. M. yyyy HH:mm') + ': ' + e); }
+}
+
+// a dry run: builds the e-mail and writes it to the execution log (nothing is sent)
+function summaryLog() {
+  var d = summaryData_();
+  Logger.log('classes: ' + d.classes.map(function (c) { return c.cls + ' ' + Object.keys(c.active).length + '/' + c.pupils + ' act ' + c.n + ' prev ' + c.np + ' quiet ' + c.quiet; }).join(' | '));
+  Logger.log('puzzles ' + d.puzzles + ' | homework ' + JSON.stringify(d.hw) + ' | unexplained ' + d.unexplained + ' | health issues ' + JSON.stringify(d.health) + ' | backup ' + d.backup);
+  Logger.log('html length ' + summaryHtml_(d).length);
+}
+
+function summaryTrigger_() {
+  return ScriptApp.getProjectTriggers().filter(function (t) { return t.getHandlerFunction() === SUMMARY_FN; });
+}
+
+function summaryNow() {
+  var ui = SpreadsheetApp.getUi();
+  try { var n = summarySend_(); ui.alert('Summary sent', 'The summary e-mail was sent to ' + n + ' address(es). Check your inbox (and spam folder).', ui.ButtonSet.OK); }
+  catch (e) { ui.alert('The summary did not work', String(e), ui.ButtonSet.OK); }
+}
+
+function summarySetup() {
+  var ui = SpreadsheetApp.getUi();
+  if (summaryTrigger_().length) { ui.alert('The Monday summary is already on', 'An e-mail is sent every Monday at about 07:00. Use "Send the summary e-mail now" to see one.', ui.ButtonSet.OK); return; }
+  ScriptApp.newTrigger(SUMMARY_FN).timeBased().onWeekDay(ScriptApp.WeekDay.MONDAY).atHour(7).create();
+  try { var n = summarySend_(); ui.alert('The Monday summary is on', 'A first e-mail was sent now to ' + n + ' address(es). From now on one comes every Monday at about 07:00.', ui.ButtonSet.OK); }
+  catch (e) { ui.alert('The Monday summary is on, but the first e-mail did not work', String(e), ui.ButtonSet.OK); }
+}
+
+function summaryStop() {
+  var ui = SpreadsheetApp.getUi(), ts = summaryTrigger_();
+  if (!ts.length) { ui.alert('The Monday summary is not on.'); return; }
+  if (ui.alert('Switch the Monday summary e-mail off?', 'You can switch it on again later.', ui.ButtonSet.OK_CANCEL) !== ui.Button.OK) return;
+  ts.forEach(function (t) { ScriptApp.deleteTrigger(t); });
+  ui.alert('The Monday summary is off.');
 }
 
 // ---------------------------------------------------------------- menu
@@ -1150,6 +1291,10 @@ function onOpen() {
     .addItem('Set up weekly backup', 'backupSetup')
     .addItem('Backup status', 'backupStatus')
     .addItem('Switch weekly backup off...', 'backupStop')
+    .addSeparator()
+    .addItem('Set up the Monday summary e-mail', 'summarySetup')
+    .addItem('Send the summary e-mail now', 'summaryNow')
+    .addItem('Switch the Monday summary off...', 'summaryStop')
     .addSeparator()
     .addItem('Check that everything works', 'healthCheck')
     .addToUi();
