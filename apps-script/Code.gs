@@ -85,7 +85,7 @@ var UNITS = {
 
 // Change this text whenever the code of doPost changes: the health check compares it with what the published web app answers,
 // so it can tell you that the saved code has not been deployed as a new version yet.
-var CODE_VERSION = '2026-10-19.3';
+var CODE_VERSION = '2026-10-19.4';
 
 // ---------------------------------------------------------------- saving results
 
@@ -106,6 +106,7 @@ function doPost(e) {
     if (d.action === 'boardmarks') return boardMarksReply_(d);       // teacher-only: pinned exercises and "where the class stopped"
     if (d.action === 'boardmarkset') return boardMarkSetReply_(d);   // teacher-only: pin / unpin an exercise, set / clear a class stop
     if (d.action === 'goalset') return goalSetReply_(d);             // a pupil: sets the weekly goal (only while SRL_ON = 1)
+    if (d.action === 'reflectset') return reflectSetReply_(d);       // a pupil: the "Next I will..." choice after a test (only while SRL_ON = 1)
     if (d.action === 'goalmistakes') return goalMistakesReply_(d);   // a pupil: the units where they have open mistakes (for the goal picker)
     if (d.action === 'pupilhome') return pupilHomeReply_(d);         // a pupil: homework + "My progress" in ONE request (faster than two)
     if (d.action === 'puzzlestats') return puzzleStatsReply_(d);       // teacher-only: results of the online puzzles (separate tab "Puzzles")
@@ -138,6 +139,12 @@ function doPost(e) {
       sh.getRange(2, 1, 1, NCOLS).setFontWeight('normal').setBackground(null).setValues([row]);
       if (id && d.qs instanceof Array) {                    // question details must never stop the result from being saved
         try { saveQuestions_(now, id, cls, row[15], activity, year, row[11], d.qs); } catch (e2) {}
+      }
+      if (id && d.srl && srlOn_() && !isPuzzle && REFLECT_ACTS.indexOf(activity) >= 0) {      // the pupil's prediction before a test (only while the prompts are on)
+        try {
+          var conf = Math.round(Number(d.srl.c)), aim = Math.round(Number(d.srl.t));
+          if (conf >= 1 && conf <= 4 && [65, 80, 90].indexOf(aim) >= 0) { var rsh = reflectionsSheet_(), rrow = [now, year, id, 'confidence', conf, aim]; rsh.appendRow(rrow); rsh.getRange(rsh.getLastRow(), 1, 1, RHEADER.length).setValues([rrow]); }
+        } catch (e4) {}
       }
     } finally { lock.releaseLock(); }
     return out_({ ok: true });
@@ -1062,7 +1069,7 @@ function hcSheet_(add) {
   var cells = sheets.reduce(function (a, s) { return a + s.getMaxRows() * s.getMaxColumns(); }, 0), pct = Math.round(cells / 100000);
   add(pct >= 85 ? 'bad' : pct >= 60 ? 'warn' : 'ok', 'The Sheet uses ' + pct + ' % of the 10 million cells Google allows' + (pct >= 60 ? ' - consider "Move earlier school years to Archive" or deleting old results.' : '.'));
   // self-regulation tabs (created when the first row is written): how much they hold, and whether the pupil prompts are on
-  [[PSHEET, 'puzzle results'], [GSHEET, 'weekly goals']].forEach(function (t) {
+  [[PSHEET, 'puzzle results'], [GSHEET, 'weekly goals'], [RSHEET, 'test predictions and next steps']].forEach(function (t) {
     var sh = ss.getSheetByName(t[0]);
     if (sh) add('ok', 'The hidden tab "' + t[0] + '" (' + t[1] + '): ' + Math.max(0, sh.getLastRow() - 1) + ' rows.');
   });
@@ -1232,9 +1239,9 @@ function srlEval_(g, rows, openMap) {
 // what the pupil's page needs: this week's goal with its progress, last week's goal, and how many goals were reached this school year
 function srlState_(who) {
   var email = String(who.email).toLowerCase(), now = Date.now(), year = schoolYear_(new Date(now)), weekNow = srlWeek_(now);
-  var weekLast = srlWeek_(srlWeekRange_(weekNow)[0] - 12 * 3600000);
   var goals = srlGoals_(email, year), cur = null, last = null;
-  goals.forEach(function (g) { if (g.week === weekNow) cur = g; else if (g.week === weekLast) last = g; });
+  // the pupil may not open the app every week: "last" is the most recent EARLIER goal, whichever week it was
+  goals.forEach(function (g) { if (g.week === weekNow) cur = g; else if (g.week < weekNow && (!last || g.week > last.week)) last = g; });
   var st = { on: true, week: weekNow, goal: null, last: null, reached: 0, total: goals.length };
   if (!goals.length) return st;
   var from = Math.min.apply(null, goals.map(function (g) { return srlWeekRange_(g.week)[0]; })), rows = srlRows_(email, from);
@@ -1263,6 +1270,48 @@ function goalSetReply_(d) {
     else { sh.appendRow(row); sh.getRange(sh.getLastRow(), 1, 1, GHEADER.length).setValues([row]); }
   } finally { lock.releaseLock(); }
   return out_({ ok: true, srl: srlState_(who) });
+}
+
+// Features 2 and 3: "How sure are you?" before a Unit test / Unit test 2 / Grammar quick check and "Next I will..." after it.
+// Hidden tab Reflections: [time, school year, RESULT ID, kind, value, extra]; no name or e-mail in the row (it is linked to its result
+// like the question rows, and the leavers cleanup removes it with the result). kind = confidence: value 1-4 (not sure ... very sure),
+// extra = the percentage the pupil aimed for (65 / 80 / 90); kind = next: value = the choice, extra empty. Nothing is typed by the pupil.
+var RSHEET = 'Reflections';
+var RHEADER = ['Time', 'School year', 'Result id', 'Kind', 'Value', 'Extra'];
+var REFLECT_ACTS = ['Unit test', 'Unit test 2', 'Grammar quick check'];
+var NEXT_CHOICES = ['mistakes', 'grammar', 'words', 'harder', 'happy'];
+
+function reflectionsSheet_() {
+  var ss = SpreadsheetApp.getActive(), sh = ss.getSheetByName(RSHEET);
+  if (!sh) {
+    sh = ss.insertSheet(RSHEET); sh.appendRow(RHEADER); sh.setFrozenRows(1); sh.getRange(1, 1, 1, RHEADER.length).setFontWeight('bold');
+    sh.getRange('A:A').setNumberFormat('dd.mm.yyyy hh:mm'); sh.getRange('B:E').setNumberFormat('@'); sh.getRange('F:F').setNumberFormat('@');
+    var first = ss.getSheets().filter(function (s) { return s.getName() !== RSHEET; })[0]; if (first) ss.setActiveSheet(first);
+    sh.hideSheet();
+  }
+  return sh;
+}
+
+// the choice after a test ("Next I will..."), linked to the pupil's own result; the pupil's page sends it once the result is saved
+function reflectSetReply_(d) {
+  var who = verify_(d.token);
+  if (!who) return out_({ ok: false, error: 'token' });
+  if (!srlOn_()) return out_({ ok: false, error: 'off' });
+  var rid = clip_(d.rid, 40), value = String(d.value);
+  if (!rid || NEXT_CHOICES.indexOf(value) < 0) return out_({ ok: false, error: 'data' });
+  var ss = SpreadsheetApp.getActive(), rs = ss.getSheetByName(SHEET), email = String(who.email).toLowerCase(), mine = false;
+  if (rs && rs.getLastRow() > 1) {                                        // the result must be this pupil's own and a test
+    var n = Math.min(rs.getLastRow() - 1, 400), top = rs.getRange(2, 1, n, NCOLS).getValues();
+    for (var i = 0; i < top.length; i++) if (String(top[i][NCOLS - 1]) === rid && String(top[i][1]).toLowerCase() === email && REFLECT_ACTS.indexOf(String(top[i][6])) >= 0) { mine = true; break; }
+  }
+  if (!mine) return out_({ ok: false, error: 'noresult' });
+  var lock = LockService.getScriptLock(); lock.waitLock(20000);
+  try {
+    var sh = reflectionsSheet_(), now = new Date(), row = [now, schoolYear_(now), rid, 'next', value, ''], found = 0;
+    if (sh.getLastRow() > 1) sh.getRange(2, 3, sh.getLastRow() - 1, 2).getValues().forEach(function (r, i) { if (!found && String(r[0]) === rid && String(r[1]) === 'next') found = i + 2; });
+    if (found) sh.getRange(found, 1, 1, RHEADER.length).setValues([row]); else { sh.appendRow(row); sh.getRange(sh.getLastRow(), 1, 1, RHEADER.length).setValues([row]); }
+  } finally { lock.releaseLock(); }
+  return out_({ ok: true });
 }
 
 // the units where this pupil has open mistakes: { ok, units: [{book, topic, n}] } (most first)
@@ -1686,6 +1735,14 @@ function deleteLeavers_(years, auto) {
       if (qkeep.length < qn) {
         q.getRange(2, 1, qn, QHEADER.length).clearContent();
         if (qkeep.length) q.getRange(2, 1, qkeep.length, QHEADER.length).setValues(qkeep);
+      }
+    }
+    var rf = SpreadsheetApp.getActive().getSheetByName(RSHEET);      // Reflections: linked to results by the result id only
+    if (rf && rf.getLastRow() > 1 && Object.keys(plan.ids).length) {
+      var rn = rf.getLastRow() - 1, rv = rf.getRange(2, 1, rn, RHEADER.length).getValues(), rkeep = rv.filter(function (r) { return !plan.ids[String(r[2])]; });
+      if (rkeep.length < rn) {
+        rf.getRange(2, 1, rn, RHEADER.length).clearContent();
+        if (rkeep.length) rf.getRange(2, 1, rkeep.length, RHEADER.length).setValues(rkeep);
       }
     }
     (plan.extra || []).forEach(function (x) {                     // Goals (and later the other self-regulation tabs): the rows of the pupils who left
