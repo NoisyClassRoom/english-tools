@@ -85,7 +85,7 @@ var UNITS = {
 
 // Change this text whenever the code of doPost changes: the health check compares it with what the published web app answers,
 // so it can tell you that the saved code has not been deployed as a new version yet.
-var CODE_VERSION = '2026-10-20.2';
+var CODE_VERSION = '2026-10-20.3';
 
 // ---------------------------------------------------------------- saving results
 
@@ -1186,12 +1186,15 @@ function srlWeekRange_(ymd) {
   return [s, Utilities.parseDate(next + ' 00:00', TZ, 'yyyy-MM-dd HH:mm').getTime()];
 }
 
+// the week of a Goals row as 'yyyy-MM-dd': Sheets may turn the text into a real date, so accept both
+function srlWk_(v) { return v instanceof Date ? Utilities.formatDate(v, TZ, 'yyyy-MM-dd') : String(v).trim(); }
+
 function srlGoals_(email, year) {
   var sh = SpreadsheetApp.getActive().getSheetByName(GSHEET), out = [];
   if (!sh || sh.getLastRow() < 2) return out;
   sh.getRange(2, 1, sh.getLastRow() - 1, GHEADER.length).getValues().forEach(function (r, i) {
     if (String(r[2]).toLowerCase() !== email || String(r[1]) !== year) return;
-    out.push({ rowNo: i + 2, week: String(r[4]), type: String(r[5]), book: String(r[6]), set: String(r[7]), topic: String(r[8]), target: Number(r[9]) });
+    out.push({ rowNo: i + 2, week: srlWk_(r[4]), type: String(r[5]), book: String(r[6]), set: String(r[7]), topic: String(r[8]), target: Number(r[9]) });
   });
   return out;
 }
@@ -1270,10 +1273,12 @@ function goalSetReply_(d) {
   try {
     var sh = goalsSheet_(), cls = classFor_(rosterRows_(), who.email, who.first, who.last, year);
     var row = [now, year, email, cls, week, type, book, set, topic, target], mine = srlGoals_(email, year).filter(function (x) { return x.week === week; })[0];
-    if (mine) sh.getRange(mine.rowNo, 1, 1, GHEADER.length).setValues([row]);
-    else { sh.appendRow(row); sh.getRange(sh.getLastRow(), 1, 1, GHEADER.length).setValues([row]); }
+    var at = mine ? sh.getRange(mine.rowNo, 1, 1, GHEADER.length) : sh.getRange(sh.getLastRow() + 1, 1, 1, GHEADER.length);
+    at.setNumberFormats([['dd.mm.yyyy hh:mm', '@', '@', '@', '@', '@', '@', '@', '@', '0']]);       // text first, so the week stays '2026-10-19' and is not turned into a date
+    at.setValues([row]);
   } finally { lock.releaseLock(); }
-  return out_({ ok: true, srl: srlState_(who) });
+  var st; try { st = srlState_(who); } catch (e) { st = { on: true, week: week, goal: { week: week, type: type, book: book, set: set, topic: topic, target: target, cur: 0, reached: false }, last: null, reached: 0, total: 1 }; }   // the goal IS saved: never show an error for a failed progress calculation
+  return out_({ ok: true, srl: st });
 }
 
 // Features 2 and 3: "How sure are you?" before a Unit test / Unit test 2 / Grammar quick check and "Next I will..." after it.
@@ -1462,7 +1467,7 @@ function srlStatsReply_(d) {
   var gs = ss.getSheetByName(GSHEET);
   if (gs && gs.getLastRow() > 1) gs.getRange(2, 1, gs.getLastRow() - 1, GHEADER.length).getValues().forEach(function (r) {
     if (String(r[1]) !== year) return;
-    var g = { week: String(r[4]), type: String(r[5]), book: String(r[6]), set: String(r[7]), topic: String(r[8]), target: Number(r[9]) }, rg = srlWeekRange_(g.week);
+    var g = { week: srlWk_(r[4]), type: String(r[5]), book: String(r[6]), set: String(r[7]), topic: String(r[8]), target: Number(r[9]) }, rg = srlWeekRange_(g.week);
     if (rg[1] <= from || (to && rg[0] >= to)) return;
     var email = String(r[2]).toLowerCase(), cls = String(r[3]).trim(), ok = srlEval_(g, rowsBy[email] || [], null).reached;
     weeks[g.week] = 1;
