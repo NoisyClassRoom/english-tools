@@ -730,7 +730,7 @@
   const puzzles = view => {
     if (pState === '') loadPuzzles();
     const card = el('div', 'card'); view.append(card);
-    card.append(el('p', 'note', 'Online puzzles (word search, hangman, word scramble, crossword) saved by pupils who were signed in. They are kept in their own Sheet tab ("Puzzles") and are NOT part of the average, heat-map, reports, homework or the pupils\' "My progress" numbers. Word search and crossword count when finished; for hangman and scramble the result is words right / words.'));
+    card.append(el('p', 'note', 'Online puzzles (word search, hangman, word scramble, crossword, tarsia) saved by pupils who were signed in. They are kept in their own Sheet tab ("Puzzles") and are NOT part of the average, heat-map, reports, homework or the pupils\' "My progress" numbers. Word search, crossword and tarsia count when finished; for hangman and scramble the result is words right / words.'));
     if (pState !== 'ok') { card.append(el('p', pState === 'error' ? 'msg err' : 'msg', pState === 'error' ? 'The puzzle data could not be loaded.' : 'Loading the puzzle data…')); return; }
     const d = puzzleRows();
     if (!d.length) { card.append(el('p', 'msg', 'No puzzle results for this selection yet.')); return; }
@@ -982,8 +982,8 @@
   let hwData = null, hwState = '', hwForm = false, hwNotice = '';
   const unitCache = {};
   const HW_ACTS = [['match', 'Match'], ['quiz', 'Quiz'], ['gap', 'Fill the gap'], ['test', 'Unit test'], ['test2', 'Unit test 2'], ['gcheck', 'Grammar quick check'],
-    ['wordsearch', 'Word search'], ['hangman', 'Hangman'], ['scramble', 'Word scramble'], ['crossword', 'Crossword']];   // puzzles (from 15 Oct 2026): done = the pupil finished the puzzle once; their results are in the "Puzzles" tab
-  const EXTRA_ACTS = ['match', 'quiz', 'gap', 'wordsearch', 'hangman', 'scramble', 'crossword'];   // Extra practice has no unit tests and no grammar
+    ['wordsearch', 'Word search'], ['hangman', 'Hangman'], ['scramble', 'Word scramble'], ['crossword', 'Crossword'], ['tarsia', 'Tarsia']];   // puzzles (from 15 Oct 2026): done = the pupil finished the puzzle once; their results are in the "Puzzles" tab
+  const EXTRA_ACTS = ['match', 'quiz', 'gap', 'wordsearch', 'hangman', 'scramble', 'crossword', 'tarsia'];   // Extra practice has no unit tests and no grammar
   const EXTRA_LEVELS = [['easy', 'Easy'], ['medium', 'Medium'], ['hard', 'Hard']];
   const api = async (action, extra) => {
     const token = Track.token(); if (!token) throw new Error('token');
