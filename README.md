@@ -103,7 +103,7 @@ The school's development topic. **The new pupil prompts are OFF** until the teac
 ### Results page (teacher only)
 
 `results/index.html` is a private page (WordPress page "Results", embedded by iframe; the data is only sent to a signed-in teacher account listed in the script property `TEACHER_EMAILS`). It holds no data itself.
-Filters: school year, class, accounts (pupils with a class / no class = teachers and pupils missing from the Roster / everyone), book, level, dates.
+Filters: school year, class, accounts (pupils with a class / teachers / guests outside the school / other, e.g. former pupils / not assigned = no class and no category / everyone), book, level, dates. **Categories for accounts without a class (21 Oct 2026):** Roster column H "Category" (drop-down teacher / guest / other, set up once with the Sheet menu *Set up the Roster category column*): one row with the e-mail (or name), School year and Class empty. Such accounts are shown under their own "Accounts" choice, are left out of the class numbers, the self-regulation indicators and the Team report, and are not reported as "missing from the Roster" by the health check. Their data is kept; a row with an empty School year is never removed by the leavers cleanup. The Questions tab cannot tell the category of a question row, so teachers' questions appear under "Not assigned" there.
 Tabs:
 - **Overview** – totals, activity per day, difficulty.
 - **Class report** – one printable A4 page per class: key numbers, weekly chart, pupils, unit heat-map, weakest units, most-missed questions, and a free comment line (kept in this browser only).
