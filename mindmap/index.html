@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Mind map maker</title>
+<style>
+  :root {
+    --bg: #141418; --card: #1f1f26; --ink: #f2efe9; --muted: #a39f95; --line: #34343e; --field: #14141a;
+    --accent: #ff8a1f; --good: #34c06d; --bad: #ff5a5a; --radius: 14px;
+  }
+  body.light {
+    --bg: #f6f4ef; --card: #ffffff; --ink: #1f2a37; --muted: #6b7280; --line: #e5e1d8; --field: #ffffff;
+    --accent: #e8710a; --good: #1f9d55; --bad: #d64545;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .wrap { max-width: 1000px; margin: 0 auto; padding: 14px; }
+  h1 { margin: 0; font-size: 22px; } h2 { margin: 12px 0 8px; font-size: 16px; color: var(--accent); }
+  .top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+  .top .sp { flex: 1; }
+  .btn { background: var(--field); color: var(--ink); border: 1px solid var(--line); border-radius: 10px; padding: 6px 12px; font: inherit; cursor: pointer; text-decoration: none; display: inline-block; }
+  .btn:hover { border-color: var(--accent); } .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px; margin-bottom: 12px; }
+  .muted { color: var(--muted); }
+  #login { text-align: center; padding: 40px 14px; } #app { display: none; }
+  label { display: inline-block; margin: 0 14px 8px 0; } select, input[type=number], input[type=text], textarea { background: var(--field); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 5px 8px; font: inherit; }
+  textarea { width: 100%; min-height: 150px; font-family: ui-monospace, Consolas, monospace; font-size: 14px; }
+  .units { columns: 2 280px; margin: 6px 0 10px; max-height: 220px; overflow: auto; border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
+  .units label { display: block; margin: 0 0 3px; }
+  #sheets { color: #111; }
+  .sheet { background: #fff; color: #111; border-radius: 6px; padding: 8px; margin-bottom: 14px; font: 14px/1.4 Arial, Helvetica, sans-serif; }
+  .sheet svg { display: block; width: 100%; height: auto; }
+  @media print {
+    @page { size: A4 landscape; margin: 10mm; }
+    body { background: #fff; } .wrap { max-width: none; padding: 0; }
+    .no-print, .top { display: none !important; }
+    .sheet { border-radius: 0; padding: 0; margin: 0; page-break-after: always; break-after: page; }
+    .sheet:last-child { page-break-after: auto; break-after: auto; }
+    .sheet svg { width: 277mm; height: 190mm; }
+  }
+</style>
+</head>
+<body>
+<script src="../exercises/tracking.js"></script>
+<script src="../exercises/puzzles.js"></script>
+<script src="../exercises/mindmaps.js"></script>
+<div class="wrap">
+  <div class="top no-print">
+    <h1>🧠 Mind map maker</h1><span class="sp"></span>
+    <a class="btn" href="../printables/">🖨 Printables</a>
+    <span class="muted" id="who"></span>
+    <button class="btn" id="theme">Light / dark</button>
+  </div>
+  <div id="login" class="card no-print">
+    <p id="loginMsg" class="muted">Sign in with your school Google account. Only the teacher account is allowed.</p>
+    <div id="slot"></div>
+  </div>
+  <div id="app">
+    <div class="card no-print">
+      <h2>1. Content</h2>
+      <label>From <select id="src"></select></label>
+      <label id="lvlWrap" style="display:none">Level <select id="lvl"><option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option></select></label>
+      <div id="unitBox"><b id="unitHead">Pick one</b> <span class="muted" id="unitHelp"></span>
+        <div class="units" id="units">Loading…</div>
+        <label>Words per branch <input type="number" id="perBranch" min="3" max="8" value="6" style="width:64px"></label>
+        <button class="btn primary" id="gen">Make the map from this</button></div>
+      <h2>2. Edit the text</h2>
+      <p class="muted" style="margin:0 0 4px">First line = the topic in the middle. Every other line = one branch: <code>Branch name: word, word, word</code>. Change it freely and press <b>Update</b>.</p>
+      <textarea id="txt" spellcheck="false" placeholder="Family&#10;Parents and children: mother, father, son&#10;Wider family: aunt, uncle, cousin"></textarea>
+      <h2>3. Look</h2>
+      <label>Shape <select id="layout"><option value="radial">Radial (topic in the middle)</option><option value="tree">Tree (left to right)</option></select></label>
+      <label>Print <select id="mode"><option value="full">With all the words (for the board)</option><option value="names">Branch names only, empty boxes (pupils fill in)</option><option value="blank">Only the topic, empty branches</option></select></label>
+      <label>Empty boxes per branch <input type="number" id="empties" min="2" max="8" value="5" style="width:64px"></label>
+      <label><input type="checkbox" id="nameLine" checked> name line</label>
+      <div style="margin-top:8px"><button class="btn primary" id="upd">Update</button> <button class="btn" id="print">🖨 Print</button> <span class="muted" id="msg" style="margin-left:8px"></span></div>
+    </div>
+    <div id="sheets"></div>
+  </div>
+</div>
+<script>
+(() => {
+  'use strict';
+  const $ = s => document.querySelector(s);
+  const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+  const BOOKS = { '6b': 'Project 1 (6th grade)', '7a': 'Dream Team Starter (7th grade)', '7bc': 'Project 2 (7th grade)', '8a': 'Dream Team 1 (8th grade)', '8b': 'Project 3 (8th grade)', '9a': 'Dream Team 2 (9th grade)', '9b': 'Project 4 (9th grade)', 'extra': 'Extra practice topics', 'maps': 'Ready-made maps' };
+  const shuffle = a => Puzzles.shuffle(a);
+  let loaded = false, current = [];
+
+  const api = async action => {
+    const token = Track.token(); if (!token) throw new Error('token');
+    const r = await fetch(Track.config.endpoint, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action, token }) });
+    return r.json();
+  };
+  const loadScript = src => new Promise(res => { const s = document.createElement('script'); s.src = src; s.onload = s.onerror = res; document.head.append(s); });
+
+  // ---- the sources: ready-made maps, the units of a class book, the Extra practice topics (words only; the same files as the exercise page, no pupil data)
+  const cache = {};
+  const loadSource = async (book, level) => {
+    if (book === 'maps') return (window.MINDMAPS || []).map(m => ({ id: m.id, label: m.icon + ' ' + m.title, map: m }));
+    const key = book + '|' + (book === 'extra' ? level : '');
+    if (cache[key]) return cache[key];
+    let list = [];
+    if (book === 'extra') {
+      await loadScript('../exercises/sets.js'); for (const f of ['levels-1', 'levels-2', 'levels-3', 'levels-4', 'levels-5', 'levels-6']) await loadScript('../exercises/' + f + '.js');
+      const base = (window.SETS || []).map(s => ({ id: s.id, title: s.title, words: s.words || [] }));
+      const toW = a => ({ en: a[0], sl: a[1], pic: a[2] });
+      (window.EXTRA_LEVELS || []).forEach(x => {
+        let b = base.find(s => s.id === x.id); if (!b) { b = { id: x.id, title: x.title, words: [] }; base.push(b); }
+        const l = x[level]; if (!l) { b.skip = true; return; }
+        b.lv = { words: (level === 'easy' ? b.words : []).concat(l.w.map(toW)) };
+      });
+      list = base.filter(b => !b.skip && (b.lv || !(window.EXTRA_LEVELS || []).some(x => x.id === b.id))).map(b => ({ id: b.id, label: b.title + ' · ' + level[0].toUpperCase() + level.slice(1), title: b.title, words: (b.lv || b).words }));
+    } else {
+      window.CLASS_SETS = null;
+      await loadScript('../exercises/class-' + book + '.js');
+      list = (window.CLASS_SETS || []).map(s => ({ id: s.id, label: [s.unit, s.title].filter(Boolean).join(' · '), title: s.title, words: s.words || [] }));
+    }
+    return cache[key] = list;
+  };
+  const fillUnits = async () => {
+    const box = $('#units'); box.textContent = 'Loading…'; $('#msg').textContent = '';
+    const book = $('#src').value, maps = book === 'maps'; $('#lvlWrap').style.display = book === 'extra' ? '' : 'none';
+    $('#perBranch').parentNode.style.display = maps ? 'none' : '';
+    $('#unitHead').textContent = maps ? 'Pick a map' : 'Tick one or several';
+    $('#unitHelp').textContent = maps ? '(a ready-made map with 4-5 branches)' : '(one unit: the words are sorted into groups; several units: every unit becomes a branch)';
+    current = await loadSource(book, $('#lvl').value); box.innerHTML = '';
+    current.forEach((u, i) => { const l = el('label'), c = el('input'); c.type = maps ? 'radio' : 'checkbox'; c.name = 'u'; c.value = i; l.append(c, document.createTextNode(' ' + u.label + (maps ? '' : ' (' + u.words.length + ' words)'))); box.append(l); });
+    if (maps && box.querySelector('input')) box.querySelector('input').checked = true;
+    if (!current.length) box.textContent = 'Nothing found.';
+  };
+
+  // ---- from the chosen source to the text of a map
+  const clip = s => String(s || '').replace(/\s+/g, ' ').trim();
+  const wordsOf = u => { const seen = new Set(), out = []; u.words.forEach(w => { const a = clip(w.en), k = a.toLowerCase(); if (a && a.length <= 26 && !seen.has(k)) { seen.add(k); out.push(a); } }); return out; };
+  // one unit: verbs ("to ..."), phrases (more than one word) and single words, long groups cut into pieces of the same size
+  const byType = (u, per) => {
+    const all = wordsOf(u), verbs = all.filter(w => /^to\s/i.test(w)), phrases = all.filter(w => !/^to\s/i.test(w) && /\s/.test(w)), single = all.filter(w => !/\s/.test(w));
+    const groups = []; const cut = (name, arr) => { if (!arr.length) return; const n = Math.max(1, Math.round(arr.length / per)), size = Math.ceil(arr.length / n); for (let q = 0; q < n; q++) groups.push({ name: n > 1 ? name + ' (' + (q + 1) + ')' : name, items: arr.slice(q * size, (q + 1) * size) }); };
+    cut('Words', single.sort((a, b) => a.localeCompare(b))); cut('Verbs', verbs); cut('Phrases', phrases);
+    return { topic: u.title || u.label, branches: groups.slice(0, 8) };
+  };
+  const generate = () => {
+    const book = $('#src').value, picked = [...document.querySelectorAll('#units input:checked')].map(c => current[Number(c.value)]);
+    if (!picked.length) { $('#msg').textContent = 'Pick something first.'; return; }
+    let map;
+    if (book === 'maps') map = { topic: picked[0].map.title, branches: picked[0].map.branches };
+    else {
+      const per = Math.max(3, Math.min(8, Number($('#perBranch').value) || 6));
+      if (picked.length === 1) map = byType(picked[0], per);
+      else map = { topic: book === 'extra' ? 'Extra practice' : BOOKS[book], branches: picked.slice(0, 8).map(u => ({ name: u.label.replace(/^Unit \d+ · /, ''), items: shuffle(wordsOf(u)).slice(0, per) })) };
+    }
+    $('#txt').value = toText(map); render();
+  };
+  const toText = m => [m.topic].concat(m.branches.map(b => b.name + ': ' + b.items.join(', '))).join('\n');
+  const parse = text => {
+    const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+    return { topic: lines[0] || 'Topic', branches: lines.slice(1, 9).map(l => { const q = l.indexOf(':'); const name = q < 0 ? l : l.slice(0, q).trim(), items = q < 0 ? [] : l.slice(q + 1).split(',').map(s => s.trim()).filter(Boolean); return { name, items }; }) };
+  };
+
+  // ---- drawing (SVG in millimetres on an A4 landscape page: 277 x 190)
+  const W = 277, Hh = 190, NS = 'http://www.w3.org/2000/svg';
+  const COLORS = [['#e8710a', '#fdeedd'], ['#1f9d55', '#dcf5e6'], ['#2563eb', '#dfe9fd'], ['#c026d3', '#f7e0fb'], ['#d97706', '#fdf0cc'], ['#0e9aa7', '#d9f3f5'], ['#dc2626', '#fde4e4'], ['#65a30d', '#ecf6d4']];
+  const sv = (tag, attrs, text) => { const e = document.createElementNS(NS, tag); Object.keys(attrs || {}).forEach(k => e.setAttribute(k, attrs[k])); if (text != null) e.textContent = text; return e; };
+  const boxW = (text, size) => Math.max(12, String(text).length * size * 0.52 + 5);
+  // push overlapping boxes apart (only the ones that may move) and keep everything on the page
+  const relax = boxes => {
+    for (let it = 0; it < 80; it++) {
+      let moved = false;
+      for (let a = 0; a < boxes.length; a++) for (let b = a + 1; b < boxes.length; b++) {
+        const p = boxes[a], q = boxes[b]; if (p.fixed && q.fixed) continue;
+        const dx = q.x - p.x, dy = q.y - p.y, ox = (p.w + q.w) / 2 + 1.2 - Math.abs(dx), oy = (p.h + q.h) / 2 + 1.2 - Math.abs(dy);
+        if (ox <= 0 || oy <= 0) continue; moved = true;
+        const pw = p.fixed ? 0 : q.fixed ? 1 : 0.5, qw = q.fixed ? 0 : p.fixed ? 1 : 0.5;
+        if (oy < ox) { const s = dy >= 0 ? 1 : -1; p.y -= s * oy * pw; q.y += s * oy * qw; } else { const s = dx >= 0 ? 1 : -1; p.x -= s * ox * pw; q.x += s * ox * qw; }
+      }
+      boxes.forEach(b => { if (!b.fixed) { b.x = Math.max(6 + b.w / 2, Math.min(W - 6 - b.w / 2, b.x)); b.y = Math.max(5 + b.h / 2, Math.min(Hh - 5 - b.h / 2, b.y)); } });
+      if (!moved) break;
+    }
+  };
+  const itemText = (it, size) => it;
+  const drawMap = (map, o) => {
+    const svg = sv('svg', { viewBox: '0 0 ' + W + ' ' + Hh, width: W + 'mm', height: Hh + 'mm', 'font-family': 'Arial, Helvetica, sans-serif' });
+    svg.append(sv('rect', { x: 0, y: 0, width: W, height: Hh, fill: '#fff' }));
+    const n = map.branches.length || 1, conn = sv('g', {}), shapes = sv('g', {}), texts = sv('g', {});
+    svg.append(conn, shapes, texts);
+    const rect = (b, st) => shapes.append(sv('rect', { x: (b.x - b.w / 2).toFixed(1), y: (b.y - b.h / 2).toFixed(1), width: b.w.toFixed(1), height: b.h.toFixed(1), rx: Math.min(4, b.h / 2), fill: st.fill, stroke: st.stroke, 'stroke-width': st.sw || 0.5, 'stroke-dasharray': st.dash || '' }));
+    const text = (b, t, size, fill, weight) => texts.append(sv('text', { x: b.x.toFixed(1), y: (b.y + size * 0.35).toFixed(1), 'text-anchor': 'middle', 'font-size': size, fill: fill || '#111', 'font-weight': weight || 'normal' }, t));
+    const link = (a, b, col) => conn.append(sv('path', { d: 'M' + a.x.toFixed(1) + ' ' + a.y.toFixed(1) + ' Q' + ((a.x + b.x) / 2).toFixed(1) + ' ' + a.y.toFixed(1) + ' ' + b.x.toFixed(1) + ' ' + b.y.toFixed(1), fill: 'none', stroke: col, 'stroke-width': 0.7 }));
+    const topicSize = Math.min(7, 80 / Math.max(6, map.topic.length) * 1.6);
+    const centre = { x: o.layout === 'radial' ? W / 2 : 38, y: Hh / 2, w: Math.max(34, boxW(map.topic, topicSize) + 6), h: 16, fixed: true };
+    const branches = map.branches.map((br, i) => {
+      const col = COLORS[i % COLORS.length], items = o.mode === 'full' ? br.items : o.mode === 'names' ? new Array(o.empties).fill('') : new Array(o.empties).fill('');
+      return { br, col, items, label: { w: boxW(br.name, 4.2) + 4, h: 9 } };
+    });
+    const itemBoxes = [];
+    if (o.layout === 'radial') {
+      branches.forEach((b, i) => {
+        const a = (-90 + i * 360 / n) * Math.PI / 180, lab = b.label; lab.x = centre.x + 62 * Math.cos(a) * 1.25; lab.y = centre.y + 36 * Math.sin(a) * 1.15; lab.fixed = true;
+        const m = b.items.length, sector = 360 / n, step = Math.min(sector * 0.9 / Math.max(m, 1), 26);
+        b.boxes = b.items.map((t, k) => { const th = a + (k - (m - 1) / 2) * step * Math.PI / 180, w = t ? boxW(t, 3.4) : 24; return { x: centre.x + 124 * Math.cos(th), y: centre.y + 78 * Math.sin(th), w, h: 7.2, t }; });
+        b.boxes.forEach(x => itemBoxes.push(x));
+      });
+      relax([centre].concat(branches.map(b => b.label), itemBoxes));
+    } else {
+      const band = (Hh - 12) / n;
+      branches.forEach((b, i) => {
+        const lab = b.label; lab.x = 100; lab.y = 6 + band * (i + 0.5); lab.fixed = true; lab.w = Math.max(lab.w, 40);
+        let x = 130, y = lab.y - 0, rows = [[]]; b.boxes = [];
+        b.items.forEach(t => { const w = t ? boxW(t, 3.4) : 24; if (x + w > W - 6) { x = 130; rows.push([]); } const bx = { x: x + w / 2, y: 0, w, h: 7.2, t, row: rows.length - 1 }; rows[rows.length - 1].push(bx); b.boxes.push(bx); x += w + 3; });
+        const rh = 9.2, top = lab.y - (rows.length * rh) / 2 + rh / 2; rows.forEach((r, k) => r.forEach(bx => { bx.y = top + k * rh; }));
+        b.rows = rows; b.boxes.forEach(x => itemBoxes.push(x));
+      });
+    }
+    // connectors first, then the shapes and the words
+    branches.forEach((b, i) => {
+      if (o.layout === 'radial') { link(centre, b.label, b.col[0]); b.boxes.forEach(x => link(b.label, x, b.col[0])); }
+      else { link({ x: centre.x + centre.w / 2, y: centre.y }, { x: b.label.x - b.label.w / 2, y: b.label.y }, b.col[0]);
+        b.rows.forEach((r, k) => { if (r.length) conn.append(sv('line', { x1: b.label.x + b.label.w / 2, y1: b.label.y, x2: r[0].x - r[0].w / 2, y2: r[0].y, stroke: b.col[0], 'stroke-width': 0.7 })); }); }
+    });
+    rect(centre, { fill: '#fff4e0', stroke: '#111', sw: 0.9 }); text(centre, map.topic, topicSize, '#111', 'bold');
+    branches.forEach(b => {
+      rect(b.label, { fill: b.col[1], stroke: b.col[0], sw: 0.9 });
+      if (o.mode !== 'blank') text(b.label, b.br.name, 4.2, '#111', 'bold');
+      b.boxes.forEach(x => { if (x.t) { rect(x, { fill: '#fff', stroke: b.col[0], sw: 0.4 }); text(x, x.t, 3.4); } else rect(x, { fill: '#fff', stroke: b.col[0], sw: 0.5, dash: '1.2 1.2' }); });
+    });
+    return svg;
+  };
+  const render = () => {
+    const box = $('#sheets'); box.innerHTML = ''; $('#msg').textContent = '';
+    const map = parse($('#txt').value);
+    if (!map.branches.length) { $('#msg').textContent = 'Add at least one branch line (Branch name: word, word).'; return; }
+    const o = { layout: $('#layout').value, mode: $('#mode').value, empties: Math.max(2, Math.min(8, Number($('#empties').value) || 5)) };
+    const s = el('div', 'sheet'); s.append(drawMap(map, o));
+    if ($('#nameLine').checked && o.mode !== 'full') { const nl = sv('text', { x: 8, y: 186, 'font-size': 3.6, fill: '#111', 'font-family': 'Arial, sans-serif' }, 'Name: ______________________    Class: ________    Date: ______________'); s.firstChild.append(nl); }
+    box.append(s);
+    $('#msg').textContent = map.branches.length + ' branches. Print on A4 landscape (Save as PDF for a file).';
+  };
+
+  const load = async () => {
+    if (!Track.token()) return;
+    const j = await api('boardmarks').catch(() => null);          // a teacher-only action: only the teacher account gets an answer
+    if (!j || !j.ok) { $('#login').style.display = 'block'; $('#app').style.display = 'none'; $('#loginMsg').textContent = 'This Google account is not allowed to open this page.'; return; }
+    loaded = true; $('#login').style.display = 'none'; $('#app').style.display = 'block'; $('#who').textContent = Track.email || '';
+    const s = $('#src'); ['maps'].concat(Object.keys(BOOKS).filter(k => k !== 'maps')).forEach(k => { const o = el('option', '', BOOKS[k]); o.value = k; s.append(o); });
+    s.onchange = fillUnits; $('#lvl').onchange = fillUnits;
+    $('#gen').onclick = generate; $('#upd').onclick = render; $('#print').onclick = () => window.print();
+    ['layout', 'mode', 'empties', 'nameLine'].forEach(id => { $('#' + id).onchange = () => { if ($('#txt').value.trim()) render(); }; });
+    fillUnits().then(() => { generate(); });
+  };
+  window.__load = load; window.__mm = { parse, toText, byType, render };
+  $('#theme').onclick = () => { document.body.classList.toggle('light'); try { localStorage.setItem('tst.light', document.body.classList.contains('light') ? '1' : ''); } catch (e) {} };
+  try { if (localStorage.getItem('tst.light')) document.body.classList.add('light'); } catch (e) {}
+  if (window.Track && Track.enabled) {
+    Track.onChange(() => { if (Track.token() && !loaded) load(); });
+    Track.init(() => { if (Track.token()) load(); else Track.button($('#slot')); });
+  } else $('#loginMsg').textContent = 'Sign-in is not set up.';
+})();
+</script>
+</body>
+</html>
