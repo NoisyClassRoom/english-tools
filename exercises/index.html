@@ -120,6 +120,17 @@
   .tray svg.sel { border-color: var(--accent, #e8710a); background: var(--accent-soft, #fdeedd); }
   .tray svg polygon { fill: var(--accent-soft, #fdeedd); stroke: var(--line, #b9bfd0); stroke-width: 1.5; }
   .tray svg text { fill: currentColor; pointer-events: none; font-family: inherit; }
+  /* mind map: sort the words into the branches */
+  .mm { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; margin: 10px 0; text-align: left; }
+  .mmb { border: 2px solid var(--line, #d9d9e3); border-left-width: 8px; border-radius: 12px; padding: 8px 10px; min-height: 96px; background: var(--card, #fff); cursor: pointer; }
+  .mmb h3 { margin: 0 0 6px; font-size: 16px; }
+  .mmb .got { display: flex; flex-wrap: wrap; gap: 4px; }
+  .mmb .got span { background: var(--good-soft, #dcf5e6); border-radius: 999px; padding: 1px 9px; font-size: 14px; }
+  .mmb.no { background: #fde2e2; }
+  .mmcentre { display: inline-block; font-weight: 700; font-size: 20px; padding: 8px 18px; border-radius: 999px; border: 2px solid var(--accent, #e8710a); background: var(--accent-soft, #fdeedd); margin: 6px 0; }
+  .mmbank { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin: 12px 0; }
+  .mmbank button { border: 1px solid var(--line, #d9d9e3); background: var(--card, #fff); border-radius: 999px; padding: 6px 14px; font: inherit; color: inherit; cursor: pointer; }
+  .mmbank button.sel { border-color: var(--accent, #e8710a); background: var(--accent-soft, #fdeedd); font-weight: 700; }
   .expl .sl { margin-top: 4px; color: var(--muted, #556); }
   .expl.more { font-size: 14px; }
   .gap-line .expl { display: block; margin: 6px 0 4px; font-size: 15px; }
@@ -219,6 +230,7 @@
 <script src="explain.js"></script>
 <script src="puzzles.js"></script>
 <script src="tarsia.js"></script>
+<script src="mindmaps.js"></script>
 <script src="tracking.js"></script>
 <script>
 (() => {
@@ -563,6 +575,10 @@
       if (classSets.length) body.append(el('h2', '', 'Extra practice'));
       body.append(grid(SHARED));
     }
+    if (!classSets.length && (window.MINDMAPS || []).length) {                          // Extra practice: the ready-made mind maps
+      body.append(el('h2', '', 'Mind maps'));
+      const g2 = el('div', 'grid'); window.MINDMAPS.forEach(m => { const b = el('button', 'tile'); b.append(el('span', 'ico', m.icon || '🧠'), document.createTextNode(m.title), el('small', '', 'Mind map · ' + m.branches.length + ' branches')); b.onclick = () => { openSet({ id: 'mm-' + m.id, title: 'Mind map: ' + m.title, icon: m.icon || '🧠', words: [], sentences: [], mindmap: m }); startMode(MODES.find(x => x.id === 'mindmap')); }; g2.append(b); }); body.append(g2);
+    }
     if (!classSets.length && !SHARED.length) body.textContent = 'No exercises yet.';
   };
   const renderPicker = () => {
@@ -635,7 +651,8 @@
     { id: 'hangman', icon: '🔠', name: 'Hangman', desc: 'Guess the word', run: hangman, need: s => (s.words || []).length >= 5 },
     { id: 'scramble', icon: '🔀', name: 'Word scramble', desc: 'Put the letters in order', run: scramble, need: s => Puzzles.items(s.words, 4, 12).length >= 5 },
     { id: 'crossword', icon: '🧩', name: 'Crossword', desc: 'Slovenian clues', run: crossword, need: s => Puzzles.items(s.words, 3, 10).length >= 6 },
-    { id: 'tarsia', icon: '🔺', name: 'Tarsia', desc: 'Build the triangle from pairs', run: tarsia, need: s => !!window.Tarsia && tarsiaPairs(s.words).length >= 18 }
+    { id: 'tarsia', icon: '🔺', name: 'Tarsia', desc: 'Build the triangle from pairs', run: tarsia, need: s => !!window.Tarsia && tarsiaPairs(s.words).length >= 18 },
+    { id: 'mindmap', icon: '🧠', name: 'Mind map', desc: 'Sort the words into the branches', run: mindmapGame, need: s => !!s.mindmap }
   ];
   function openSet(s, lvl) {
     if (s.levels && !lvl) {
@@ -652,7 +669,7 @@
     if (lvl) s = Object.assign({}, s, { base: s, level: lvl, title: s.title + ' · ' + LEVELS[lvl][1], words: s.levels[lvl].words, sentences: s.levels[lvl].sentences });
     set = s; $('#menuTitle').textContent = s.icon + ' ' + s.title;
     const g = $('#modeGrid'); g.innerHTML = '';
-    MODES.filter(m => !m.need || m.need(s)).forEach(m => {
+    MODES.filter(m => s.mindmap ? m.id === 'mindmap' : (!m.need || m.need(s))).forEach(m => {
       const b = el('button', 'tile');
       b.append(el('span', 'ico', m.icon), document.createTextNode(m.name), el('small', '', m.desc));
       b.onclick = () => startMode(m);
@@ -1212,6 +1229,22 @@
     draw();
   }
 
+  // mind map: sort the words into the branches. Tap a word, then the branch it belongs to; a wrong branch shakes red and counts as a mistake.
+  function mindmapGame() {
+    const m = set.mindmap, s = stage(), total = m.branches.reduce((n, b) => n + b.items.length, 0), cols = ['#e8710a', '#1f9d55', '#2563eb', '#c026d3', '#d97706', '#0e9aa7'];
+    let sel = null, mistakes = 0, done = 0;
+    s.append(el('p', 'hint', 'Sort the words into the right branch. Tap a word, then the branch.'), el('div', 'mmcentre', (m.icon || '🧠') + ' ' + m.title));
+    const grid = el('div', 'mm'), bank = el('div', 'mmbank'), msg = el('p', 'hint');
+    const cards = m.branches.map((b, i) => { const c = el('div', 'mmb'), got = el('div', 'got'); c.style.borderLeftColor = cols[i % cols.length]; c.append(el('h3', '', b.name), got); c.onclick = () => put(i, c, got); grid.append(c); return { c, got }; });
+    Puzzles.shuffle(m.branches.flatMap((b, i) => b.items.map(w => ({ w, i })))).forEach(x => { const t = el('button', '', x.w); t.onclick = () => { if (sel && sel.t === t) { sel = null; t.classList.remove('sel'); return; } if (sel) sel.t.classList.remove('sel'); sel = { t, i: x.i, w: x.w }; t.classList.add('sel'); }; bank.append(t); });
+    const put = (i, c, got) => {
+      if (!sel) { msg.textContent = 'First tap a word below.'; return; }
+      if (sel.i === i) { got.append(el('span', '', sel.w)); sel.t.remove(); sel = null; msg.textContent = ''; done++; setBar(done / total);
+        if (done === total) setTimeout(() => puzzleEnd('Mind map complete!', mindmapGame, mistakes ? 'Every word is in the right branch (' + mistakes + (mistakes === 1 ? ' mistake' : ' mistakes') + ').' : 'No mistakes at all!', Math.max(0, total - mistakes), total), 500); }
+      else { mistakes++; msg.textContent = 'Not this branch. Try another one.'; c.classList.add('no'); setTimeout(() => c.classList.remove('no'), 400); }
+    };
+    s.append(grid, msg, bank);
+  }
   // crossword: Slovenian clues, English answers
   function crossword() {
     const cw = Puzzles.crossword(Puzzles.items(set.words, 3, 10), 10), s = stage();
