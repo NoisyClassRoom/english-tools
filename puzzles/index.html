@@ -116,7 +116,7 @@
     if (cache[key]) return cache[key];
     let list = [];
     if (book === 'extra') {
-      await loadScript('../exercises/sets.js'); for (const f of ['levels-1', 'levels-2', 'levels-3', 'levels-4', 'levels-5']) await loadScript('../exercises/' + f + '.js');
+      await loadScript('../exercises/sets.js'); for (const f of ['levels-1', 'levels-2', 'levels-3', 'levels-4', 'levels-5', 'levels-6']) await loadScript('../exercises/' + f + '.js');
       const base = window.SETS ? window.SETS.map(s => ({ id: s.id, title: s.title, words: s.words || [] })) : [];
       const toW = a => ({ en: a[0], sl: a[1], pic: a[2] });
       (window.EXTRA_LEVELS || []).forEach(x => {
@@ -153,8 +153,8 @@
     const grid = key => { const t = el('table', 'ws' + (key ? ' key' : '')); const inSet = new Set(); if (key) g.placed.forEach(p => { for (let i = 0; i < p.item.word.length; i++) inSet.add((p.r + p.dr * i) + ',' + (p.c + p.dc * i)); });
       g.grid.forEach((row, r) => { const tr = el('tr'); row.forEach((ch, c) => tr.append(el('td', inSet.has(r + ',' + c) ? 'in' : '', ch))); t.append(tr); }); return t; };
     const s = sheet(title, 'Word search · ' + sub + ' · Find ' + g.placed.length + ' words. They go → ↓ ↘ ↗.'); s.append(grid(false));
-    const ul = el('ul', 'wl'); Puzzles.shuffle(g.placed).forEach(p => ul.append(el('li', '', '☐ ' + (listMode === 'en' ? p.item.word : clue(p.item.w))))); s.append(ul); out.push(s);
-    if (wantKey) { const k = sheet(title, 'Word search', true); k.append(grid(true)); const u2 = el('ul', 'wl'); g.placed.forEach(p => u2.append(el('li', '', p.item.word + (listMode === 'sl' ? ' (' + clue(p.item.w) + ')' : '')))); k.append(u2); out.push(k); }
+    const ul = el('ul', 'wl'); Puzzles.shuffle(g.placed).forEach(p => ul.append(el('li', '', '☐ ' + (listMode === 'en' ? Puzzles.show(p.item.w) : clue(p.item.w))))); s.append(ul); out.push(s);
+    if (wantKey) { const k = sheet(title, 'Word search', true); k.append(grid(true)); const u2 = el('ul', 'wl'); g.placed.forEach(p => u2.append(el('li', '', Puzzles.show(p.item.w) + (listMode === 'sl' ? ' (' + clue(p.item.w) + ')' : '')))); k.append(u2); out.push(k); }
     return { out, used: g.placed.length };
   };
   const makeCw = (title, sub, list, count, wantKey) => {
@@ -170,7 +170,7 @@
   const makeSc = (title, sub, list, count, wantKey) => {
     const picked = Puzzles.shuffle(list).slice(0, count), out = [];
     const ul = (key) => { const o = el('ol', 'sc' + (key ? ' key' : '')); picked.forEach(it => { const li = el('li'); li.append(el('span', 'sl', clue(it.w)));
-      if (!key) li.append(el('span', 'letters', Puzzles.scramble(it.word).split('').join(' ')), el('span', 'line')); else li.append(el('span', 'line', it.word)); o.append(li); }); return o; };
+      if (!key) li.append(el('span', 'letters', Puzzles.scramble(it.word).split('').join(' ')), el('span', 'line')); else li.append(el('span', 'line', Puzzles.show(it.w))); o.append(li); }); return o; };
     const s = sheet(title, 'Word scramble · ' + sub + ' · Put the letters in the right order and write the English word.'); s.append(ul(false)); out.push(s);
     if (wantKey) { const k = sheet(title, 'Word scramble', true); k.append(ul(true)); out.push(k); }
     return { out, used: picked.length };
