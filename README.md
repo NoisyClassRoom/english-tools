@@ -12,6 +12,8 @@ This repo is served by GitHub Pages and embedded in a WordPress site on Arnes Sp
 | File | Purpose |
 |---|---|
 | `index.html` | Classroom tools: timer, random pupil, groups, noise meter |
+| `today/index.html` | **Today** = the teacher's home page (embedded in the private WordPress Home page): a *Go to* grid of big tiles (Board, Classroom tools, Student exercises, Results, Printables, Teacher links, and *Continue on the Board*), a *Needs attention* row (overdue homework, classes with no practice for 7 days, mistakes to explain; click scrolls to the card), then homework, the last 7 days by class, today, where each class stopped and the explanation reminder (21 Oct 2026) |
+| `printables/index.html` | The printables hub (21 Oct 2026): cards for **Tests** (`tests/`) and **Puzzles** (`puzzles/`), a placeholder for tarsia / mind maps; both pages link back to it. No data, no sign-in of its own |
 | `exercises/index.html` | The exercise app (flashcards, match, quiz, fill the gap, unit test) |
 | `exercises/classes.js` | List of classes: grade + coursebook, `ready: true` when the file exists |
 | `exercises/class-<id>.js` | One file per coursebook: units with 24 words, 8 gap sentences, 10 test questions |
