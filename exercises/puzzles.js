@@ -12,6 +12,8 @@ window.Puzzles = (() => {
   const rnd = n => Math.floor(Math.random() * n);
   const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = rnd(i + 1); [a[i], a[j]] = [a[j], a[i]]; } return a; };
   const clean = en => String(en || '').trim().toLowerCase().replace(/^to\s+/, '');
+  // the word as it must be WRITTEN (capital letters of Monday, Slovenia, English ... are kept): for lists, answer keys and messages; clean() is only for building the puzzle
+  const show = w => String((w && w.en) || '').trim().replace(/^to\s+/i, '');
   const items = (words, min = 3, max = 12) => {
     const seen = new Set(), out = [];
     (words || []).forEach(w => { const s = clean(w.en); if (/^[a-z]+$/.test(s) && s.length >= min && s.length <= max && !seen.has(s)) { seen.add(s); out.push({ word: s, w }); } });
@@ -105,5 +107,5 @@ window.Puzzles = (() => {
   }
 
   const scramble = w => { let s, t = 0; do { s = shuffle(w.split('')).join(''); } while (s === w && ++t < 30); return s; };
-  return { items, wordSearch, crossword, scramble, shuffle, clean };
+  return { items, wordSearch, crossword, scramble, shuffle, clean, show };
 })();
