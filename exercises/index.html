@@ -340,9 +340,10 @@
     if (!srl || !srl.on || !(Track.enabled && Track.token())) { box.classList.add('hidden'); return; }
     const card = el('div', 'item'), bi = (en, sl) => { const d = el('div'); d.append(el('b', '', en), el('div', 'muted', sl)); d.querySelector('.muted').style.fontSize = '14px'; return d; };
     card.append(bi('🎯 My goal this week', 'Moj cilj ta teden'));
-    const setGoal = async goal => {
-      try { const j = await postGoal('goalset', { goal }); if (j.ok) { goalChoosing = false; renderGoal(j.srl); } else card.append(el('p', 'note', 'Could not save the goal. Try again.')); }
-      catch (e) { card.append(el('p', 'note', 'Could not save the goal. Try again.')); }
+    const setGoal = async (goal, go) => {
+      const fail = why => { if (go) go.disabled = false; card.append(el('p', 'note', why === 'token' ? 'Please sign in again, then try once more. / Ponovno se prijavi in poskusi še enkrat.' : 'Could not save the goal. Try again.')); };
+      try { const j = await postGoal('goalset', { goal }); if (j.ok) { goalChoosing = false; renderGoal(j.srl); } else fail(j.error); }
+      catch (e) { fail(''); }
     };
     // last week's goal, shown once
     let seenKey = 'srl.lastShown'; let seen = ''; try { seen = localStorage.getItem(seenKey) || ''; } catch (e) {}
@@ -390,7 +391,7 @@
           sel.onchange = () => { unit = sel.value === '' ? null : list[Number(sel.value)].u; if (type === 'finish' && unit) target = unit.nActs; if (type === 'mistakes') target = 0; upd(); };
           step2.append(sel);
         } else upd();
-        go.onclick = () => { go.disabled = true; setGoal({ type, target, book: unit ? unit.book : '', set: unit ? unit.set : '', topic: unit ? unit.topic : '' }); };
+        go.onclick = () => { go.disabled = true; setGoal({ type, target, book: unit ? unit.book : '', set: unit ? unit.set : '', topic: unit ? unit.topic : '' }, go); };
         step2.append(el('div'), go);
       };
       types.forEach(([id, en, sl, needsUnit]) => { const b = el('button', 'btn', en); b.title = sl; b.style.cssText = 'margin:0 6px 6px 0'; b.onclick = () => { [...pick.querySelectorAll('.btn')].forEach(x => x.classList.remove('primary')); b.classList.add('primary'); showType(id); }; pick.append(b); });
