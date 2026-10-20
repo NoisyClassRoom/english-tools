@@ -43,6 +43,16 @@
   .quiet td:first-child { color: var(--warn); font-weight: 600; }
   .big { font-size: 26px; font-weight: 700; color: var(--accent); }
   ul { margin: 6px 0 0; padding-left: 18px; }
+  .tilesgo { display: grid; grid-template-columns: repeat(auto-fill, minmax(165px, 1fr)); gap: 10px; }
+  .tilego { display: block; text-decoration: none; color: var(--ink); background: var(--field); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
+  .tilego:hover { border-color: var(--accent); background: var(--accent-soft); }
+  .tilego i { font-style: normal; font-size: 26px; display: block; line-height: 1.2; }
+  .tilego b { display: block; font-size: 16px; } .tilego span { color: var(--muted); font-size: 13px; }
+  .tilego.cont { grid-column: 1 / -1; background: var(--accent-soft); border-color: var(--accent); }
+  .attn { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .attn .chip { border: 1px solid var(--warn); color: var(--warn); border-radius: 999px; padding: 3px 12px; cursor: pointer; background: transparent; font: inherit; font-size: 14px; }
+  .attn .chip.bad { border-color: var(--bad); color: var(--bad); }
+  .attn .ok { color: var(--good); }
 </style>
 </head>
 <body>
@@ -61,12 +71,14 @@
   </div>
   <div id="app">
     <div class="grid">
-      <div class="card wide"><h2>Homework to watch</h2><div id="hw" class="muted">Loading…</div></div>
+      <div class="card wide"><h2>Go to</h2><div id="go" class="tilesgo"></div></div>
+      <div class="card wide"><h2>Needs attention</h2><div id="attn" class="attn muted">Loading…</div></div>
+      <div class="card wide" id="hwCard"><h2>Homework to watch</h2><div id="hw" class="muted">Loading…</div></div>
       <div class="card"><h2>Last 7 days, by class</h2><div id="wk" class="muted">Loading…</div></div>
       <div class="card"><h2>Today so far</h2><div id="td" class="muted">Loading…</div></div>
       <div class="card wide" id="stopCard" style="display:none"><h2>📍 Where we stopped</h2><div id="stops"></div></div>
       <div class="card wide" id="exCard" style="display:none"><h2>💬 Mistake explanations to write</h2><div id="ex"></div></div>
-      <div class="card wide"><h2>Go to</h2><div id="go"></div></div>
+
     </div>
   </div>
 </div>
@@ -108,6 +120,8 @@
       box.append(d);
     });
     if (list.length > 8) box.append(el('p', 'muted', '… and ' + (list.length - 8) + ' more (Results › Homework).'));
+    const od = list.filter(x => x.overdue).length;
+    attn.hw = od ? { text: '⏰ ' + od + ' homework overdue', bad: true, to: '#hwCard' } : list.length ? { text: '📝 ' + list.length + ' homework still open', to: '#hwCard' } : null;
   };
 
   // ---------------------------------------------------------------- activity: this week by class, today
@@ -132,6 +146,8 @@
         const tr = el('tr', n ? '' : 'quiet'); tr.append(el('td', '', c), el('td', 'n', act + ' / ' + pup.length), el('td', 'n', String(n)), el('td', 'n', String(np)), el('td', '', lastT ? dmy(lastT) : '–'));
         t.append(tr);
       });
+      const quiet = classes.filter(c => !cur.some(r => r.cls === c && r.t >= week0));
+      attn.quiet = quiet.length ? { text: '😴 No practice in 7 days: ' + quiet.join(', '), to: '#wk' } : null;
       wk.append(t, el('p', 'muted', 'The last 7 days (since ' + dmy(week0) + '); "Before that" = the 7 days before. Orange class name = nobody has practised in the last 7 days.'));
     }
     // today
@@ -178,6 +194,7 @@
     });
     const cand = Object.keys(by).map(k => ({ k, o: by[k] })).filter(x => x.o.n >= EX_MIN_ANSWERS && x.o.wrong / x.o.n >= EX_MIN_WRONG && !have[x.k] && !have[x.k.split('||')[0]])
       .sort((a, b) => b.o.wrong - a.o.wrong || b.o.n - a.o.n);
+    attn.ex = cand.length >= EX_SHOW_AT ? { text: '💬 ' + cand.length + ' mistakes to explain', to: '#exCard' } : null; showAttn();
     if (cand.length < EX_SHOW_AT) return;
     box.innerHTML = '';
     box.append(el('p', '', 'There are ' + cand.length + ' often-missed questions without a short explanation yet (answered at least ' + EX_MIN_ANSWERS + ' times, wrong in ' + Math.round(EX_MIN_WRONG * 100) + ' % or more). Explanations already written: ' + Object.keys(have).length + '.'));
@@ -192,14 +209,24 @@
   const showGo = () => {
     const box = $('#go'); box.innerHTML = '';
     let last = null; try { last = JSON.parse(localStorage.getItem('board.last') || 'null'); } catch (e) {}
-    if (last && last.book) {
-      const a = el('a', 'btn', '▶ Continue on the Board: ' + last.book + (last.label ? ' · ' + last.label : '')); a.href = '../board/?book=' + encodeURIComponent(last.book) + '&si=' + encodeURIComponent(last.si || 0);
-      box.append(a, document.createTextNode(' '));
-    }
-    [['🧩 Printable puzzles', '../puzzles/'], ['🖨 Printable tests', '../tests/']].forEach(([t, h]) => { const a = el('a', 'btn', t); a.href = h; a.target = '_blank'; box.append(a, document.createTextNode(' ')); });
-    [['Board', 'board/'], ['Results', 'results/'], ['Teacher Links', 'links/'], ['Classroom Tools', 'tools/']].forEach(([t, p]) => { const a = el('a', 'btn', t); a.href = SITE + p; a.target = '_top'; box.append(a, document.createTextNode(' ')); });
+    const tile = (icon, title, desc, href, target, cls) => { const a = el('a', 'tilego' + (cls ? ' ' + cls : '')); a.href = href; a.target = target; const i = el('i', '', icon); a.append(i, el('b', '', title), el('span', '', desc)); box.append(a); };
+    if (last && last.book) tile('▶', 'Continue on the Board', last.book + (last.label ? ' · ' + last.label : ''), '../board/?book=' + encodeURIComponent(last.book) + '&si=' + encodeURIComponent(last.si || 0), '_blank', 'cont');
+    tile('📋', 'Board', 'the lesson text for each class', SITE + 'board/', '_top');
+    tile('⏱', 'Classroom tools', 'timer, random pupil, groups, noise', SITE + 'tools/', '_top');
+    tile('🎓', 'Student exercises', 'what pupils see (classes and Extra practice)', SITE, '_top');
+    tile('📊', 'Results', 'classes, pupils, homework, self-regulation', SITE + 'results/', '_top');
+    tile('🖨', 'Printables', 'tests and puzzles to print', '../printables/', '_blank');
+    tile('🔗', 'Teacher links', 'your own list of links', SITE + 'links/', '_top');
   };
 
+  // ---------------------------------------------------------------- "needs attention": short chips made from what is already loaded on this page
+  const attn = {};
+  const showAttn = () => {
+    const box = $('#attn'); box.className = 'attn'; box.innerHTML = '';
+    const items = Object.keys(attn).map(k => attn[k]).filter(Boolean);
+    if (!items.length) { box.append(el('span', 'ok', '✅ Nothing needs attention right now.')); return; }
+    items.forEach(a => { const b = el('button', 'chip' + (a.bad ? ' bad' : ''), a.text); b.type = 'button'; b.onclick = () => { const t = $(a.to); if (t) t.scrollIntoView({ behavior: 'smooth', block: 'start' }); }; box.append(b); });
+  };
   const load = async () => {
     if (!Track.token()) return;
     loaded = true; $('#login').style.display = 'none'; $('#app').style.display = 'block'; $('#reload').style.display = ''; $('#who').textContent = Track.email || '';
@@ -207,13 +234,13 @@
     const [hw, st, mk] = await Promise.all([api('hwlist').catch(() => null), api('stats').catch(() => null), api('boardmarks').catch(() => null)]);
     showStops(mk);
     if ((hw && hw.error === 'token') || (st && st.error === 'token')) { loaded = false; $('#app').style.display = 'none'; $('#login').style.display = 'block'; $('#loginMsg').textContent = 'This Google account is not allowed to open this page.'; return; }
-    showHomework(hw); showActivity(st);
+    showHomework(hw); showActivity(st); showAttn();
     // the reminder needs the heavy question data: it waits a few seconds so that the homework and the numbers above appear first
     setTimeout(showExplainReminder, 8000);
   };
 
   $('#date').textContent = new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
-  $('#reload').onclick = () => { $('#hw').textContent = $('#wk').textContent = $('#td').textContent = 'Loading…'; load(); };
+  $('#reload').onclick = () => { $('#hw').textContent = $('#wk').textContent = $('#td').textContent = 'Loading…'; Object.keys(attn).forEach(k => delete attn[k]); $('#attn').textContent = 'Loading…'; load(); };
   $('#theme').onclick = () => { document.body.classList.toggle('light'); try { localStorage.setItem('board.light', document.body.classList.contains('light') ? '1' : ''); } catch (e) {} };
   try { if (localStorage.getItem('board.light')) document.body.classList.add('light'); } catch (e) {}
   if (window.top !== window.self) document.body.classList.add('emb');
