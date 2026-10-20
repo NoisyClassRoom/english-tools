@@ -85,7 +85,7 @@ var UNITS = {
 
 // Change this text whenever the code of doPost changes: the health check compares it with what the published web app answers,
 // so it can tell you that the saved code has not been deployed as a new version yet.
-var CODE_VERSION = '2026-10-20.4';
+var CODE_VERSION = '2026-10-20.5';
 
 // ---------------------------------------------------------------- saving results
 
@@ -728,19 +728,19 @@ function restoreBoardOriginal() {
 }
 
 // All results (Results + Archive) and the Roster with activity counts, for the private Results page. Teacher only.
-// rows:   [time ms, last name, first name, class, book id, unit title, activity, level 1-3, score, total, school year]
+// rows:   [time ms, last name, first name, class, book id, unit title, activity, level 1-3, score, total, school year, category (teacher / guest / other for an account without a class, else '')]
 // roster: [school year, class, name, attempts that year, last time ms (0 = never)]
 function statsReply_(d) {
   var who = verify_(d.token);
   if (!who || !isTeacher_(who.email)) return out_({ ok: false, error: 'token' });
-  var ss = SpreadsheetApp.getActive(), rows = [], byEmail = {}, byName = {};
+  var ss = SpreadsheetApp.getActive(), rows = [], byEmail = {}, byName = {}, cats = rosterCats_();
   [SHEET, ARCHIVE].forEach(function (n) {
     var sh = ss.getSheetByName(n);
     if (!sh || sh.getLastRow() < 2) return;
     sh.getRange(2, 1, sh.getLastRow() - 1, 18).getValues().forEach(function (r) {
       if (!(r[0] instanceof Date) || !r[1]) return;
       var t = r[0].getTime(), y = String(r[10]);
-      rows.push([t, r[3], r[2], r[11], r[4], r[15], r[6], r[14], r[7], r[8], y]);
+      rows.push([t, r[3], r[2], r[11], r[4], r[15], r[6], r[14], r[7], r[8], y, String(r[11]).trim() ? '' : catFor_(cats, r[1], r[2], r[3])]);
       [[byEmail, y + '|' + String(r[1]).toLowerCase()], [byName, y + '|' + nameKey_(r[2] + ' ' + r[3])]].forEach(function (p) {
         var o = p[0][p[1]] = p[0][p[1]] || { n: 0, t: 0 };
         o.n++; if (t > o.t) o.t = t;
@@ -806,10 +806,10 @@ function puzzleSheet_() {
 function puzzleStatsReply_(d) {
   var who = verify_(d.token);
   if (!who || !isTeacher_(who.email)) return out_({ ok: false, error: 'token' });
-  var sh = SpreadsheetApp.getActive().getSheetByName(PSHEET), rows = [];
+  var sh = SpreadsheetApp.getActive().getSheetByName(PSHEET), rows = [], cats = rosterCats_();
   if (sh && sh.getLastRow() > 1) sh.getRange(2, 1, sh.getLastRow() - 1, 18).getValues().forEach(function (r) {
     if (!(r[0] instanceof Date) || !r[1]) return;
-    rows.push([r[0].getTime(), r[3], r[2], r[11], r[4], r[15], r[6], r[14], r[7], r[8], String(r[10])]);
+    rows.push([r[0].getTime(), r[3], r[2], r[11], r[4], r[15], r[6], r[14], r[7], r[8], String(r[10]), String(r[11]).trim() ? '' : catFor_(cats, r[1], r[2], r[3])]);
   });
   return out_({ ok: true, rows: rows });
 }
@@ -874,6 +874,22 @@ function rosterRows_() {
              name: nameKey_(r[3]) };
   }).filter(function (r) { return (r.email || r.name) && r.cls; });
 }
+
+// Category of an account WITHOUT a class: Roster column H (teacher / guest / other). Only for rows with a name or e-mail; it never changes a pupil's class.
+// Returns { byEmail: {email: 'teacher'|'guest'|'other'}, byName: {nameKey: ...} }; rows that have a class are ignored (those are pupils).
+function catOf_(v) { var s = String(v || '').trim().toLowerCase(); if (!s) return ''; if (/^(t|u)/.test(s)) return 'teacher'; if (/^g/.test(s)) return 'guest'; return 'other'; }
+function rosterCats_() {
+  var sh = SpreadsheetApp.getActive().getSheetByName(ROSTER), out = { byEmail: {}, byName: {} };
+  if (!sh || sh.getLastRow() < 2 || sh.getLastColumn() < 8) return out;
+  sh.getRange(2, 1, sh.getLastRow() - 1, 8).getValues().forEach(function (r) {
+    var c = catOf_(r[7]), email = String(r[0]).trim().toLowerCase(), key = nameKey_(r[3]);
+    if (!c || String(r[2]).trim() || !(email || key)) return;
+    if (email) out.byEmail[email] = c;
+    if (key) out.byName[key] = c;
+  });
+  return out;
+}
+function catFor_(cats, email, first, last) { return cats.byEmail[String(email).toLowerCase()] || cats.byName[nameKey_(first + ' ' + last)] || ''; }
 
 // "Cretnik Sara" and "Sara Čretnik" give the same key.
 function nameKey_(s) {
@@ -1107,13 +1123,15 @@ function hcBoard_(add) {
 function hcPupils_(add) {
   var rs = SpreadsheetApp.getActive().getSheetByName(SHEET);
   if (!rs || rs.getLastRow() < 2) { add('ok', 'No results yet.'); return; }
-  var year = schoolYear_(new Date()), teachers = String(PropertiesService.getScriptProperties().getProperty('TEACHER_EMAILS') || '').toLowerCase().split(/[\s,;]+/).filter(String), who = {};
+  var year = schoolYear_(new Date()), teachers = String(PropertiesService.getScriptProperties().getProperty('TEACHER_EMAILS') || '').toLowerCase().split(/[\s,;]+/).filter(String), who = {}, cats = rosterCats_(), listed = {};
   rs.getRange(2, 1, rs.getLastRow() - 1, NCOLS).getValues().forEach(function (r) {
     if (!(r[0] instanceof Date) || String(r[10]) !== year || String(r[11]).trim() || teachers.indexOf(String(r[1]).toLowerCase()) >= 0) return;
+    var cat = catFor_(cats, r[1], r[2], r[3]); if (cat) { listed[String(r[1]).toLowerCase()] = cat; return; }                // teacher / guest / other: not a missing pupil
     who[String(r[1]).toLowerCase()] = String(r[3] || '') + ' ' + String(r[2] || '');
   });
-  var list = Object.keys(who);
-  if (!list.length) add('ok', 'Every account with results this year has a class in the Roster.');
+  var list = Object.keys(who), nl = Object.keys(listed).length;
+  if (nl) add('ok', nl + ' account(s) with results this year are listed in the Roster as teacher / guest / other (not counted as pupils).');
+  if (!list.length) add('ok', 'Every other account with results this year has a class in the Roster.');
   else add('warn', list.length + ' account(s) have results but no class in the Roster: ' + list.slice(0, 8).map(function (k) { return who[k].trim() || k; }).join(', ') + (list.length > 8 ? ' ...' : '') + '. Add them to the Roster, then run "Refresh classes from Roster".');
 }
 
@@ -1440,7 +1458,7 @@ function srlStatsReply_(d) {
       var t = r[0].getTime(), email = String(r[1]).toLowerCase(), act = String(r[6]), cls = String(r[11] || '').trim(), puzzle = n === PSHEET;
       (rowsBy[email] = rowsBy[email] || []).push({ t: t, book: String(r[4]), topic: String(r[5]), act: act, p: r[7] / r[8] });
       if (!puzzle && w >= NCOLS && r[NCOLS - 1]) ridInfo[String(r[NCOLS - 1])] = { t: t, cls: cls, p: r[7] / r[8] };
-      if (!inRange(t)) return;
+      if (!cls || !inRange(t)) return;                                  // only pupils with a class (teachers, guests and unlisted accounts are not part of the team numbers)
       var wk = weekOf(t), self = !isHw(cls, nameKey_(r[2] + ' ' + r[3]), String(r[4]), String(r[5]), act, t), lvl = !puzzle && w > 14 ? Number(r[14]) : 0;
       weeks[wk] = 1;
       each(cls, wk, function (c) {
@@ -1455,7 +1473,7 @@ function srlStatsReply_(d) {
   // predictions and next steps (linked to their result)
   var rf = ss.getSheetByName(RSHEET);
   if (rf && rf.getLastRow() > 1) rf.getRange(2, 1, rf.getLastRow() - 1, RHEADER.length).getValues().forEach(function (r) {
-    var info = ridInfo[String(r[2])]; if (!info || !inRange(info.t)) return;
+    var info = ridInfo[String(r[2])]; if (!info || !info.cls || !inRange(info.t)) return;
     var wk = weekOf(info.t), kind = String(r[3]);
     if (kind === 'confidence') {
       var sure = Number(r[4]) >= 3, aim = Number(r[5]) || 80, hit = info.p * 100 >= aim - 1e-9;
@@ -1470,6 +1488,7 @@ function srlStatsReply_(d) {
     var g = { week: srlWk_(r[4]), type: String(r[5]), book: String(r[6]), set: String(r[7]), topic: String(r[8]), target: Number(r[9]) }, rg = srlWeekRange_(g.week);
     if (rg[1] <= from || (to && rg[0] >= to)) return;
     var email = String(r[2]).toLowerCase(), cls = String(r[3]).trim(), ok = srlEval_(g, rowsBy[email] || [], null).reached;
+    if (!cls) return;
     weeks[g.week] = 1;
     each(cls, g.week, function (c) { c.goals++; c.goalPup[email] = 1; if (ok) c.goalsOk++; });
   });
@@ -1477,7 +1496,7 @@ function srlStatsReply_(d) {
   // "I can": first vs latest rating of every statement (whole school year)
   var cs = ss.getSheetByName(CSHEET), cd = {};
   if (cs && cs.getLastRow() > 1) cs.getRange(2, 1, cs.getLastRow() - 1, CHEADER.length).getValues().forEach(function (r) {
-    if (!(r[0] instanceof Date) || String(r[1]) !== year) return;
+    if (!(r[0] instanceof Date) || String(r[1]) !== year || !String(r[3]).trim()) return;
     var k = String(r[2]).toLowerCase() + '\u0001' + r[4] + '\u0001' + r[5] + '\u0001' + r[6], t = r[0].getTime(), o = cd[k] = cd[k] || { cls: String(r[3]).trim(), n: 0, f: 0, ft: Infinity, l: 0, lt: -1 };
     o.n++; if (t < o.ft) { o.ft = t; o.f = Number(r[7]); } if (t >= o.lt) { o.lt = t; o.l = Number(r[7]); }
   });
@@ -1684,6 +1703,7 @@ function onOpen() {
   SpreadsheetApp.getUi().createMenu('English hub')
     .addItem('Set up analysis tabs', 'setupAnalysis')
     .addItem('Refresh classes from Roster', 'refreshClasses')
+    .addItem('Set up the Roster category column (teacher / guest / other)', 'rosterCategorySetup')
     .addItem('Start new school year (copy Roster)', 'startNewSchoolYear')
     .addItem('End of school year (guided)...', 'endOfYear')
     .addSeparator()
@@ -2240,6 +2260,7 @@ function rosterSheet_() {
   sh.getRange('B:D').setNumberFormat('@');
   sh.getRange('E1').setValue('Class list (automatic)').setFontWeight('bold');
   sh.getRange('F1').setValue('Display name (optional)').setFontWeight('bold');
+  sh.getRange('H1').setValue('Category (teacher / guest / other, only for people WITHOUT a class)').setFontWeight('bold');
   sh.getRange('E2').setFormula('={"All";IFERROR(SORT(UNIQUE(FILTER(C2:C,C2:C<>""))),"")}');
   sh.getRange('G1').setValue('How to use').setFontWeight('bold');
   sh.getRange('G2').setValue('One row per pupil and school year. Fill the Email and/or the Name (surname and first name as in eAsistent, any order); School year like 2026-27 (blank = every year); Class e.g. 7.B');
@@ -2250,6 +2271,18 @@ function rosterSheet_() {
   sh.setFrozenRows(1);
   sh.setColumnWidth(1, 260);
   return sh;
+}
+
+// One-time set-up of the "Category" column (H) in the Roster: a header, a drop-down (teacher / guest / other) and a short note.
+// Use it for accounts WITHOUT a class: type the e-mail (or the name), leave School year and Class empty, choose the category in column H.
+// Results then shows them under Accounts > Teachers / Guests / Other instead of "no class"; they are left out of the class numbers.
+function rosterCategorySetup() {
+  var sh = rosterSheet_();
+  sh.getRange('H1').setValue('Category (teacher / guest / other, only for people WITHOUT a class)').setFontWeight('bold');
+  sh.getRange('H2:H500').setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(['teacher', 'guest', 'other'], true).setAllowInvalid(false).build());
+  sh.getRange('G7').setValue('Accounts WITHOUT a class (teachers, guests, former pupils): one row with the E-mail, leave School year and Class empty, choose teacher / guest / other in column H. They are shown separately in Results and are not part of the class numbers.');
+  sh.setColumnWidth(8, 150);
+  SpreadsheetApp.getUi().alert('Done. In the Roster, column H is now the Category column (drop-down: teacher / guest / other). For an account without a class add a row with the e-mail, leave School year and Class empty and choose the category in column H. Then reload the Results page.');
 }
 
 // A school year label list for the selector: "All" plus this year and the five before.
