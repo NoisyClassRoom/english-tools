@@ -85,7 +85,7 @@ var UNITS = {
 
 // Change this text whenever the code of doPost changes: the health check compares it with what the published web app answers,
 // so it can tell you that the saved code has not been deployed as a new version yet.
-var CODE_VERSION = '2026-10-20.5';
+var CODE_VERSION = '2026-10-20.6';
 
 // ---------------------------------------------------------------- saving results
 
@@ -1704,6 +1704,7 @@ function onOpen() {
     .addItem('Set up analysis tabs', 'setupAnalysis')
     .addItem('Refresh classes from Roster', 'refreshClasses')
     .addItem('Set up the Roster category column (teacher / guest / other)', 'rosterCategorySetup')
+    .addItem('Add accounts with results that are not in the Roster...', 'rosterAddUnlisted')
     .addItem('Start new school year (copy Roster)', 'startNewSchoolYear')
     .addItem('End of school year (guided)...', 'endOfYear')
     .addSeparator()
@@ -2283,6 +2284,39 @@ function rosterCategorySetup() {
   sh.getRange('G7').setValue('Accounts WITHOUT a class (teachers, guests, former pupils): one row with the E-mail, leave School year and Class empty, choose teacher / guest / other in column H. They are shown separately in Results and are not part of the class numbers.');
   sh.setColumnWidth(8, 150);
   SpreadsheetApp.getUi().alert('Done. In the Roster, column H is now the Category column (drop-down: teacher / guest / other). For an account without a class add a row with the e-mail, leave School year and Class empty and choose the category in column H. Then reload the Results page.');
+}
+
+// Adds the accounts that have results this school year but are NOT in the Roster (no class, no category) as new Roster rows:
+// e-mail and name filled in, School year / Class empty, Category pre-filled "teacher" for the addresses in TEACHER_EMAILS, otherwise empty
+// for you to choose (teacher / guest / other) or to type the class of a pupil. Asks first; adds rows only, never changes or deletes anything.
+function rosterAddUnlisted() {
+  var ui = SpreadsheetApp.getUi(), ss = SpreadsheetApp.getActive(), rs = ss.getSheetByName(SHEET);
+  if (!rs || rs.getLastRow() < 2) { ui.alert('No results yet.'); return; }
+  rosterCategorySetupQuiet_();
+  var ro = rosterSheet_(), year = schoolYear_(new Date()), cats = rosterCats_();
+  var teachers = String(PropertiesService.getScriptProperties().getProperty('TEACHER_EMAILS') || '').toLowerCase().split(/[\s,;]+/).filter(String);
+  var listed = {}; if (ro.getLastRow() > 1) ro.getRange(2, 1, ro.getLastRow() - 1, 1).getValues().forEach(function (r) { var e = String(r[0]).trim().toLowerCase(); if (e) listed[e] = 1; });
+  var found = {};
+  rs.getRange(2, 1, rs.getLastRow() - 1, NCOLS).getValues().forEach(function (r) {
+    var e = String(r[1]).toLowerCase();
+    if (!(r[0] instanceof Date) || String(r[10]) !== year || String(r[11]).trim() || !e || listed[e] || catFor_(cats, r[1], r[2], r[3])) return;
+    found[e] = (String(r[3] || '') + ' ' + String(r[2] || '')).trim();
+  });
+  var list = Object.keys(found);
+  if (!list.length) { ui.alert('Every account with results this school year is already in the Roster (with a class or a category).'); return; }
+  var msg = list.length + ' account(s) have results but are not in the Roster:\n\n' + list.slice(0, 15).map(function (e) { return found[e] + '  <' + e + '>'; }).join('\n') + (list.length > 15 ? '\n...' : '') +
+    '\n\nAdd them as new rows at the end of the Roster? (School year and Class stay empty; the Category is set to "teacher" for the teacher addresses and left empty for the others, so you choose teacher / guest / other, or type the class of a pupil.)';
+  if (ui.alert('Add unlisted accounts to the Roster', msg, ui.ButtonSet.YES_NO) !== ui.Button.YES) return;
+  var start = ro.getLastRow() + 1;
+  var rows = list.map(function (e) { return [e, '', '', found[e], '', '', '', teachers.indexOf(e) >= 0 ? 'teacher' : '']; });
+  ro.getRange(start, 2, rows.length, 3).setNumberFormat('@');
+  ro.getRange(start, 1, rows.length, 8).setValues(rows);
+  ui.alert('Added ' + rows.length + ' row(s) at the end of the Roster (from row ' + start + '). Choose the category in column H (or type the school year and class for a pupil), then reload the Results page.');
+}
+function rosterCategorySetupQuiet_() {
+  var sh = rosterSheet_();
+  if (!String(sh.getRange('H1').getValue()).trim()) sh.getRange('H1').setValue('Category (teacher / guest / other, only for people WITHOUT a class)').setFontWeight('bold');
+  sh.getRange('H2:H500').setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(['teacher', 'guest', 'other'], true).setAllowInvalid(false).build());
 }
 
 // A school year label list for the selector: "All" plus this year and the five before.
