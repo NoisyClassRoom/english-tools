@@ -202,6 +202,7 @@
 <script src="levels-3.js"></script>
 <script src="levels-4.js"></script>
 <script src="levels-5.js"></script>
+<script src="levels-6.js"></script>
 <script src="explain.js"></script>
 <script src="puzzles.js"></script>
 <script src="tracking.js"></script>
@@ -1064,12 +1065,12 @@
       if (hit < 0) { [cells[r0][c0], b].forEach(x => { x.classList.add('no'); setTimeout(() => x.classList.remove('no'), 350); }); return; }
       const p = g.placed[hit]; done.add(hit); found++;
       for (let i = 0; i < p.item.word.length; i++) cells[p.r + p.dr * i][p.c + p.dc * i].classList.add('found');
-      tags[hit].classList.add('got'); tags[hit].textContent = clueOf(p.item.w) + ' = ' + p.item.word;
+      tags[hit].classList.add('got'); tags[hit].textContent = clueOf(p.item.w) + ' = ' + Puzzles.show(p.item.w);
       setBar(found / g.placed.length);
       if (found === g.placed.length) setTimeout(() => puzzleEnd('All ' + found + ' words found!', wordsearch, 'Great searching!', 1, 1), 600);
     };
     const hint = el('button', 'btn', 'Show the English words'); hint.style.marginTop = '8px';
-    hint.onclick = () => { showEn = !showEn; hint.textContent = showEn ? 'Hide the English words' : 'Show the English words'; tags.forEach((t, i) => { if (!done.has(i)) t.textContent = clueOf(g.placed[i].item.w) + (showEn ? ' = ' + g.placed[i].item.word : ''); }); };
+    hint.onclick = () => { showEn = !showEn; hint.textContent = showEn ? 'Hide the English words' : 'Show the English words'; tags.forEach((t, i) => { if (!done.has(i)) t.textContent = clueOf(g.placed[i].item.w) + (showEn ? ' = ' + Puzzles.show(g.placed[i].item.w) : ''); }); };
     s.append(list, tbl, el('div', 'row center').appendChild(hint).parentNode);
   }
 
@@ -1090,7 +1091,7 @@
       };
       const end = good => {
         over = true; if (good) score++; draw(); keys.querySelectorAll('button').forEach(b => b.disabled = true);
-        msg.textContent = good ? '✓ Well done!' : 'The word was: ' + target;
+        msg.textContent = good ? '✓ Well done!' : 'The word was: ' + Puzzles.show(w);
         const nb = el('button', 'btn primary', i + 1 < words.length ? 'Next word' : 'Finish'); nb.onclick = () => { i++; setBar(i / words.length); if (i < words.length) round(); else puzzleEnd(score + ' / ' + words.length, () => { i = 0; score = 0; hangman(); }, 'Words guessed', score, words.length); };
         s.append(nb); nb.focus();
       };
@@ -1122,7 +1123,7 @@
       check.onclick = () => {
         if (checked) { i++; setBar(i / list.length); if (i < list.length) ask(); else puzzleEnd(score + ' / ' + list.length, () => { i = 0; score = 0; scramble(); }, 'Words solved', score, list.length); return; }
         const good = inp.value.trim().toLowerCase() === it.word; if (good) score++;
-        inp.classList.add(good ? 'ok' : 'no'); inp.readOnly = true; if (!good) q.append(el('p', 'hint', '→ ' + it.word));
+        inp.classList.add(good ? 'ok' : 'no'); inp.readOnly = true; if (!good) q.append(el('p', 'hint', '→ ' + Puzzles.show(it.w)));
         checked = true; check.textContent = i + 1 < list.length ? 'Next' : 'Finish';
       };
       inp.onkeydown = e => { if (e.key === 'Enter') check.click(); };
