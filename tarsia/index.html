@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Tarsia maker</title>
+<style>
+  :root {
+    --bg: #141418; --card: #1f1f26; --ink: #f2efe9; --muted: #a39f95; --line: #34343e; --field: #14141a;
+    --accent: #ff8a1f; --good: #34c06d; --bad: #ff5a5a; --radius: 14px;
+  }
+  body.light {
+    --bg: #f6f4ef; --card: #ffffff; --ink: #1f2a37; --muted: #6b7280; --line: #e5e1d8; --field: #ffffff;
+    --accent: #e8710a; --good: #1f9d55; --bad: #d64545;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .wrap { max-width: 1000px; margin: 0 auto; padding: 14px; }
+  h1 { margin: 0; font-size: 22px; } h2 { margin: 12px 0 8px; font-size: 16px; color: var(--accent); }
+  .top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+  .top .sp { flex: 1; }
+  .btn { background: var(--field); color: var(--ink); border: 1px solid var(--line); border-radius: 10px; padding: 6px 12px; font: inherit; cursor: pointer; text-decoration: none; display: inline-block; }
+  .btn:hover { border-color: var(--accent); } .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px; margin-bottom: 12px; }
+  .muted { color: var(--muted); }
+  #login { text-align: center; padding: 40px 14px; } #app { display: none; }
+  label { display: inline-block; margin: 0 14px 8px 0; } select, input[type=number], input[type=text] { background: var(--field); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 5px 8px; font: inherit; }
+  .units { columns: 2 280px; margin: 6px 0 10px; max-height: 240px; overflow: auto; border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
+  .units label { display: block; margin: 0 0 3px; }
+  /* the sheets: always black on white, also on screen */
+  #sheets { color: #111; }
+  .sheet { background: #fff; color: #111; border-radius: 6px; padding: 14px 18px; margin-bottom: 14px; font: 14px/1.4 Arial, Helvetica, sans-serif; }
+  .sheet h3 { margin: 0 0 2px; font-size: 20px; } .sheet .sub { color: #555; margin: 0 0 8px; font-size: 12px; }
+  .sheet svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+  .sheet ol { columns: 2; margin: 10px 0 0; padding-left: 24px; font-size: 13px; } .sheet li { break-inside: avoid; margin: 0 0 3px; }
+  @media print {
+    @page { size: A4 portrait; margin: 14mm; }
+    body { background: #fff; } .wrap { max-width: none; padding: 0; }
+    .no-print, .top { display: none !important; }
+    .sheet { border-radius: 0; padding: 0; margin: 0; page-break-after: always; break-after: page; }
+    .sheet:last-child { page-break-after: auto; break-after: auto; }
+  }
+</style>
+</head>
+<body>
+<script src="../exercises/tracking.js"></script>
+<script src="../exercises/puzzles.js"></script>
+<div class="wrap">
+  <div class="top no-print">
+    <h1>🔺 Tarsia maker</h1><span class="sp"></span>
+    <a class="btn" href="../printables/">🖨 Printables</a>
+    <span class="muted" id="who"></span>
+    <button class="btn" id="theme">Light / dark</button>
+  </div>
+  <div id="login" class="card no-print">
+    <p id="loginMsg" class="muted">Sign in with your school Google account. Only the teacher account is allowed.</p>
+    <div id="slot"></div>
+  </div>
+  <div id="app">
+    <div class="card no-print">
+      <h2>1. Where the pairs come from</h2>
+      <label>Source <select id="src"></select></label>
+      <label id="lvlWrap" style="display:none">Level <select id="lvl"><option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option></select></label>
+      <div><b>Units</b> <span class="muted">(tick one or several; the puzzle needs 18 pairs for the triangle and 30 for the hexagon)</span>
+        <button class="btn" id="all" style="margin-left:8px">All</button> <button class="btn" id="none">None</button></div>
+      <div class="units" id="units">Loading…</div>
+      <h2>2. The puzzle</h2>
+      <label>Shape <select id="shape"><option value="tri">Triangle (16 pieces, 18 pairs)</option><option value="hex">Hexagon (24 pieces, 30 pairs)</option></select></label>
+      <label>Pairs <select id="kind"><option value="words">English word ↔ Slovenian word</option><option value="qa">Short sentence with a gap ↔ the missing word</option></select></label>
+      <label>Title <input type="text" id="title" placeholder="(automatic: the unit names)" style="width:min(300px,100%)"></label>
+      <label><input type="checkbox" id="key" checked> answer page (numbered pairs and the list)</label>
+      <div style="margin-top:8px"><button class="btn primary" id="make">Make the tarsia</button> <button class="btn" id="again" style="display:none">Make it again (new arrangement)</button>
+        <button class="btn" id="print" style="display:none">🖨 Print</button> <span class="muted" id="msg" style="margin-left:8px"></span></div>
+    </div>
+    <div id="sheets"></div>
+  </div>
+</div>
+<script>
+(() => {
+  'use strict';
+  const $ = s => document.querySelector(s);
+  const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+  const BOOKS = { '6b': 'Project 1 (6th grade)', '7a': 'Dream Team Starter (7th grade)', '7bc': 'Project 2 (7th grade)', '8a': 'Dream Team 1 (8th grade)', '8b': 'Project 3 (8th grade)', '9a': 'Dream Team 2 (9th grade)', '9b': 'Project 4 (9th grade)', 'extra': 'Extra practice topics' };
+  const shuffle = a => Puzzles.shuffle(a);
+  let loaded = false, current = [];            // current: [{ label, words, sentences, mcEasy, mcHard }] of the chosen source
+
+  const api = async action => {
+    const token = Track.token(); if (!token) throw new Error('token');
+    const r = await fetch(Track.config.endpoint, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action, token }) });
+    return r.json();
+  };
+  const loadScript = src => new Promise(res => { const s = document.createElement('script'); s.src = src; s.onload = s.onerror = res; document.head.append(s); });
+
+  // ---- the banks come from the public exercise files, merged the same way as on the tests page (no pupil data)
+  const cache = {};
+  const toGap = ([text, answer, ...alt]) => alt.length ? { text, answer, alt } : { text, answer };
+  const loadSource = async (book, level) => {
+    const key = book + '|' + (book === 'extra' ? level : '');
+    if (cache[key]) return cache[key];
+    let list = [];
+    if (book === 'extra') {
+      await loadScript('../exercises/sets.js'); for (const f of ['levels-1', 'levels-2', 'levels-3', 'levels-4', 'levels-5', 'levels-6']) await loadScript('../exercises/' + f + '.js');
+      const base = (window.SETS || []).map(s => ({ id: s.id, title: s.title, words: s.words || [], sentences: s.sentences || [] }));
+      const toW = a => ({ en: a[0], sl: a[1], pic: a[2] });
+      (window.EXTRA_LEVELS || []).forEach(x => {
+        let b = base.find(s => s.id === x.id); if (!b) { b = { id: x.id, title: x.title, words: [], sentences: [] }; base.push(b); }
+        const l = x[level]; if (!l) { b.skip = true; return; }
+        b.lv = { words: (level === 'easy' ? b.words : []).concat(l.w.map(toW)), sentences: (level === 'easy' ? b.sentences : []).concat((l.s || []).map(a => ({ text: a[0], answer: a[1], alt: a.slice(2) }))) };
+      });
+      list = base.filter(b => !b.skip && (b.lv || !(window.EXTRA_LEVELS || []).some(x => x.id === b.id))).map(b => ({ id: b.id, label: b.title + ' · ' + level[0].toUpperCase() + level.slice(1), words: (b.lv || b).words, sentences: (b.lv || b).sentences }));
+    } else {
+      window.CLASS_SETS = null; window.MORE_SETS = null; window.MORE2_SETS = null;
+      await loadScript('../exercises/class-' + book + '.js');
+      for (const f of ['more-', 'more2-']) await loadScript('../exercises/' + f + book + '.js');       // optional files: a missing one is fine
+      list = (window.CLASS_SETS || []).map(s => {
+        const mores = [(window.MORE_SETS || {})[s.id], (window.MORE2_SETS || {})[s.id]].filter(Boolean);
+        return { id: s.id, label: [s.unit, s.title].filter(Boolean).join(' · '), words: s.words || [], sentences: (s.sentences || []).concat(...mores.map(m => (m.gap || []).map(toGap))) };
+      });
+    }
+    return cache[key] = list;
+  };
+  const fillUnits = async () => {
+    const box = $('#units'); box.textContent = 'Loading…'; $('#msg').textContent = '';
+    const book = $('#src').value; $('#lvlWrap').style.display = book === 'extra' ? '' : 'none';
+    current = await loadSource(book, $('#lvl').value); box.innerHTML = '';
+    current.forEach((u, i) => { const l = el('label'), c = el('input'); c.type = 'checkbox'; c.value = i; l.append(c, document.createTextNode(' ' + u.label + ' (' + u.words.length + ' words, ' + u.sentences.length + ' sentences)')); box.append(l); });
+    if (!current.length) box.textContent = 'Nothing found.';
+  };
+
+  // ---- the shapes: triangles of a triangular grid, row r, position i (a triangle points up when r + i is odd)
+  const rowSpan = (r, a, b) => { const o = []; for (let i = a; i <= b; i++) o.push([r, i]); return o; };
+  const SHAPES = {
+    tri: { name: 'triangle', pairs: 18, cells: [].concat(rowSpan(0, 3, 3), rowSpan(1, 2, 4), rowSpan(2, 1, 5), rowSpan(3, 0, 6)), w: 4, rows: 4 },
+    hex: { name: 'hexagon', pairs: 30, cells: [].concat(rowSpan(0, 1, 5), rowSpan(1, 0, 6), rowSpan(2, 0, 6), rowSpan(3, 1, 5)), w: 4, rows: 4 }
+  };
+  // the interior edges of a shape: every pair of touching sides (left-right in one row, base of an up triangle - top of the down triangle below)
+  const edgesOf = shape => {
+    const at = {}; shape.cells.forEach(([r, i]) => { at[r + ',' + i] = { r, i, up: (r + i) % 2 === 1 }; });
+    const edges = [];
+    shape.cells.forEach(([r, i]) => {
+      const t = at[r + ',' + i], right = at[r + ',' + (i + 1)];
+      if (right) edges.push({ a: { t, side: 'R' }, b: { t: right, side: 'L' } });
+      if (t.up) { const below = at[(r + 1) + ',' + i]; if (below) edges.push({ a: { t, side: 'B' }, b: { t: below, side: 'T' } }); }
+    });
+    return { tris: Object.keys(at).map(k => at[k]), edges };
+  };
+
+  // ---- drawing (SVG in millimetres; the triangle side is 45 mm so that the 4-unit wide shapes fit on an A4 page)
+  const S = 45, H = S * Math.sqrt(3) / 2;
+  const NS = 'http://www.w3.org/2000/svg';
+  const sv = (tag, attrs, text) => { const e = document.createElementNS(NS, tag); Object.keys(attrs || {}).forEach(k => e.setAttribute(k, attrs[k])); if (text != null) e.textContent = text; return e; };
+  const corners = t => { const x = t.i * S / 2, y = t.r * H; return t.up
+    ? { L: [[x, y], [x - S / 2, y + H]], R: [[x, y], [x + S / 2, y + H]], B: [[x - S / 2, y + H], [x + S / 2, y + H]], cen: [x, y + 2 * H / 3], pts: [[x, y], [x - S / 2, y + H], [x + S / 2, y + H]] }
+    : { L: [[x - S / 2, y], [x, y + H]], R: [[x + S / 2, y], [x, y + H]], T: [[x - S / 2, y], [x + S / 2, y]], cen: [x, y + H / 3], pts: [[x - S / 2, y], [x + S / 2, y], [x, y + H]] }; };
+  // text along one side, standing on the inside of the triangle: one or two lines, as large as fits
+  const putText = (g, t, side, text) => {
+    const c = corners(t), [p1, p2] = c[side], mx = (p1[0] + p2[0]) / 2, my = (p1[1] + p2[1]) / 2;
+    let nx = c.cen[0] - mx, ny = c.cen[1] - my; const nl = Math.hypot(nx, ny); nx /= nl; ny /= nl;           // the unit vector from the side towards the inside
+    let th = Math.atan2(p2[1] - p1[1], p2[0] - p1[0]); if (Math.sin(th) * nx - Math.cos(th) * ny < 0) th += Math.PI;   // the top of the letters points to the inside
+    const fit = ls => Math.min(S * (ls.length > 1 ? 0.45 : 0.52) / (Math.max(1, ...ls.map(l => l.length)) * 0.5), 4.2);
+    let lines = [text], size = fit(lines);
+    if (size < 3.3 && /\s/.test(text)) {
+      const words = text.split(/\s+/); let best = null;
+      for (let k = 1; k < words.length; k++) { const a = words.slice(0, k).join(' '), b = words.slice(k).join(' '), m = Math.max(a.length, b.length); if (!best || m < best.m) best = { l: [a, b], m }; }
+      if (best) { lines = best.l; size = fit(lines); }
+    }
+    size = Math.max(size, 2.2); const lh = size * 1.15, d0 = 0.07 * H + (lines.length - 1) * lh;
+    lines.forEach((ln, k) => {
+      const off = d0 - k * lh, px = mx + nx * off, py = my + ny * off;           // line 0 is the one farthest from the side (top of the text)
+      const e = sv('text', { transform: 'translate(' + px.toFixed(2) + ' ' + py.toFixed(2) + ') rotate(' + (th * 180 / Math.PI).toFixed(1) + ')', 'text-anchor': 'middle', 'font-size': size.toFixed(2), 'font-family': 'Arial, Helvetica, sans-serif', fill: '#111' }, ln);
+      g.append(e);
+    });
+  };
+  const drawShape = (shape, layout, numbered) => {
+    const w = shape.w * S, h = shape.rows * H, pad = 1;
+    const svg = sv('svg', { viewBox: (-pad) + ' ' + (-pad) + ' ' + (w + 2 * pad) + ' ' + (h + 2 * pad), width: (w + 2 * pad) + 'mm', height: (h + 2 * pad) + 'mm' });
+    const minI = Math.min(...layout.tris.map(t => t.i)), g = sv('g', {}); svg.append(g);
+    layout.tris.forEach(t => { const c = corners(t); g.append(sv('polygon', { points: c.pts.map(p => p[0].toFixed(2) + ',' + p[1].toFixed(2)).join(' '), fill: 'none', stroke: '#111', 'stroke-width': 0.35 })); });
+    layout.edges.forEach(e => {
+      [e.a, e.b].forEach(h => { if (!numbered) putText(g, h.t, h.side, h.text); });
+      if (numbered) { const c = corners(e.a.t)[e.a.side], mx = (c[0][0] + c[1][0]) / 2, my = (c[0][1] + c[1][1]) / 2; g.append(sv('circle', { cx: mx, cy: my, r: 3.2, fill: '#fff', stroke: '#0a4f9c', 'stroke-width': 0.4 }), sv('text', { x: mx, y: my + 1.2, 'text-anchor': 'middle', 'font-size': 3.4, 'font-family': 'Arial, sans-serif', fill: '#0a4f9c', 'font-weight': 'bold' }, String(e.no))); }
+    });
+    // the leftmost corner of the shape is at x = (minI - 1) * S / 2
+    g.setAttribute('transform', 'translate(' + (-(minI - 1) * S / 2) + ' 0)');
+    return svg;
+  };
+
+  // ---- the pairs
+  const clip = s => String(s || '').replace(/\s+/g, ' ').trim();
+  const pairsFor = (units, kind, n) => {
+    const seen = new Set(), pool = [];
+    if (kind === 'words') {
+      units.forEach(u => u.words.forEach(w => { const a = clip(w.en), b = clip(w.sl), k = b.toLowerCase(), k2 = a.toLowerCase(); if (a && b && a.length <= 30 && b.length <= 30 && !seen.has(k) && !seen.has(k2)) { seen.add(k); seen.add(k2); pool.push([a, b]); } }));
+    } else {
+      units.forEach(u => u.sentences.forEach(s => { const q = clip(s.text), a = clip(s.answer), k = q.toLowerCase(); if (q && a && q.length <= 38 && a.length <= 18 && /___/.test(q) && !seen.has(k)) { seen.add(k); pool.push([q, a]); } }));
+    }
+    return { pool, picked: shuffle(pool).slice(0, n) };
+  };
+
+  let last = null;
+  const make = () => {
+    const units = [...document.querySelectorAll('#units input:checked')].map(c => current[Number(c.value)]), box = $('#sheets'); box.innerHTML = ''; ['#print', '#again'].forEach(s => $(s).style.display = 'none');
+    if (!units.length) { $('#msg').textContent = 'Tick at least one unit first.'; return; }
+    const shape = SHAPES[$('#shape').value], kind = $('#kind').value, { pool, picked } = pairsFor(units, kind, shape.pairs);
+    if (picked.length < shape.pairs) { $('#msg').textContent = 'The ' + shape.name + ' needs ' + shape.pairs + ' pairs, but these units give only ' + pool.length + (kind === 'qa' ? ' sentences with a gap' : ' words') + '. Tick more units.'; return; }
+    last = { units, shape, kind };
+    const layout = edgesOf(shape);
+    const order = shuffle(picked.map((p, k) => k));
+    layout.edges.forEach((e, k) => {                     // pair number = k + 1; which side gets which half is random
+      const p = picked[order[k]], flip = Math.random() < 0.5; e.no = k + 1;
+      e.a.text = flip ? p[1] : p[0]; e.b.text = flip ? p[0] : p[1]; e.pair = p;
+    });
+    const title = $('#title').value.trim() || (units.length === 1 ? units[0].label : units.map(u => u.label.replace(/ ·.*$/, '')).join(', '));
+    const sub = ($('#src').value === 'extra' ? 'Extra practice' : BOOKS[$('#src').value]) + ' · tarsia ' + shape.name;
+    const s1 = el('div', 'sheet'); s1.append(el('h3', '', title), el('p', 'sub', sub + ' · Cut out the ' + (shape.cells.length) + ' triangles, shuffle them and put the ' + shape.name + ' together again: sides that touch must show a pair that belongs together.'), drawShape(shape, layout, false)); box.append(s1);
+    if ($('#key').checked) {
+      const s2 = el('div', 'sheet'); s2.append(el('h3', '', title + ' – answer'), el('p', 'sub', 'The solved ' + shape.name + ' with the number of every pair.'), drawShape(shape, layout, true));
+      const ol = el('ol'); layout.edges.forEach(e => { const li = el('li'); li.value = e.no; li.textContent = e.pair[0] + '   ↔   ' + e.pair[1]; ol.append(li); }); s2.append(ol); box.append(s2);
+    }
+    $('#print').style.display = ''; $('#again').style.display = '';
+    $('#msg').textContent = shape.pairs + ' pairs, ' + shape.cells.length + ' pieces. Print on A4, cut along the lines; for a longer life print on card or laminate. Press Print (Save as PDF for a file).';
+  };
+
+  const load = async () => {
+    if (!Track.token()) return;
+    const j = await api('boardmarks').catch(() => null);          // a teacher-only action: only the teacher account gets an answer
+    if (!j || !j.ok) { $('#login').style.display = 'block'; $('#app').style.display = 'none'; $('#loginMsg').textContent = 'This Google account is not allowed to open this page.'; return; }
+    loaded = true; $('#login').style.display = 'none'; $('#app').style.display = 'block'; $('#who').textContent = Track.email || '';
+    const s = $('#src'); Object.keys(BOOKS).forEach(k => { const o = el('option', '', BOOKS[k]); o.value = k; s.append(o); });
+    s.onchange = fillUnits; $('#lvl').onchange = fillUnits;
+    $('#all').onclick = () => document.querySelectorAll('#units input').forEach(c => c.checked = true); $('#none').onclick = () => document.querySelectorAll('#units input').forEach(c => c.checked = false);
+    $('#make').onclick = make; $('#again').onclick = make; $('#print').onclick = () => window.print();
+    fillUnits();
+  };
+  window.__make = make; window.__load = load; window.__tarsia = { SHAPES, edgesOf };
+  $('#theme').onclick = () => { document.body.classList.toggle('light'); try { localStorage.setItem('tst.light', document.body.classList.contains('light') ? '1' : ''); } catch (e) {} };
+  try { if (localStorage.getItem('tst.light')) document.body.classList.add('light'); } catch (e) {}
+  if (window.Track && Track.enabled) {
+    Track.onChange(() => { if (Track.token() && !loaded) load(); });
+    Track.init(() => { if (Track.token()) load(); else Track.button($('#slot')); });
+  } else $('#loginMsg').textContent = 'Sign-in is not set up.';
+})();
+</script>
+</body>
+</html>
