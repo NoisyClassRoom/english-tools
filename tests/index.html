@@ -33,28 +33,34 @@
   .grid input { width: 64px; }
   /* the test sheets: always black on white, also on screen */
   #sheets { color: #111; }
-  .sheet { background: #fff; color: #111; border-radius: 6px; padding: 18px 24px; margin-bottom: 14px; font: 14px/1.5 Arial, Helvetica, sans-serif; }
-  .sheet .hd { display: flex; justify-content: space-between; gap: 18px; font-size: 14px; margin-bottom: 6px; }
-  .sheet h3 { margin: 4px 0 2px; font-size: 21px; } .sheet .sub { color: #555; margin: 0 0 10px; font-size: 13px; }
-  .sheet h4 { margin: 14px 0 4px; font-size: 16px; border-bottom: 2px solid #111; padding-bottom: 2px; }
-  .ex { margin: 8px 0 0; break-inside: avoid; }
-  .ex .ins { font-weight: 700; margin: 0 0 2px; } .ex .ins .n { display: inline-block; min-width: 22px; }
-  .ex .exm { margin: 0 0 4px 22px; font-style: italic; color: #333; }
-  .ex ol { margin: 0; padding: 0; list-style: none; } .ex li { margin: 0 0 5px 22px; text-indent: -22px; padding-left: 22px; break-inside: avoid; }
-  .ex li .no { display: inline-block; width: 22px; text-indent: 0; font-weight: 700; margin-left: -22px; }
-  .blank { display: inline-block; min-width: 110px; border-bottom: 1px solid #111; height: 1em; vertical-align: baseline; }
+  .sheet { background: #fff; color: #111; border-radius: 6px; padding: 22px 28px; margin-bottom: 14px; font: 14px/1.5 "Segoe UI", Arial, Helvetica, sans-serif; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .sheet .band { display: flex; justify-content: space-between; align-items: flex-end; gap: 14px; border-bottom: 3px solid #111; padding-bottom: 6px; margin-bottom: 8px; }
+  .sheet h3 { margin: 0; font-size: 24px; line-height: 1.15; } .sheet .sub { color: #555; margin: 0 0 6px; font-size: 13px; }
+  .sheet .grp { font-size: 13px; font-weight: 700; border: 2px solid #111; border-radius: 6px; padding: 2px 12px; white-space: nowrap; }
+  .sheet .who { display: grid; grid-template-columns: 3fr 1fr 1.3fr; gap: 18px; margin: 10px 0 2px; font-size: 13px; }
+  .sheet .who span { border-bottom: 1px solid #111; padding-bottom: 1px; height: 22px; }
+  .sheet h4 { display: flex; justify-content: space-between; align-items: baseline; margin: 16px 0 6px; font-size: 15px; background: #ececec; border-left: 6px solid #111; padding: 4px 10px; break-after: avoid; }
+  .sheet h4 .pts { font-size: 12px; font-weight: 600; color: #333; }
+  .ex { margin: 10px 0 0; break-inside: avoid; }
+  .ex .ins { font-weight: 700; margin: 0 0 3px; display: flex; align-items: center; gap: 8px; }
+  .ex .ins .n { flex: none; width: 22px; height: 22px; border-radius: 50%; background: #111; color: #fff; text-align: center; line-height: 22px; font-size: 12px; }
+  .ex .ins .t { flex: 1; } .ex .ins .mk { flex: none; font-size: 12px; font-weight: 700; border: 1px solid #111; border-radius: 4px; padding: 0 8px; white-space: nowrap; }
+  .ex .exm { margin: 0 0 5px 30px; font-style: italic; color: #333; }
+  .ex ol { margin: 0; padding: 0; list-style: none; } .ex li { margin: 0 0 7px 30px; text-indent: -26px; padding-left: 26px; break-inside: avoid; }
+  .ex li .no { display: inline-block; width: 26px; text-indent: 0; font-weight: 700; margin-left: -26px; color: #555; }
+  .blank { display: inline-block; min-width: 120px; border-bottom: 1px solid #111; height: 1em; vertical-align: baseline; }
   .blank.long { min-width: 200px; }
-  .opts { display: block; margin: 1px 0 0 0; } .opts span { display: inline-block; margin-right: 22px; }
+  .opts { display: block; margin: 2px 0 0 0; } .opts span { display: inline-block; margin-right: 26px; }
   .opts.col span { display: block; margin-right: 0; }          /* long answers: one under the other */
-  .mark { text-align: right; font-weight: 700; margin: 2px 0 0; }
-  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 0 40px; margin-left: 22px; } .two div { margin: 0 0 4px; }
-  .tot { margin-top: 14px; display: flex; justify-content: space-between; align-items: flex-end; gap: 18px; flex-wrap: wrap; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 0 40px; margin-left: 30px; } .two div { margin: 0 0 6px; }
+  .tot { margin-top: 18px; display: flex; justify-content: space-between; align-items: flex-end; gap: 18px; flex-wrap: wrap; break-inside: avoid; }
   .tot .t { font-size: 18px; font-weight: 700; }
-  .grades { border-collapse: collapse; font-size: 12px; } .grades td, .grades th { border: 1px solid #333; padding: 2px 8px; text-align: center; }
+  .sum, .grades { border-collapse: collapse; font-size: 12px; } .sum td, .sum th, .grades td, .grades th { border: 1px solid #333; padding: 3px 10px; text-align: center; }
+  .sum th, .grades th { background: #ececec; } .sum td.big { font-weight: 700; font-size: 14px; min-width: 70px; }
   .keyans { color: #0a4f9c; font-weight: 700; }
+  .keybadge { display: inline-block; background: #0a4f9c; color: #fff; border-radius: 4px; padding: 0 8px; font-size: 12px; margin-left: 10px; vertical-align: middle; }
   .qrbox { display: flex; flex-direction: column; align-items: center; width: 120px; margin: 12px 0 0 auto; font: 11px/1.3 Arial, sans-serif; text-align: center; break-inside: avoid; }
-  .qrbox svg { width: 96px; height: 96px; }
-  @media print {
+  .qrbox svg { width: 96px; height: 96px; }  @media print {
     @page { size: A4 portrait; margin: 14mm; }
     body { background: #fff; } .wrap { max-width: none; padding: 0; }
     .no-print, .top { display: none !important; }
@@ -136,7 +142,7 @@
     if (cache[key]) return cache[key];
     let list = [];
     if (book === 'extra') {
-      await loadScript('../exercises/sets.js'); for (const f of ['levels-1', 'levels-2', 'levels-3', 'levels-4', 'levels-5']) await loadScript('../exercises/' + f + '.js');
+      await loadScript('../exercises/sets.js'); for (const f of ['levels-1', 'levels-2', 'levels-3', 'levels-4', 'levels-5', 'levels-6']) await loadScript('../exercises/' + f + '.js');
       const base = (window.SETS || []).map(s => ({ id: s.id, title: s.title, words: s.words || [], sentences: s.sentences || [] }));
       const toW = a => ({ en: a[0], sl: a[1], pic: a[2] });
       (window.EXTRA_LEVELS || []).forEach(x => {
@@ -189,7 +195,7 @@
       B.ex.push({ ins: 'Circle the correct answer.', exm: exm && mk(exm, 0), items: items.map((t, k) => mk(t, slots[k])) }); }
     if (o.nGap) { const g = pickGap(o.nGap + 1); const exm = g.length > o.nGap ? g.pop() : null; B.ex.push({ ins: 'Complete the sentences. Write one word.', exm: exm && { gap: exm }, items: g.slice(0, o.nGap).map(s => ({ gap: s, a: s.answer + ((s.alt && s.alt.length) ? '  (also: ' + s.alt.join(', ') + ')' : ''), kind: 'gap' })) }); }
     [A, B].forEach(s => { if (s.ex.length) secs.push(s); });
-    let n = 0; secs.forEach(s => s.ex.forEach(e => { e.no = ++n; e.marks = e.match ? e.match.length : e.items.length; }));
+    let n = 0; secs.forEach(s => { s.ex.forEach(e => { e.no = ++n; e.marks = e.match ? e.match.length : e.items.length; }); s.pts = s.ex.reduce((u, e) => u + e.marks, 0); });
     return { label, secs, total: secs.reduce((t, s) => t + s.ex.reduce((u, e) => u + e.marks, 0), 0) };
   };
 
@@ -201,14 +207,23 @@
     if (key) li.append(document.createTextNode('   '), el('span', 'keyans', '→ ' + it.a));
     return li;
   };
+  const gradeTable = (o, total) => {
+    const t = el('table', 'grades'), pts = p => Math.ceil(p / 100 * total - 1e-9), rows = [['5', o.g5], ['4', o.g4], ['3', o.g3], ['2', o.g2]];
+    const hr = el('tr'); hr.append(el('th', '', 'Grade')); rows.forEach(r => hr.append(el('th', '', r[0]))); hr.append(el('th', '', '1')); t.append(hr);
+    const pr = el('tr'); pr.append(el('td', '', 'Points')); rows.forEach((r, i) => { const hi = i === 0 ? total : pts(rows[i - 1][1]) - 1; pr.append(el('td', '', pts(r[1]) + (pts(r[1]) === hi ? '' : '–' + hi))); }); pr.append(el('td', '', '0–' + (pts(o.g2) - 1))); t.append(pr);
+    const cr = el('tr'); cr.append(el('td', '', 'Percent')); rows.forEach((r, i) => cr.append(el('td', '', r[1] + (i === 0 ? '–100' : '–' + (rows[i - 1][1] - 1)) + ' %'))); cr.append(el('td', '', '0–' + (o.g2 - 1) + ' %')); t.append(cr);
+    return t;
+  };
   const renderGroup = (g, o, key) => {
-    const s = el('div', 'sheet');
-    if (o.nameLine && !key) { const hd = el('div', 'hd'); hd.append(el('span', '', 'Name: ______________________________'), el('span', '', 'Class: ________'), el('span', '', 'Date: ______________')); s.append(hd); }
-    s.append(el('h3', '', (o.title || 'Test') + (o.groups ? ' – Group ' + g.label : '') + (key ? ' – answer key' : '')), el('p', 'sub', o.sub));
+    const s = el('div', 'sheet'), band = el('div', 'band'), ttl = el('h3', '', o.title || 'Test');
+    if (key) ttl.append(el('span', 'keybadge', 'ANSWER KEY'));
+    band.append(ttl); if (o.groups) band.append(el('div', 'grp', 'Group ' + g.label));
+    s.append(band, el('p', 'sub', o.sub));
+    if (o.nameLine && !key) { const w = el('div', 'who'); ['Name:', 'Class:', 'Date:'].forEach(l => w.append(el('span', '', l))); s.append(w); }
     g.secs.forEach(sec => {
-      s.append(el('h4', '', sec.letter + ' ' + sec.name));
+      const h = el('h4'); h.append(el('span', '', sec.letter + '   ' + sec.name), el('span', 'pts', sec.pts + (sec.pts === 1 ? ' point' : ' points'))); s.append(h);
       sec.ex.forEach(e => {
-        const x = el('div', 'ex'), ins = el('p', 'ins'); ins.append(el('span', 'n', e.no), document.createTextNode(e.ins)); x.append(ins);
+        const x = el('div', 'ex'), ins = el('p', 'ins'); ins.append(el('span', 'n', e.no), el('span', 't', e.ins), el('span', 'mk', key ? e.marks + (e.marks === 1 ? ' point' : ' points') : '____ / ' + e.marks)); x.append(ins);
         if (e.match) {
           const row = el('div', 'two'), L = el('div'), R = el('div');
           e.match.forEach((m, i) => { const a = el('div'); a.append(el('b', '', (i + 1) + '  '), document.createTextNode(m.en + '  '), key ? el('span', 'keyans', '→ ' + 'abcdefghij'[m.right]) : el('span', 'blank', '')); L.append(a); });
@@ -219,22 +234,22 @@
           if (e.exm) { const em = el('p', 'exm'); em.append(document.createTextNode('Example   ')); if (e.exm.gap) { const sp = el('span'); String(e.exm.gap.text).split('___').forEach((p, i, a) => { sp.append(document.createTextNode(p)); if (i < a.length - 1) sp.append(el('u', '', e.exm.gap.answer)); }); em.append(sp); } else if (e.exm.kind === 'mc') { em.append(document.createTextNode(e.exm.q + '   ' + e.exm.opts.map((t, i) => 'abcdefgh'[i] + ') ' + t).join('   ') + '   →   ' + e.exm.a)); } else { em.append(document.createTextNode(e.exm[0]), el('u', '', e.exm[1])); } x.append(em); }
           const ol = el('ol'); e.items.forEach((it, i) => { const li = renderItem(it, key); li.insertBefore(el('span', 'no', (i + 1)), li.firstChild); ol.append(li); }); x.append(ol);
         }
-        x.append(el('p', 'mark', 'MARK ....../' + e.marks)); s.append(x);
+        s.append(x);
       });
     });
-    const tot = el('div', 'tot'); tot.append(el('div', 't', 'TOTAL ....../' + g.total));
-    if (o.gradeBox && !key) {
-      const t = el('table', 'grades'), pts = p => Math.ceil(p / 100 * g.total - 1e-9);
-      const rows = [['5', o.g5], ['4', o.g4], ['3', o.g3], ['2', o.g2]];
-      const hr = el('tr'); hr.append(el('th', '', 'Grade')); rows.forEach(r => hr.append(el('th', '', r[0]))); hr.append(el('th', '', '1')); t.append(hr);
-      const pr = el('tr'); pr.append(el('td', '', 'Points')); rows.forEach((r, i) => { const hi = i === 0 ? g.total : pts(rows[i - 1][1]) - 1; pr.append(el('td', '', pts(r[1]) + (pts(r[1]) === hi ? '' : '–' + hi))); }); pr.append(el('td', '', '0–' + (pts(o.g2) - 1))); t.append(pr);
-      tot.append(t);
+    const tot = el('div', 'tot');
+    if (key) tot.append(el('div', 't', 'TOTAL ' + g.total + ' points'));
+    else {                                              // a box for the points: one cell per part, the total and the grade
+      const t = el('table', 'sum'), hr = el('tr'), br = el('tr');
+      g.secs.forEach(sec => { hr.append(el('th', '', sec.letter + ' ' + sec.name)); br.append(el('td', 'big', '      / ' + sec.pts)); });
+      hr.append(el('th', '', 'TOTAL'), el('th', '', 'GRADE')); br.append(el('td', 'big', '      / ' + g.total), el('td', 'big', ''));
+      t.append(hr, br); tot.append(t);
     }
+    if (o.gradeBox) tot.append(gradeTable(o, g.total));
     s.append(tot);
     if (o.qr && !key && window.qrcode) s.append(qrBlock(o.qrUrl, 'Scan to practise online'));
     return s;
   };
-
   // QR code to the unit online (one unit = its activity menu; several units = the unit list of the book)
   const playUrl = units => {
     const book = $('#src').value, q = new URLSearchParams(); q.set('class', book);
@@ -263,7 +278,7 @@
     const all = units.reduce((a, u) => ({ gap: a.gap.concat(u.sentences), easy: a.easy.concat(u.mcEasy), hard: a.hard.concat(u.mcHard) }), { gap: [], easy: [], hard: [] });
     const mcPool = $('#mcSrc').value === 'easy' ? all.easy : $('#mcSrc').value === 'hard' ? all.hard : all.easy.concat(all.hard);
     // vocabulary: single items for translating (a word may be a phrase), a separate pool of words with distinct Slovenian meanings for matching
-    const itemsWords = words.map(w => ({ word: Puzzles.clean(w.en), w }));
+    const itemsWords = words.map(w => ({ word: String(w.en).trim(), w }));     // as written: capital letters and 'to' are kept
     const matchPool = []; words.forEach(w => { const k = plain(w.sl); if (!seenSl.has(k)) { seenSl.add(k); matchPool.push(w); } });
     const pw0 = makePicker(itemsWords), pwUsed = new Set(), matchUsed = new Set(), pmc = makePicker(mcPool), pg = makePicker(all.gap);
     const pw = n => { const r = pw0(n); r.forEach(x => pwUsed.add(x.w)); return r; };
@@ -274,7 +289,7 @@
       if (c.length < n) c = matchPool.filter(w => !matchUsed.has(w));
       if (c.length < n) c = matchPool.slice();
       const m = shuffle(c).slice(0, n); m.forEach(w => matchUsed.add(w));
-      const pos = shuffle(m.map((_, i) => i)); return m.map((w, i) => ({ en: Puzzles.clean(w.en), sl: w.sl, right: pos[i], rightPos: pos[i] }));
+      const pos = shuffle(m.map((_, i) => i)); return m.map((w, i) => ({ en: String(w.en).trim(), sl: w.sl, right: pos[i], rightPos: pos[i] }));
     };
     const data = { pickWordsSl: n => pw(n), pickWordsEn: n => pw(n), pickMc: n => pmc(n), pickGap: n => pg(n), pickMatch };
     // match: the letter of each English word is the position of its Slovenian word in the right-hand column
