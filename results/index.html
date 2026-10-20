@@ -1126,7 +1126,7 @@
       return Object.assign({}, s, { tests2: [...((window.HARD_TESTS || {})[s.id] || [])].concat(...mores.map(m => m.hard || [])),
         sentences: (s.sentences || []).concat(...mores.map(m => m.gap || [])), tests: (s.tests || []).concat(...mores.map(m => m.easy || [])) });
     });
-    return classCache[book] = sets.map((s, i) => ({ idx: i, unit: s.unit || '', title: s.title || '', acts: COMP_ACTS.filter(a => a[1](s)).map(a => a[0]) }));
+    return classCache[book] = sets.map((s, i) => ({ idx: i, id: s.id, unit: s.unit || '', title: s.title || '', acts: COMP_ACTS.filter(a => a[1](s)).map(a => a[0]) }));
   };
   const unitCompletion = async (box, p, compact, lang) => {
     const R = RT[lang || 'en'];                         // texts of the compact (printed) version come in English or Slovenian
@@ -1159,6 +1159,41 @@
       : '✓ = every activity of the unit has been finished at least once (best result shown). "·" = not done yet, "–" = the unit has no such activity.'));
   };
 
+  // "I can" ratings of one pupil (self-regulation plan, feature 4): per unit statement the first and the latest rating; nothing is shown
+  // while the pupils have none (the prompts are off). The statements come from the public files exercises/cando-<class id>.js.
+  let cdRaw = null, cdState = '';
+  const loadCando = async () => {
+    const token = Track.token(); if (!token || cdState === 'loading') return;
+    cdState = 'loading';
+    try {
+      const r = await fetch(Track.config.endpoint, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'candostats', token }) });
+      const j = await r.json(); if (j.ok) { cdRaw = j.rows; cdState = 'ok'; } else cdState = 'error';
+    } catch (e) { cdState = 'error'; }
+    if (tab === 'pupils') render();
+  };
+  const candoSection = (card, p) => {
+    if (cdState === '') loadCando();
+    if (cdState !== 'ok') return;
+    const mine = cdRaw.filter(r => r[1] + '|' + r[2] === p.key && (!F.year || r[8] === F.year));
+    if (!mine.length) return;
+    const h = el('h2', '', '✋ I can (self-assessment)'); h.style.marginTop = '14px'; const box = el('div'); card.append(h, box);
+    const ICON = { 1: '🔴 Not yet', 2: '🟡 With help', 3: '🟢 On my own' }, groups = {};
+    mine.sort((a, b) => a[0] - b[0]).forEach(r => { const k = r[4] + '\u0001' + r[5] + '\u0001' + r[6]; (groups[k] = groups[k] || []).push(r); });
+    (async () => {
+      const books = [...new Set(mine.map(r => r[4]))]; for (const b of books) await loadScript('../exercises/cando-' + b + '.js');
+      const rows = [];
+      for (const k of Object.keys(groups)) {
+        const g = groups[k], [, , , , book, unit, idx] = g[0], sets = BOOKS[book] ? await loadClassSets(book) : [], u = sets.find(x => x.id === unit), txt = ((window.CANDO || {})[unit] || [])[idx];
+        rows.push({ order: (u ? u.idx : 99) * 10 + idx, unit: u ? [u.unit, u.title].filter(Boolean).join(' · ') : unit, st: txt ? txt[0] : 'statement ' + (idx + 1), first: g[0][7], last: g[g.length - 1][7], n: g.length, t: g[g.length - 1][0] });
+      }
+      rows.sort((a, b) => a.order - b.order);
+      box.append(table('pcando', [{ h: 'Unit', k: x => x.order, v: x => x.unit }, { h: 'Statement', k: x => x.st, v: x => x.st },
+        { h: 'First', k: x => x.first, v: x => ICON[x.first] || '', num: true }, { h: 'Latest', k: x => x.last, v: x => x.n > 1 ? ICON[x.last] + (x.last > x.first ? ' ↑' : x.last < x.first ? ' ↓' : '') : '—', num: true },
+        { h: 'Rated', k: x => x.t, v: x => fmtDate(x.t), num: true }], rows, 'Unit'));
+      box.lastChild.style.maxHeight = 'none';
+    })();
+  };
+
   const pupilDetail = (view, p) => {
     const card = el('div', 'card'); card.append(el('h2', '', p.name + (p.cls ? ' · ' + p.cls : '')));
     card.classList.add('one');
@@ -1183,6 +1218,7 @@
     const hc = el('h2', '', 'Unit completion'); hc.style.marginTop = '14px'; card.append(hc);
     const comp = el('div'); comp.append(el('p', 'note', 'Loading the units…')); card.append(comp);
     unitCompletion(comp, p);
+    candoSection(card, p);
     const h2 = el('h2', '', 'Latest activities'); h2.style.marginTop = '14px'; card.append(h2);
     card.append(table('pl', [
       { h: 'When', k: x => x.t, v: x => fmtTime(x.t) },
