@@ -19,7 +19,7 @@ Object.assign(window.CANDO, {
   ],
 
   p3u2: [   // The future: space, will, going to
-    ["I can make predictions about the future with will and won't (I think it will rain tomorrow).", "Znam napovedovati prihodnost z »will« in »won't« (I think it will rain tomorrow)."],
+    ["I can make predictions about the future with will and won't (I think it will rain tomorrow).", "Znam podati napoved za prihodnost z »will« in »won't« (I think it will rain tomorrow)."],
     ["I can talk about my plans with going to (We're going to visit Spain next summer).", "Znam govoriti o svojih načrtih z »going to« (We're going to visit Spain next summer)."],
     ["I can choose between will and going to (a decision now, a plan, or something I can see).", "Znam izbrati med »will« in »going to« (odločitev zdaj, načrt ali nekaj, kar vidim)."],
     ["I can talk about space and the planets (planet, rocket, astronaut, solar system).", "Znam govoriti o vesolju in planetih (planet, raketa, astronavt, osončje)."]
