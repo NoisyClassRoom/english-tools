@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Printables</title>
+<style>
+  :root {
+    --bg: #141418; --card: #1f1f26; --ink: #f2efe9; --muted: #a39f95; --line: #34343e; --field: #14141a;
+    --accent: #ff8a1f; --accent-soft: #3a2a18; --radius: 14px;
+  }
+  body.light {
+    --bg: #f6f4ef; --card: #ffffff; --ink: #1f2a37; --muted: #6b7280; --line: #e5e1d8; --field: #ffffff;
+    --accent: #e8710a; --accent-soft: #fdeedd;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .wrap { max-width: 900px; margin: 0 auto; padding: 16px; }
+  .top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+  .top .sp { flex: 1; }
+  h1 { margin: 0; font-size: 22px; }
+  .btn { background: var(--field); color: var(--ink); border: 1px solid var(--line); border-radius: 10px; padding: 6px 12px; font: inherit; cursor: pointer; text-decoration: none; display: inline-block; }
+  .btn:hover { border-color: var(--accent); }
+  .muted { color: var(--muted); }
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; margin-top: 14px; }
+  .card { display: block; text-decoration: none; color: var(--ink); background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; }
+  a.card:hover { border-color: var(--accent); background: var(--accent-soft); }
+  .card i { font-style: normal; font-size: 36px; display: block; line-height: 1.2; }
+  .card b { display: block; font-size: 18px; margin: 4px 0 2px; }
+  .card ul { margin: 8px 0 0; padding-left: 18px; color: var(--muted); font-size: 14px; }
+  .card.soon { opacity: .6; border-style: dashed; }
+  .note { margin-top: 16px; font-size: 13px; color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <h1>🖨 Printables</h1><span class="sp"></span>
+    <a class="btn" href="../today/">← Today</a>
+    <button class="btn" id="theme">Light / dark</button>
+  </div>
+  <p class="muted" style="margin:0">Sheets you print for the lesson. Both pages ask you to sign in with the teacher account.</p>
+  <div class="cards">
+    <a class="card" href="../tests/">
+      <i>📝</i><b>Tests</b>
+      <span class="muted">A test from the exercise banks of a unit (or several units), in groups A and B.</span>
+      <ul><li>translate, match, circle the answer, complete the sentence</li><li>answer key and grade table on the sheet</li><li>QR code so pupils can practise the same unit</li></ul>
+    </a>
+    <a class="card" href="../puzzles/">
+      <i>🧩</i><b>Puzzles</b>
+      <span class="muted">Word search, crossword and word scramble made from the words of a unit.</span>
+      <ul><li>word list in English or in Slovenian</li><li>answer key on a separate page</li><li>QR code to play it online</li></ul>
+    </a>
+    <div class="card soon">
+      <i>🔺</i><b>Tarsia and mind maps</b>
+      <span class="muted">Planned: a tarsia jigsaw and a mind map maker.</span>
+    </div>
+  </div>
+  <p class="note">The pages hold no pupil data. Only the teacher account gets the unit lists and words.</p>
+</div>
+<script>
+  document.querySelector('#theme').onclick = () => { document.body.classList.toggle('light'); try { localStorage.setItem('board.light', document.body.classList.contains('light') ? '1' : ''); } catch (e) {} };
+  try { if (localStorage.getItem('board.light')) document.body.classList.add('light'); } catch (e) {}
+</script>
+</body>
+</html>
