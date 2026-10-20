@@ -85,7 +85,7 @@ var UNITS = {
 
 // Change this text whenever the code of doPost changes: the health check compares it with what the published web app answers,
 // so it can tell you that the saved code has not been deployed as a new version yet.
-var CODE_VERSION = '2026-10-20.1';
+var CODE_VERSION = '2026-10-20.2';
 
 // ---------------------------------------------------------------- saving results
 
@@ -109,6 +109,7 @@ function doPost(e) {
     if (d.action === 'candoget') return canDoGetReply_(d);           // a pupil: own "I can" ratings of one unit (only while SRL_ON = 1)
     if (d.action === 'candoset') return canDoSetReply_(d);           // a pupil: saves the ratings of one unit
     if (d.action === 'candostats') return canDoStatsReply_(d);       // teacher-only: all ratings with names (pupil detail in Results)
+    if (d.action === 'srlstats') return srlStatsReply_(d);           // teacher-only: anonymous self-regulation indicators per class and week
     if (d.action === 'reflectset') return reflectSetReply_(d);       // a pupil: the "Next I will..." choice after a test (only while SRL_ON = 1)
     if (d.action === 'goalmistakes') return goalMistakesReply_(d);   // a pupil: the units where they have open mistakes (for the goal picker)
     if (d.action === 'pupilhome') return pupilHomeReply_(d);         // a pupil: homework + "My progress" in ONE request (faster than two)
@@ -1387,6 +1388,113 @@ function canDoStatsReply_(d) {
     rows.push([r[0].getTime(), nm[0], nm[1], String(r[3]), String(r[4]), String(r[5]), Number(r[6]), Number(r[7]), String(r[1])]);
   });
   return out_({ ok: true, rows: rows });
+}
+
+// Feature 5 (teacher): anonymous self-regulation indicators per class and week, for the Results tab "Self-regulation" and the Team report.
+// Nothing with a name or e-mail leaves the script: only counts (the e-mails are used here to count DISTINCT pupils). d = {token, year,
+// from, to (ms, optional)}. Answer: cells = [{cls, wk, ...counts}] where wk is the Monday of the week or '*' (the whole period) and cls is
+// the class or '*' (all classes), pupilsIn = {cls: number of pupils in the Roster}. "Self-started" = an activity that was not part of an
+// open homework of that pupil's class at that moment. Prediction matched = sure (3-4) and reached the aimed % or not sure (1-2) and did not.
+// Goals: reached is computed like for the pupil (a "clear my mistakes" goal counts when a Mistakes practice of that unit was done).
+// "I can" is counted for the whole school year (not by dates): ratings first vs latest per statement.
+function srlStatsReply_(d) {
+  var who = verify_(d.token);
+  if (!who || !isTeacher_(who.email)) return out_({ ok: false, error: 'token' });
+  var year = clip_(d.year, 10) || schoolYear_(new Date()), from = Number(d.from) || 0, to = Number(d.to) || 0;
+  var ss = SpreadsheetApp.getActive(), agg = {}, wkCache = {}, rowsBy = {}, ridInfo = {}, weeks = {};
+  var inRange = function (t) { return t >= from && (!to || t < to) && schoolYear_(new Date(t)) === year; };
+  var weekOf = function (t) { var day = Utilities.formatDate(new Date(t), TZ, 'yyyy-MM-dd'); return wkCache[day] || (wkCache[day] = srlWeek_(t)); };
+  var cell = function (cls, wk) {
+    var k = cls + '\u0001' + wk;
+    return agg[k] || (agg[k] = { cls: cls, wk: wk, acts: 0, self: 0, pup: {}, selfPup: {}, mist: {}, lvl: 0, hard: 0, pn: 0, pm: 0,
+      goalPup: {}, goals: 0, goalsOk: 0, next: {}, cdN: 0, cdFirst: 0, cdLast: 0, cdTwo: 0, cdUp: 0 });
+  };
+  var each = function (cls, wk, fn) { [cell(cls, wk), cell(cls, '*'), cell('*', wk), cell('*', '*')].forEach(fn); };
+  var tot = function (cls, fn) { [cell(cls, '*'), cell('*', '*')].forEach(fn); };
+
+  // open homework per book + topic (this school year)
+  var hwBy = {};
+  hwAll_().forEach(function (a) { if (a.year && a.year !== year) return; (hwBy[a.book + '\u0001' + a.topic] = hwBy[a.book + '\u0001' + a.topic] || []).push(a); });
+  var isHw = function (cls, nk, book, topic, act, t) {
+    var list = hwBy[book + '\u0001' + topic] || [];
+    for (var i = 0; i < list.length; i++) {
+      var a = list[i];
+      if (a.cls !== cls || t < a.created || (a.dueEnd > 0 && t > a.dueEnd)) continue;
+      if (a.names.length && a.keys.indexOf(nk) < 0) continue;
+      for (var j = 0; j < a.acts.length; j++) if (HW_ACTS[a.acts[j]] === act) return true;
+    }
+    return false;
+  };
+
+  // finished activities (Results + Puzzles)
+  [SHEET, PSHEET].forEach(function (n) {
+    var sh = ss.getSheetByName(n); if (!sh || sh.getLastRow() < 2) return;
+    var w = Math.min(NCOLS, sh.getLastColumn());
+    sh.getRange(2, 1, sh.getLastRow() - 1, w).getValues().forEach(function (r) {
+      if (!(r[0] instanceof Date) || !(r[8] > 0)) return;
+      var t = r[0].getTime(), email = String(r[1]).toLowerCase(), act = String(r[6]), cls = String(r[11] || '').trim(), puzzle = n === PSHEET;
+      (rowsBy[email] = rowsBy[email] || []).push({ t: t, book: String(r[4]), topic: String(r[5]), act: act, p: r[7] / r[8] });
+      if (!puzzle && w >= NCOLS && r[NCOLS - 1]) ridInfo[String(r[NCOLS - 1])] = { t: t, cls: cls, p: r[7] / r[8] };
+      if (!inRange(t)) return;
+      var wk = weekOf(t), self = !isHw(cls, nameKey_(r[2] + ' ' + r[3]), String(r[4]), String(r[5]), act, t), lvl = !puzzle && w > 14 ? Number(r[14]) : 0;
+      weeks[wk] = 1;
+      each(cls, wk, function (c) {
+        c.acts++; c.pup[email] = 1;
+        if (self) { c.self++; c.selfPup[email] = 1; }
+        if (act === MISTAKES_ACT) c.mist[email] = 1;
+        if (lvl >= 1 && lvl <= 3) { c.lvl++; if (lvl >= 2) c.hard++; }
+      });
+    });
+  });
+
+  // predictions and next steps (linked to their result)
+  var rf = ss.getSheetByName(RSHEET);
+  if (rf && rf.getLastRow() > 1) rf.getRange(2, 1, rf.getLastRow() - 1, RHEADER.length).getValues().forEach(function (r) {
+    var info = ridInfo[String(r[2])]; if (!info || !inRange(info.t)) return;
+    var wk = weekOf(info.t), kind = String(r[3]);
+    if (kind === 'confidence') {
+      var sure = Number(r[4]) >= 3, aim = Number(r[5]) || 80, hit = info.p * 100 >= aim - 1e-9;
+      each(info.cls, wk, function (c) { c.pn++; if (sure === hit) c.pm++; });
+    } else if (kind === 'next') each(info.cls, wk, function (c) { c.next[String(r[4])] = (c.next[String(r[4])] || 0) + 1; });
+  });
+
+  // weekly goals
+  var gs = ss.getSheetByName(GSHEET);
+  if (gs && gs.getLastRow() > 1) gs.getRange(2, 1, gs.getLastRow() - 1, GHEADER.length).getValues().forEach(function (r) {
+    if (String(r[1]) !== year) return;
+    var g = { week: String(r[4]), type: String(r[5]), book: String(r[6]), set: String(r[7]), topic: String(r[8]), target: Number(r[9]) }, rg = srlWeekRange_(g.week);
+    if (rg[1] <= from || (to && rg[0] >= to)) return;
+    var email = String(r[2]).toLowerCase(), cls = String(r[3]).trim(), ok = srlEval_(g, rowsBy[email] || [], null).reached;
+    weeks[g.week] = 1;
+    each(cls, g.week, function (c) { c.goals++; c.goalPup[email] = 1; if (ok) c.goalsOk++; });
+  });
+
+  // "I can": first vs latest rating of every statement (whole school year)
+  var cs = ss.getSheetByName(CSHEET), cd = {};
+  if (cs && cs.getLastRow() > 1) cs.getRange(2, 1, cs.getLastRow() - 1, CHEADER.length).getValues().forEach(function (r) {
+    if (!(r[0] instanceof Date) || String(r[1]) !== year) return;
+    var k = String(r[2]).toLowerCase() + '\u0001' + r[4] + '\u0001' + r[5] + '\u0001' + r[6], t = r[0].getTime(), o = cd[k] = cd[k] || { cls: String(r[3]).trim(), n: 0, f: 0, ft: Infinity, l: 0, lt: -1 };
+    o.n++; if (t < o.ft) { o.ft = t; o.f = Number(r[7]); } if (t >= o.lt) { o.lt = t; o.l = Number(r[7]); }
+  });
+  Object.keys(cd).forEach(function (k) {
+    var o = cd[k]; tot(o.cls, function (c) { c.cdN++; if (o.f === 3) c.cdFirst++; if (o.l === 3) c.cdLast++; if (o.n > 1) { c.cdTwo++; if (o.l > o.f) c.cdUp++; } });
+  });
+
+  // pupils per class (Roster of this year)
+  var pupilsIn = { '*': 0 }, seen = {};
+  rosterRows_().forEach(function (r) {
+    if (r.year && r.year !== year) return;
+    var k = (r.email || r.name) + '\u0001' + r.cls; if (seen[k]) return; seen[k] = 1;
+    pupilsIn[r.cls] = (pupilsIn[r.cls] || 0) + 1; pupilsIn['*']++;
+  });
+
+  var cells = Object.keys(agg).map(function (k) {
+    var c = agg[k];
+    return { cls: c.cls, wk: c.wk, acts: c.acts, self: c.self, pup: Object.keys(c.pup).length, selfPup: Object.keys(c.selfPup).length, mist: Object.keys(c.mist).length,
+      lvl: c.lvl, hard: c.hard, pn: c.pn, pm: c.pm, goalPup: Object.keys(c.goalPup).length, goals: c.goals, goalsOk: c.goalsOk, next: c.next,
+      cdN: c.cdN, cdFirst: c.cdFirst, cdLast: c.cdLast, cdTwo: c.cdTwo, cdUp: c.cdUp };
+  });
+  return out_({ ok: true, year: year, cells: cells, pupilsIn: pupilsIn, weeks: Object.keys(weeks).sort() });
 }
 
 // the units where this pupil has open mistakes: { ok, units: [{book, topic, n}] } (most first)
