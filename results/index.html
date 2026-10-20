@@ -234,11 +234,11 @@
   };
 
   // ---------------------------------------------------------------- tabs
-  const TABS = [['overview', 'Overview'], ['report', 'Class report'], ['homework', 'Homework'], ['heat', 'Heat-map'], ['weak', 'Weak spots'], ['questions', 'Questions'], ['progress', 'Progress'], ['compare', 'Compare classes'], ['pupils', 'Pupils'], ['units', 'Units'], ['puzzles', 'Puzzles'], ['quiet', 'Not practising']];
+  const TABS = [['overview', 'Overview'], ['report', 'Class report'], ['homework', 'Homework'], ['heat', 'Heat-map'], ['weak', 'Weak spots'], ['questions', 'Questions'], ['progress', 'Progress'], ['compare', 'Compare classes'], ['pupils', 'Pupils'], ['units', 'Units'], ['puzzles', 'Puzzles'], ['srl', 'Self-regulation'], ['quiet', 'Not practising']];
   const render = () => {
     const tabs = $('#tabs'); tabs.innerHTML = '';
     TABS.forEach(([id, name]) => { const b = el('button', 'btn' + (id === tab ? ' on' : ''), name); b.onclick = () => { tab = id; render(); }; tabs.append(b); });
-    document.body.classList.toggle('rep', tab === 'report' || tab === 'preport');
+    document.body.classList.toggle('rep', tab === 'report' || tab === 'preport' || tab === 'teamreport');
     const view = $('#view'); view.innerHTML = '';
     $('#printHead').textContent = 'Results · ' + [clsText(), F.book ? (BOOKS[F.book] || F.book) : 'all books', F.level ? LEVELS[F.level] : '', F.year || 'all years',
       F.from || F.to ? (F.from || '…') + ' – ' + (F.to || '…') : ''].filter(Boolean).join(' · ') + ' · ' + (TABS.find(x => x[0] === tab) || [0, ''])[1] + ' · printed ' + new Date().toLocaleDateString('en-GB');
@@ -247,6 +247,7 @@
     $('#whoNote').textContent = hidden ? hidden + (hidden === 1 ? ' result from ' : ' results from ') + (F.who === 'n' ? 'accounts with a class' : 'accounts without a class (teachers, or pupils missing from the Roster)') + ' are not shown. Change "Accounts" to see them.' : '';
     if (tab === 'compare') { compare(view, filtered(true)); return; }
     if (tab === 'homework') { homework(view); return; }
+    if (tab === 'teamreport') { teamReport(view); return; }
     if (tab === 'preport') {                       // one pupil's report (opened from the Pupils tab)
       const a = data.filter(r => r.key === selPupil);
       if (!a.length) { tab = 'pupils'; render(); return; }
@@ -257,7 +258,7 @@
     }
     if (tab === 'overview') overview(view, data); else if (tab === 'report') report(view, data); else if (tab === 'heat') heat(view, data); else if (tab === 'weak') weak(view, data); else if (tab === 'questions') questions(view); else if (tab === 'progress') progress(view, data);
     else if (tab === 'pupils') pupils(view, data);
-    else if (tab === 'units') units(view, data); else if (tab === 'puzzles') puzzles(view); else quiet(view);
+    else if (tab === 'units') units(view, data); else if (tab === 'puzzles') puzzles(view); else if (tab === 'srl') selfReg(view); else quiet(view);
   };
 
   const tile = (v, label) => { const t = el('div', 'tile'); t.append(el('b', '', v), el('span', '', label)); return t; };
@@ -716,6 +717,136 @@
       { h: 'Last', k: x => x.last, v: x => fmtDate(x.last), num: true }], grp(r => r.key, a => ({ name: a[0].last + ' ' + a[0].first, cls: [...new Set(a.map(r => r.cls).filter(Boolean))].join(', ') })), 'Finished'));
     const h3 = el('h2', '', 'By unit / topic'); h3.style.marginTop = '14px'; card.append(h3);
     card.append(table('pzU', [{ h: 'Unit', k: x => x.k, v: x => x.k }, { h: 'Finished', k: x => x.n, v: x => x.n, num: true }, { h: 'Pupils', k: x => x.pupils, v: x => x.pupils, num: true }], grp(r => r.unit || '(no unit)'), 'Finished'));
+  };
+  // ---------------------------------------------------------------- self-regulation (anonymous indicators per class and week; action srlstats)
+  // The script sends only counts per class and week (no names, no e-mails). The numbers follow the filters (school year, class, dates);
+  // the "I can" figures are always for the whole school year. The Team report is the printable version for the school's teams.
+  let srlRaw = null, srlState = '', srlKey = '';
+  const srlReq = () => ({ year: F.year, from: F.from ? new Date(F.from + 'T00:00:00').getTime() : 0, to: F.to ? new Date(F.to + 'T23:59:59').getTime() : 0 });
+  const loadSrl = async () => {
+    const token = Track.token(); if (!token || srlState === 'loading') return;
+    const q = srlReq(), key = JSON.stringify(q);
+    srlState = 'loading'; srlKey = key;
+    try {
+      const r = await fetch(Track.config.endpoint, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(Object.assign({ action: 'srlstats', token }, q)) });
+      const j = await r.json();
+      if (!j.ok) srlState = 'error'; else { srlRaw = j; srlState = 'ok'; }
+    } catch (e) { srlState = 'error'; }
+    if (tab === 'srl' || tab === 'teamreport') render();
+  };
+  const srlReady = card => {
+    if (srlState === 'ok' && srlKey !== JSON.stringify(srlReq())) srlState = '';     // a filter changed: ask again
+    if (srlState === '') loadSrl();
+    if (srlState !== 'ok') { card.append(el('p', srlState === 'error' ? 'msg err' : 'msg', srlState === 'error' ? 'The self-regulation data could not be loaded.' : 'Loading the self-regulation data…')); return false; }
+    return true;
+  };
+  const SRL_NEXT = { mistakes: 'practise my mistakes', grammar: 'read the Grammar', words: 'repeat the words', harder: 'try a harder test', happy: 'happy with the result' };
+  // numbers of one cell: shares are null when there is nothing to divide by
+  const srlM = (c, pupilsIn) => {
+    const sh = (a, b) => b > 0 ? a / b : null;
+    return { cls: c.cls, acts: c.acts, pupils: pupilsIn || 0, pup: c.pup, practising: sh(c.pup, pupilsIn), self: sh(c.self, c.acts), selfPup: c.selfPup, selfPupShare: sh(c.selfPup, pupilsIn),
+      goalPup: c.goalPup, goals: c.goals, goalsRate: sh(c.goalsOk, c.goals), mist: c.mist, mistShare: sh(c.mist, pupilsIn), hard: sh(c.hard, c.lvl), lvl: c.lvl,
+      pred: sh(c.pm, c.pn), pn: c.pn, next: c.next, cdN: c.cdN, cdFirst: sh(c.cdFirst, c.cdN), cdLast: sh(c.cdLast, c.cdN), cdUp: c.cdUp, cdTwo: c.cdTwo };
+  };
+  const srlCells = () => {
+    const by = {}; srlRaw.cells.forEach(c => { by[c.cls + '\u0001' + c.wk] = c; });
+    const cell = (cls, wk) => by[cls + '\u0001' + wk] || { cls, wk, acts: 0, self: 0, pup: 0, selfPup: 0, mist: 0, lvl: 0, hard: 0, pn: 0, pm: 0, goalPup: 0, goals: 0, goalsOk: 0, next: {}, cdN: 0, cdFirst: 0, cdLast: 0, cdTwo: 0, cdUp: 0 };
+    return { cell, m: (cls, wk) => srlM(cell(cls, wk), srlRaw.pupilsIn[cls] || 0) };
+  };
+  const srlClasses = () => [...new Set(srlRaw.cells.map(c => c.cls).filter(c => c !== '*'))].filter(c => clsOk(c)).sort((a, b) => a.localeCompare(b, 'sl', { numeric: true }));
+  const nOf = (a, b) => a == null ? '—' : pct(a) + ' (' + b + ')';
+  const srlTable = (id, S) => {
+    const list = srlClasses().map(c => S.m(c, '*'));
+    if (!F.cls) list.push(Object.assign(S.m('*', '*'), { cls: 'All classes' }));
+    const lab = c => c || '(no class)';
+    return table(id, [
+      { h: 'Class', k: x => x.cls === 'All classes' ? '￿' : x.cls, v: x => lab(x.cls) },
+      { h: 'Pupils', k: x => x.pupils, v: x => x.pupils, num: true },
+      { h: 'Practising', k: x => x.practising == null ? -1 : x.practising, v: x => x.practising == null ? '—' : x.pup + ' (' + pct(x.practising) + ')', num: true },
+      { h: 'Self-started', k: x => x.self == null ? -1 : x.self, v: x => x.self == null ? '—' : pct(x.self), num: true },
+      { h: 'On their own', k: x => x.selfPupShare == null ? -1 : x.selfPupShare, v: x => x.selfPupShare == null ? '—' : x.selfPup + ' (' + pct(x.selfPupShare) + ')', num: true },
+      { h: 'Goals set', k: x => x.goals, v: x => x.goals ? x.goals + ' by ' + x.goalPup : '—', num: true },
+      { h: 'Goals reached', k: x => x.goalsRate == null ? -1 : x.goalsRate, v: x => x.goalsRate == null ? '—' : pct(x.goalsRate), num: true },
+      { h: 'Mistakes practice', k: x => x.mist, v: x => x.mist ? x.mist + (x.mist === 1 ? ' pupil' : ' pupils') : '—', num: true },
+      { h: 'Harder choices', k: x => x.hard == null ? -1 : x.hard, v: x => x.hard == null ? '—' : pct(x.hard), num: true },
+      { h: 'Prediction right', k: x => x.pred == null ? -1 : x.pred, v: x => nOf(x.pred, x.pn), num: true },
+      { h: 'I can: on my own', k: x => x.cdLast == null ? -1 : x.cdLast, v: x => x.cdLast == null ? '—' : pct(x.cdFirst) + ' → ' + pct(x.cdLast), num: true }], list, 'Class');
+  };
+  // last 8 weeks of the data: bars for one indicator (value 0-1 or null)
+  const srlWeeks = () => srlRaw.weeks.slice(-8);
+  const srlBars = (vals, w) => {
+    w = w || 150; const H = 34, step = w / Math.max(vals.length, 1), bw = Math.max(4, step - 4);
+    let svg = `<svg viewBox="0 0 ${w} ${H + 2}" width="${w}" height="${H + 2}" role="img">`;
+    vals.forEach((v, i) => { if (v == null) { svg += `<line x1="${(i * step + step / 2 - bw / 2).toFixed(1)}" x2="${(i * step + step / 2 + bw / 2).toFixed(1)}" y1="${H}" y2="${H}" stroke="var(--line)" stroke-width="2"/>`; return; }
+      const h = Math.max(1.5, Math.min(1, v) * H); svg += `<rect class="bar2" style="fill:var(--accent)" x="${(i * step + (step - bw) / 2).toFixed(1)}" y="${(H - h).toFixed(1)}" width="${bw.toFixed(1)}" height="${h.toFixed(1)}" rx="2"/>`; });
+    return svg + '</svg>';
+  };
+  const srlTrends = (S, cls) => {
+    const wk = srlWeeks(), ms = wk.map(w => S.m(cls, w)), maxPup = Math.max(1, ...ms.map(x => x.pup)), maxGoal = Math.max(1, ...ms.map(x => x.goalPup));
+    const rows = [
+      ['Pupils practising (number)', ms.map(x => x.pup ? x.pup / maxPup : 0), ms.map(x => String(x.pup))],
+      ['Self-started practice', ms.map(x => x.self), ms.map(x => x.self == null ? '—' : pct(x.self))],
+      ['Pupils with a goal (number)', ms.map(x => x.goalPup ? x.goalPup / maxGoal : 0), ms.map(x => String(x.goalPup))],
+      ['Goals reached', ms.map(x => x.goalsRate), ms.map(x => x.goalsRate == null ? '—' : pct(x.goalsRate))],
+      ['Harder choices (Medium + Hard)', ms.map(x => x.hard), ms.map(x => x.hard == null ? '—' : pct(x.hard))],
+      ['Prediction right', ms.map(x => x.pred), ms.map(x => x.pred == null ? '—' : pct(x.pred))]];
+    return { wk, rows };
+  };
+  const wkLabel = w => w.slice(8, 10) + '.' + w.slice(5, 7) + '.';
+  const srlTrendTable = (S, cls) => {
+    const T = srlTrends(S, cls), tb = el('table', 'srlt'), head = el('tr'); head.append(el('th', '', 'Week starting'));
+    T.wk.forEach(w => head.append(el('th', 'num', wkLabel(w)))); tb.append(el('thead')); tb.firstChild.append(head);
+    const body = el('tbody'); T.rows.forEach(r => { const tr = el('tr'); tr.append(el('td', '', r[0]));
+      r[2].forEach((t, i) => { const td = el('td', 'num'); const v = r[1][i]; td.innerHTML = `<div style="height:4px;margin:0 0 2px;border-radius:2px;background:var(--line)"><div style="height:4px;border-radius:2px;background:var(--accent);width:${v == null ? 0 : Math.round(Math.min(1, v) * 100)}%"></div></div>`; td.append(document.createTextNode(t)); tr.append(td); }); body.append(tr); });
+    tb.append(body); const wrap = el('div', 'scroll'); wrap.append(tb); return wrap;
+  };
+  const srlNextBox = (S, cls) => {
+    const next = S.cell(cls, '*').next, keys = Object.keys(SRL_NEXT), tot = keys.reduce((s, k) => s + (next[k] || 0), 0);
+    if (!tot) return el('p', 'note', 'No "Next I will…" choices yet.');
+    const div = el('div'); div.style.cssText = 'display:grid;gap:5px;margin-top:6px';
+    keys.forEach(k => { const n = next[k] || 0, row = el('div'); row.style.cssText = 'display:grid;grid-template-columns:170px 1fr 70px;gap:8px;align-items:center;font-size:13px';
+      row.innerHTML = `<span>${SRL_NEXT[k]}</span><div style="height:10px;border-radius:5px;background:var(--line)"><div style="height:10px;border-radius:5px;background:var(--accent);width:${Math.round(n / tot * 100)}%"></div></div><span class="num">${n} (${Math.round(n / tot * 100)} %)</span>`; div.append(row); });
+    return div;
+  };
+  const selfReg = view => {
+    const card = el('div', 'card'); view.append(card);
+    card.append(el('h2', '', 'Self-regulation'));
+    card.append(el('p', 'note', 'Anonymous class-level indicators of how pupils steer their own learning (the school\'s development topic). Pupils are counted, never named. "Self-started" = activities that were not part of an open homework. Goals, predictions, next steps and "I can" exist only after the pupil prompts have been switched on. Filters apply (school year, class, dates); "I can" is always the whole school year.'));
+    const bar = el('div', 'tools no-print'), tb = el('button', 'btn primary', 'Team report (print)'); tb.onclick = () => { tab = 'teamreport'; render(); }; bar.append(tb); card.append(bar);
+    if (!srlReady(card)) return;
+    const S = srlCells();
+    if (!srlRaw.cells.some(c => c.cls === '*' && c.wk === '*' && (c.acts || c.goals || c.pn || c.cdN))) { card.append(el('p', 'msg', 'No data for this selection yet.')); return; }
+    card.append(srlTable('srlC', S));
+    const h = el('h2', '', 'Last weeks · ' + (F.cls ? clsText() : 'all classes')); h.style.marginTop = '14px'; card.append(h);
+    card.append(srlTrendTable(S, F.cls || '*'));
+    const h2 = el('h2', '', 'Next steps chosen after a test'); h2.style.marginTop = '14px'; card.append(h2, srlNextBox(S, F.cls || '*'));
+  };
+  const teamReport = view => {
+    const bar = el('div', 'tools no-print'), back = el('button', 'btn', '← Self-regulation'); back.onclick = () => { tab = 'srl'; render(); };
+    const pb = el('button', 'btn primary', 'Print team report'); pb.onclick = () => printPage(false);
+    bar.append(back, pb, el('span', 'muted', ' Class-level numbers only, no pupil names. Choose the school year, class and dates in the filters first. Made for A4 portrait.')); view.append(bar);
+    const wrap = el('div', 'report'), card = el('div', 'card'); wrap.append(card); view.append(wrap);
+    const year = F.year || (srlRaw && srlRaw.year) || '';
+    card.append(el('h1', '', 'Self-regulated learning: team report'), el('p', 'sub', ['English · OŠ Veržej', clsText(true), year ? 'School year ' + year : 'All school years', F.from || F.to ? (F.from || '…') + ' – ' + (F.to || '…') : '', 'printed ' + new Date().toLocaleDateString('en-GB')].filter(Boolean).join(' · ')));
+    const nkey = 'res.srlnote|' + [F.cls + (F.cls2 ? '+' + F.cls2 : ''), year].join('|');
+    let saved = ''; try { saved = localStorage.getItem(nkey) || ''; } catch (e) {}
+    const box = el('div', 'cm-edit no-print'), pr = el('div', 'cm-print'), ta = el('textarea');
+    const lab = el('label', 'muted', 'Your comment for the printout (stays in this browser, it is not saved in the Sheet):'); lab.style.display = 'block';
+    ta.rows = 2; ta.maxLength = 600; ta.placeholder = 'e.g. Pilot in 8.b from November; next review in January.'; ta.value = saved; pr.textContent = saved;
+    ta.oninput = () => { pr.textContent = ta.value; try { ta.value.trim() ? localStorage.setItem(nkey, ta.value) : localStorage.removeItem(nkey); } catch (e) {} };
+    box.append(lab, ta); card.append(box, pr);
+    if (!srlReady(card)) return;
+    const S = srlCells(), t = S.m(F.cls || '*', '*');
+    const tiles = el('div', 'tiles');
+    tiles.append(tile(t.pupils, 'pupils in the group'), tile(t.practising == null ? '—' : pct(t.practising), 'practised'), tile(t.self == null ? '—' : pct(t.self), 'self-started'), tile(t.goalsRate == null ? '—' : pct(t.goalsRate), 'goals reached'), tile(t.hard == null ? '—' : pct(t.hard), 'Medium + Hard'), tile(t.pred == null ? '—' : pct(t.pred), 'predictions right'));
+    card.append(tiles);
+    if (!srlRaw.cells.some(c => c.cls === '*' && c.wk === '*' && (c.acts || c.goals || c.pn || c.cdN))) { card.append(el('p', 'msg', 'No data for this selection yet.')); return; }
+    card.append(el('h2', '', 'By class'), srlTable('srlR', S));
+    card.append(el('h2', '', 'The last weeks · ' + (F.cls ? clsText() : 'all classes')), srlTrendTable(S, F.cls || '*'));
+    card.append(el('h2', '', 'Next steps chosen after a test'), srlNextBox(S, F.cls || '*'));
+    const cd = S.m(F.cls || '*', '*');
+    card.append(el('h2', '', '"I can" self-assessment'), el('p', 'note', cd.cdN ? `Statements rated "On my own": ${pct(cd.cdFirst)} at the first rating, ${pct(cd.cdLast)} at the latest (${cd.cdN} statements rated; ${cd.cdTwo} rated more than once, ${cd.cdUp} of them moved up).` : 'No "I can" ratings yet.'));
+    card.append(el('p', 'foot', 'Scale used by the school: Not yet · With help · On my own. Self-started = activities that were not part of an open homework. Prediction right = a pupil who said "quite / very sure" reached the aimed result, or one who said "not sure / a bit" did not. Numbers are counts of pupils or activities; nothing in this report identifies a pupil.'));
   };
   // ---------------------------------------------------------------- questions (which exact questions are failed)
   let qraw = null, qState = '';
