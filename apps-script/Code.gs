@@ -85,7 +85,7 @@ var UNITS = {
 
 // Change this text whenever the code of doPost changes: the health check compares it with what the published web app answers,
 // so it can tell you that the saved code has not been deployed as a new version yet.
-var CODE_VERSION = '2026-10-19.4';
+var CODE_VERSION = '2026-10-19.5';
 
 // ---------------------------------------------------------------- saving results
 
@@ -106,6 +106,9 @@ function doPost(e) {
     if (d.action === 'boardmarks') return boardMarksReply_(d);       // teacher-only: pinned exercises and "where the class stopped"
     if (d.action === 'boardmarkset') return boardMarkSetReply_(d);   // teacher-only: pin / unpin an exercise, set / clear a class stop
     if (d.action === 'goalset') return goalSetReply_(d);             // a pupil: sets the weekly goal (only while SRL_ON = 1)
+    if (d.action === 'candoget') return canDoGetReply_(d);           // a pupil: own "I can" ratings of one unit (only while SRL_ON = 1)
+    if (d.action === 'candoset') return canDoSetReply_(d);           // a pupil: saves the ratings of one unit
+    if (d.action === 'candostats') return canDoStatsReply_(d);       // teacher-only: all ratings with names (pupil detail in Results)
     if (d.action === 'reflectset') return reflectSetReply_(d);       // a pupil: the "Next I will..." choice after a test (only while SRL_ON = 1)
     if (d.action === 'goalmistakes') return goalMistakesReply_(d);   // a pupil: the units where they have open mistakes (for the goal picker)
     if (d.action === 'pupilhome') return pupilHomeReply_(d);         // a pupil: homework + "My progress" in ONE request (faster than two)
@@ -1069,7 +1072,7 @@ function hcSheet_(add) {
   var cells = sheets.reduce(function (a, s) { return a + s.getMaxRows() * s.getMaxColumns(); }, 0), pct = Math.round(cells / 100000);
   add(pct >= 85 ? 'bad' : pct >= 60 ? 'warn' : 'ok', 'The Sheet uses ' + pct + ' % of the 10 million cells Google allows' + (pct >= 60 ? ' - consider "Move earlier school years to Archive" or deleting old results.' : '.'));
   // self-regulation tabs (created when the first row is written): how much they hold, and whether the pupil prompts are on
-  [[PSHEET, 'puzzle results'], [GSHEET, 'weekly goals'], [RSHEET, 'test predictions and next steps']].forEach(function (t) {
+  [[PSHEET, 'puzzle results'], [GSHEET, 'weekly goals'], [RSHEET, 'test predictions and next steps'], [CSHEET, '"I can" ratings']].forEach(function (t) {
     var sh = ss.getSheetByName(t[0]);
     if (sh) add('ok', 'The hidden tab "' + t[0] + '" (' + t[1] + '): ' + Math.max(0, sh.getLastRow() - 1) + ' rows.');
   });
@@ -1125,7 +1128,7 @@ function hcBackup_(add) {
 // 6) every exercise file on GitHub Pages exists, is not cut off and has no syntax error
 function hcFiles_(add) {
   var files = [['index.html', ''], ['exercises/index.html', ''], ['exercises/classes.js', 'CLASSES'], ['exercises/tracking.js', 'TRACK_CONFIG'], ['exercises/sets.js', 'window.SETS'],
-    ['exercises/hints.js', 'WORD_HINTS'], ['exercises/levels-1.js', 'EXTRA_LEVELS'], ['exercises/levels-2.js', 'EXTRA_LEVELS'], ['exercises/levels-3.js', 'EXTRA_LEVELS'], ['exercises/levels-4.js', 'EXTRA_LEVELS'], ['exercises/levels-5.js', 'EXTRA_LEVELS'],['exercises/explain.js', 'EXPLAIN'], ['exercises/puzzles.js', 'Puzzles'], ['puzzles/index.html', ''], ['tests/index.html', ''], ['vendor/qrcode.min.js', 'qrcode'], ['results/index.html', ''], ['board/index.html', ''], ['today/index.html', '']];
+    ['exercises/hints.js', 'WORD_HINTS'], ['exercises/levels-1.js', 'EXTRA_LEVELS'], ['exercises/levels-2.js', 'EXTRA_LEVELS'], ['exercises/levels-3.js', 'EXTRA_LEVELS'], ['exercises/levels-4.js', 'EXTRA_LEVELS'], ['exercises/levels-5.js', 'EXTRA_LEVELS'],['exercises/explain.js', 'EXPLAIN'], ['exercises/cando-8b.js', 'CANDO'],['exercises/puzzles.js', 'Puzzles'], ['puzzles/index.html', ''], ['tests/index.html', ''], ['vendor/qrcode.min.js', 'qrcode'], ['results/index.html', ''], ['board/index.html', ''], ['today/index.html', '']];
   CLASS_IDS.forEach(function (id) {
     [['class-', 'CLASS_SETS'], ['hard-', 'HARD_TESTS'], ['more-', 'MORE_SETS'], ['more2-', 'MORE2_SETS'], ['grammar-', 'GRAMMAR']].forEach(function (f) { files.push(['exercises/' + f[0] + id + '.js', f[1]]); });
   });
@@ -1312,6 +1315,78 @@ function reflectSetReply_(d) {
     if (found) sh.getRange(found, 1, 1, RHEADER.length).setValues([row]); else { sh.appendRow(row); sh.getRange(sh.getLastRow(), 1, 1, RHEADER.length).setValues([row]); }
   } finally { lock.releaseLock(); }
   return out_({ ok: true });
+}
+
+// Feature 4 "I can": the pupil rates 3-4 can-do statements per unit (texts in exercises/cando-<class id>.js) on the school's scale
+// 1 Not yet (Še ne) / 2 With help (S pomočjo) / 3 On my own (Sam/a). Hidden tab CanDo: [time, school year, e-mail, class, book, unit id,
+// statement number, rating]; every save appends rows, so the first and the latest rating of a statement can be compared.
+var CSHEET = 'CanDo';
+var CHEADER = ['Time', 'School year', 'E-mail', 'Class', 'Book', 'Unit', 'Statement', 'Rating'];
+
+function canDoSheet_() {
+  var ss = SpreadsheetApp.getActive(), sh = ss.getSheetByName(CSHEET);
+  if (!sh) {
+    sh = ss.insertSheet(CSHEET); sh.appendRow(CHEADER); sh.setFrozenRows(1); sh.getRange(1, 1, 1, CHEADER.length).setFontWeight('bold');
+    sh.getRange('A:A').setNumberFormat('dd.mm.yyyy hh:mm'); sh.getRange('B:F').setNumberFormat('@'); sh.getRange('G:H').setNumberFormat('0');
+    var first = ss.getSheets().filter(function (s) { return s.getName() !== CSHEET; })[0]; if (first) ss.setActiveSheet(first);
+    sh.hideSheet();
+  }
+  return sh;
+}
+
+// one pupil's ratings of one unit: { statement number: { first, last, t (ms of the latest) } }
+function canDoFor_(email, year, book, unit) {
+  var sh = SpreadsheetApp.getActive().getSheetByName(CSHEET), out = {};
+  if (!sh || sh.getLastRow() < 2) return out;
+  sh.getRange(2, 1, sh.getLastRow() - 1, CHEADER.length).getValues().forEach(function (r) {
+    if (String(r[2]).toLowerCase() !== email || String(r[1]) !== year || String(r[4]) !== book || String(r[5]) !== unit || !(r[0] instanceof Date)) return;
+    var i = Number(r[6]), t = r[0].getTime(), o = out[i] = out[i] || { first: Number(r[7]), firstT: t, last: Number(r[7]), t: t };
+    if (t < o.firstT) { o.first = Number(r[7]); o.firstT = t; }
+    if (t >= o.t) { o.last = Number(r[7]); o.t = t; }
+  });
+  return out;
+}
+
+function canDoGetReply_(d) {
+  var who = verify_(d.token);
+  if (!who) return out_({ ok: false, error: 'token' });
+  if (!srlOn_()) return out_({ ok: false, error: 'off' });
+  var book = clip_(d.book, 20), unit = clip_(d.unit, 60);
+  if (BOOK_IDS.indexOf(book) < 1 || !unit) return out_({ ok: false, error: 'data' });
+  return out_({ ok: true, items: canDoFor_(String(who.email).toLowerCase(), schoolYear_(new Date()), book, unit) });
+}
+
+function canDoSetReply_(d) {
+  var who = verify_(d.token);
+  if (!who) return out_({ ok: false, error: 'token' });
+  if (!srlOn_()) return out_({ ok: false, error: 'off' });
+  var book = clip_(d.book, 20), unit = clip_(d.unit, 60), rs = d.ratings instanceof Array ? d.ratings.slice(0, 10) : [];
+  var good = rs.filter(function (x) { return x && Math.round(x.i) >= 0 && Math.round(x.i) <= 9 && [1, 2, 3].indexOf(Math.round(x.r)) >= 0; });
+  if (BOOK_IDS.indexOf(book) < 1 || !unit || !good.length) return out_({ ok: false, error: 'data' });
+  var email = String(who.email).toLowerCase(), now = new Date(), year = schoolYear_(now);
+  var lock = LockService.getScriptLock(); lock.waitLock(20000);
+  try {
+    var sh = canDoSheet_(), cls = classFor_(rosterRows_(), who.email, who.first, who.last, year);
+    var rows = good.map(function (x) { return [now, year, email, cls, book, unit, Math.round(x.i), Math.round(x.r)]; });
+    sh.getRange(sh.getLastRow() + 1, 1, rows.length, CHEADER.length).setValues(rows);
+  } finally { lock.releaseLock(); }
+  return out_({ ok: true, items: canDoFor_(email, year, book, unit) });
+}
+
+// teacher only: every rating with the pupil's name and class (for the pupil detail in Results, later the Self-regulation tab)
+function canDoStatsReply_(d) {
+  var who = verify_(d.token);
+  if (!who || !isTeacher_(who.email)) return out_({ ok: false, error: 'token' });
+  var ss = SpreadsheetApp.getActive(), sh = ss.getSheetByName(CSHEET), rows = [];
+  if (!sh || sh.getLastRow() < 2) return out_({ ok: true, rows: rows });
+  var rs = ss.getSheetByName(SHEET), names = {};
+  if (rs && rs.getLastRow() > 1) rs.getRange(2, 2, rs.getLastRow() - 1, 3).getValues().forEach(function (r) { var k = String(r[0]).toLowerCase(); if (k && !names[k]) names[k] = [String(r[2]), String(r[1])]; });
+  sh.getRange(2, 1, sh.getLastRow() - 1, CHEADER.length).getValues().forEach(function (r) {
+    if (!(r[0] instanceof Date)) return;
+    var nm = names[String(r[2]).toLowerCase()] || ['', ''];
+    rows.push([r[0].getTime(), nm[0], nm[1], String(r[3]), String(r[4]), String(r[5]), Number(r[6]), Number(r[7]), String(r[1])]);
+  });
+  return out_({ ok: true, rows: rows });
 }
 
 // the units where this pupil has open mistakes: { ok, units: [{book, topic, n}] } (most first)
@@ -1680,7 +1755,7 @@ function findLeavers_(years) {
   }
   // tabs of the self-regulation plan with another layout that hold pupil e-mails: [tab, number of columns, column of the e-mail]
   plan.extra = []; plan.extraRows = 0;
-  [[GSHEET, GHEADER.length, 2]].forEach(function (x) {
+  [[GSHEET, GHEADER.length, 2], [CSHEET, CHEADER.length, 2]].forEach(function (x) {
     var sh = ss.getSheetByName(x[0]); if (!sh || sh.getLastRow() < 2) return;
     var cnt = sh.getLastRow() - 1, vals = sh.getRange(2, 1, cnt, x[1]).getValues(), keep = [], gone = 0;
     vals.forEach(function (r) {
