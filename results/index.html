@@ -138,7 +138,7 @@
     <div class="card filters">
       <label>School year <select id="fYear"></select></label>
       <label>Class <select id="fClass"></select></label>`n      <label>+ second class <select id="fClass2"></select></label>
-      <label>Accounts <select id="fWho"><option value="p">Pupils (with a class)</option><option value="n">No class (teachers, unlisted)</option><option value="all">Everyone</option></select></label>
+      <label>Accounts <select id="fWho"><option value="p">Pupils (with a class)</option><option value="teacher">Teachers</option><option value="guest">Guests (outside the school)</option><option value="other">Other (e.g. former pupils)</option><option value="n">Not assigned (no class, no category)</option><option value="all">Everyone</option></select></label>
       <label>Book <select id="fBook"></select></label>
       <label>Level <select id="fLevel"></select></label>
       <label>From <input type="date" id="fFrom" class="btn"></label>
@@ -174,7 +174,8 @@
   // one or two classes (lessons with combined classes): the second one only counts when a first one is chosen
   const clsOk = c => !F.cls || c === F.cls || (!!F.cls2 && c === F.cls2);
   const clsText = cap => F.cls ? (cap ? 'Class ' : 'class ') + F.cls + (F.cls2 ? ' + ' + F.cls2 : '') : (cap ? 'All classes' : 'all classes');
-  const whoOk = c => !!F.cls || F.who === 'all' || (F.who === 'n' ? !c : !!c);
+  // accounts: pupils = with a class; teacher / guest / other = listed in the Roster column H (Category) WITHOUT a class; n = neither a class nor a category
+  const whoOk = (c, cat) => !!F.cls || F.who === 'all' || (F.who === 'p' ? !!c : F.who === 'n' ? !c && !cat : !c && cat === F.who);
 
   // ---------------------------------------------------------------- data
   const load = async () => {
@@ -189,7 +190,7 @@
         $('#loginMsg').className = 'msg err'; return;
       }
       rows = j.rows.map(a => ({ t: a[0], last: a[1], first: a[2], cls: a[3] || '', book: a[4], unit: a[5], act: a[6],
-                                lvl: a[7], score: a[8], total: a[9], year: a[10], p: a[9] ? a[8] / a[9] : 0, key: a[1] + '|' + a[2] }));
+                                lvl: a[7], score: a[8], total: a[9], year: a[10], cat: a[11] || '', p: a[9] ? a[8] / a[9] : 0, key: a[1] + '|' + a[2] }));
       roster = j.roster.map(a => ({ year: a[0], cls: a[1], name: a[2], n: a[3], last: a[4] }));
       $('#login').style.display = 'none'; $('#app').style.display = 'block'; $('#reload').style.display = '';
       $('#who').textContent = 'Signed in as ' + (Track.email || '');
@@ -229,7 +230,7 @@
 
   const filtered = (allClasses) => {
     const from = F.from ? new Date(F.from + 'T00:00:00').getTime() : 0, to = F.to ? new Date(F.to + 'T23:59:59').getTime() : Infinity;
-    return rows.filter(r => (!F.year || r.year === F.year) && (allClasses ? !!r.cls : clsOk(r.cls) && whoOk(r.cls)) && (!F.book || r.book === F.book) &&
+    return rows.filter(r => (!F.year || r.year === F.year) && (allClasses ? !!r.cls : clsOk(r.cls) && whoOk(r.cls, r.cat)) && (!F.book || r.book === F.book) &&
       (!F.level || String(r.lvl) === F.level) && r.t >= from && r.t <= to);
   };
 
@@ -243,8 +244,8 @@
     $('#printHead').textContent = 'Results · ' + [clsText(), F.book ? (BOOKS[F.book] || F.book) : 'all books', F.level ? LEVELS[F.level] : '', F.year || 'all years',
       F.from || F.to ? (F.from || '…') + ' – ' + (F.to || '…') : ''].filter(Boolean).join(' · ') + ' · ' + (TABS.find(x => x[0] === tab) || [0, ''])[1] + ' · printed ' + new Date().toLocaleDateString('en-GB');
     const data = filtered();
-    const hidden = F.cls || F.who === 'all' ? 0 : rows.filter(r => (!F.year || r.year === F.year) && !whoOk(r.cls)).length;
-    $('#whoNote').textContent = hidden ? hidden + (hidden === 1 ? ' result from ' : ' results from ') + (F.who === 'n' ? 'accounts with a class' : 'accounts without a class (teachers, or pupils missing from the Roster)') + ' are not shown. Change "Accounts" to see them.' : '';
+    const hidden = F.cls || F.who === 'all' ? 0 : rows.filter(r => (!F.year || r.year === F.year) && !whoOk(r.cls, r.cat)).length;
+    $('#whoNote').textContent = hidden ? hidden + (hidden === 1 ? ' result from ' : ' results from ') + (F.who === 'p' ? 'accounts without a class (teachers, guests, other, or pupils missing from the Roster)' : 'other accounts') + ' are not shown. Change "Accounts" to see them.' : '';
     if (tab === 'compare') { compare(view, filtered(true)); return; }
     if (tab === 'homework') { homework(view); return; }
     if (tab === 'teamreport') { teamReport(view); return; }
@@ -690,13 +691,13 @@
       const r = await fetch(Track.config.endpoint, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'puzzlestats', token }) });
       const j = await r.json();
       if (!j.ok) pState = 'error';
-      else { praw = j.rows.map(a => ({ t: a[0], last: a[1], first: a[2], cls: a[3] || '', book: a[4], unit: a[5], act: a[6], score: a[8], total: a[9], year: a[10], p: a[9] ? a[8] / a[9] : 0, key: a[1] + '|' + a[2] })); pState = 'ok'; }
+      else { praw = j.rows.map(a => ({ t: a[0], last: a[1], first: a[2], cls: a[3] || '', book: a[4], unit: a[5], act: a[6], score: a[8], total: a[9], year: a[10], cat: a[11] || '', p: a[9] ? a[8] / a[9] : 0, key: a[1] + '|' + a[2] })); pState = 'ok'; }
     } catch (e) { pState = 'error'; }
     if (tab === 'puzzles' || tab === 'pupils') render();
   };
   const puzzleRows = () => {
     const from = F.from ? new Date(F.from + 'T00:00:00').getTime() : 0, to = F.to ? new Date(F.to + 'T23:59:59').getTime() : Infinity;
-    return (praw || []).filter(r => (!F.year || r.year === F.year) && clsOk(r.cls) && whoOk(r.cls) && (!F.book || r.book === F.book) && r.t >= from && r.t <= to);
+    return (praw || []).filter(r => (!F.year || r.year === F.year) && clsOk(r.cls) && whoOk(r.cls, r.cat) && (!F.book || r.book === F.book) && r.t >= from && r.t <= to);
   };
   const puzzles = view => {
     if (pState === '') loadPuzzles();
