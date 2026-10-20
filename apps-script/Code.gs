@@ -85,7 +85,7 @@ var UNITS = {
 
 // Change this text whenever the code of doPost changes: the health check compares it with what the published web app answers,
 // so it can tell you that the saved code has not been deployed as a new version yet.
-var CODE_VERSION = '2026-10-20.6';
+var CODE_VERSION = '2026-10-20.7';
 
 // ---------------------------------------------------------------- saving results
 
@@ -336,7 +336,7 @@ function mistakesReply_(d) {
 var HWSHEET = 'Homework';
 var HWHEADER = ['Id', 'Created', 'Class', 'Book', 'Set', 'Topic', 'Unit', 'Activities', 'Min %', 'Due', 'Note', 'Pupils', 'School year', 'Deleted'];
 var HW_ACTS = { match: 'Match', quiz: 'Quiz', gap: 'Fill the gap', test: 'Unit test', test2: 'Unit test 2', gcheck: 'Grammar quick check',
-  wordsearch: 'Word search', hangman: 'Hangman', scramble: 'Word scramble', crossword: 'Crossword' };   // the last four are puzzles: their results are in the "Puzzles" tab
+  wordsearch: 'Word search', hangman: 'Hangman', scramble: 'Word scramble', crossword: 'Crossword', tarsia: 'Tarsia' };   // the last five are puzzles: their results are in the "Puzzles" tab
 
 function hwSheet_() {
   var ss = SpreadsheetApp.getActive(), sh = ss.getSheetByName(HWSHEET);
@@ -788,10 +788,10 @@ function archiveSheet_() {
 
 // The hidden "Puzzles" tab (added 15 Oct 2026): results of the online puzzles (word search, hangman, word scramble, crossword).
 // Same columns as Results, but a SEPARATE tab, so averages, the heat-map, homework, the analysis tabs and "My progress" are not affected.
-// Score / total: hangman and scramble = words right / words; word search and crossword = 1 / 1 when finished. Rows of leavers are
+// Score / total: hangman and scramble = words right / words; word search, crossword and tarsia = 1 / 1 when finished. Rows of leavers are
 // handled by the same cleanup as Results; earlier school years stay here (every row has its school year).
 var PSHEET = 'Puzzles';
-var PUZZLE_ACTS = ['Word search', 'Hangman', 'Word scramble', 'Crossword'];
+var PUZZLE_ACTS = ['Word search', 'Hangman', 'Word scramble', 'Crossword', 'Tarsia'];
 function puzzleSheet_() {
   var ss = SpreadsheetApp.getActive();
   var sh = ss.getSheetByName(PSHEET) || ss.insertSheet(PSHEET);
@@ -1147,7 +1147,7 @@ function hcBackup_(add) {
 // 6) every exercise file on GitHub Pages exists, is not cut off and has no syntax error
 function hcFiles_(add) {
   var files = [['index.html', ''], ['exercises/index.html', ''], ['exercises/classes.js', 'CLASSES'], ['exercises/tracking.js', 'TRACK_CONFIG'], ['exercises/sets.js', 'window.SETS'],
-    ['exercises/hints.js', 'WORD_HINTS'], ['exercises/levels-1.js', 'EXTRA_LEVELS'], ['exercises/levels-2.js', 'EXTRA_LEVELS'], ['exercises/levels-3.js', 'EXTRA_LEVELS'], ['exercises/levels-4.js', 'EXTRA_LEVELS'], ['exercises/levels-5.js', 'EXTRA_LEVELS'], ['exercises/levels-6.js', 'EXTRA_LEVELS'],['exercises/explain.js', 'EXPLAIN'], ['exercises/cando-8b.js', 'CANDO'], ['exercises/cando-6b.js', 'CANDO'], ['exercises/cando-7a.js', 'CANDO'], ['exercises/cando-7bc.js', 'CANDO'], ['exercises/cando-8a.js', 'CANDO'], ['exercises/cando-9a.js', 'CANDO'], ['exercises/cando-9b.js', 'CANDO'],['exercises/puzzles.js', 'Puzzles'], ['puzzles/index.html', ''], ['tests/index.html', ''], ['vendor/qrcode.min.js', 'qrcode'], ['results/index.html', ''], ['board/index.html', ''], ['today/index.html', '']];
+    ['exercises/hints.js', 'WORD_HINTS'], ['exercises/levels-1.js', 'EXTRA_LEVELS'], ['exercises/levels-2.js', 'EXTRA_LEVELS'], ['exercises/levels-3.js', 'EXTRA_LEVELS'], ['exercises/levels-4.js', 'EXTRA_LEVELS'], ['exercises/levels-5.js', 'EXTRA_LEVELS'], ['exercises/levels-6.js', 'EXTRA_LEVELS'],['exercises/explain.js', 'EXPLAIN'], ['exercises/cando-8b.js', 'CANDO'], ['exercises/cando-6b.js', 'CANDO'], ['exercises/cando-7a.js', 'CANDO'], ['exercises/cando-7bc.js', 'CANDO'], ['exercises/cando-8a.js', 'CANDO'], ['exercises/cando-9a.js', 'CANDO'], ['exercises/cando-9b.js', 'CANDO'],['exercises/puzzles.js', 'Puzzles'], ['exercises/tarsia.js', 'Tarsia'], ['puzzles/index.html', ''], ['tests/index.html', ''], ['vendor/qrcode.min.js', 'qrcode'], ['results/index.html', ''], ['board/index.html', ''], ['today/index.html', '']];
   CLASS_IDS.forEach(function (id) {
     [['class-', 'CLASS_SETS'], ['hard-', 'HARD_TESTS'], ['more-', 'MORE_SETS'], ['more2-', 'MORE2_SETS'], ['grammar-', 'GRAMMAR']].forEach(function (f) { files.push(['exercises/' + f[0] + id + '.js', f[1]]); });
   });
