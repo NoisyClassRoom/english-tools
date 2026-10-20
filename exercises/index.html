@@ -580,6 +580,7 @@
       await loadOpt('more-' + info.id + '.js');
       await loadOpt('more2-' + info.id + '.js');
       await loadOpt('grammar-' + info.id + '.js');
+      await loadOpt('cando-' + info.id + '.js');                  // "I can" statements (self-regulation plan, feature 4); only the books that have a file
       (window.CLASS_SETS || []).forEach(set => {
         const gr = (window.GRAMMAR || {})[set.id];          // grammar-<id>.js: explanation + quick check
         if (gr) { set.grammar = gr.s; set.gcheck = (gr.c || []).map(toTest); }
@@ -606,6 +607,7 @@
   // ----- menu -----
   const MODES = [
     { id: 'grammar', icon: '📖', name: 'Grammar', desc: 'Rules and examples', run: grammar, need: s => (s.grammar || []).length },
+    { id: 'cando', icon: '✋', name: 'I can', desc: 'How well can you do it?', run: canDoScreen, need: s => srlOn && Track.enabled && !!Track.token() && !!(window.CANDO && window.CANDO[s.id]) },
     { id: 'flash', icon: '🃏', name: 'Flashcards', desc: 'Look, think, flip', run: flashcards },
     { id: 'match', icon: '🔗', name: 'Match', desc: 'Pair words and pictures', run: match },
     { id: 'quiz',  icon: '❓', name: 'Quiz', desc: 'Pick the right word', run: quiz },
@@ -765,6 +767,47 @@
       q.append(box); s.append(q);
     };
     ask();
+  }
+
+  // ----- I can (self-regulation plan, feature 4): the pupil rates can-do statements of the unit on the school's three-step scale -----
+  async function canDoScreen() {
+    const items = (window.CANDO || {})[set.id] || [], book = new URLSearchParams(location.search).get('class') || '';
+    stage().append(el('p', 'hint', 'Loading… / Nalagam …'));
+    let cur = {}; try { const j = await postGoal('candoget', { book, unit: set.id }); if (j.ok) cur = j.items || {}; } catch (e) {}
+    const s = stage(), chosen = {}, STEPS = [[1, '🔴', 'Not yet', 'Še ne'], [2, '🟡', 'With help', 'S pomočjo'], [3, '🟢', 'On my own', 'Sam/a']];
+    s.append(el('p', 'hint', 'How well can you do this now? Choose one for each line. / Kako dobro to zdaj zmoreš? Pri vsaki vrstici izberi eno možnost.'));
+    const lastT = Object.values(cur).reduce((m, o) => Math.max(m, o.t || 0), 0);
+    if (lastT) { const d = new Date(lastT); s.append(el('p', 'note', 'Last time you rated this unit: ' + d.getDate() + '. ' + (d.getMonth() + 1) + '. / Zadnjič si to enoto ocenil/-a: ' + d.getDate() + '. ' + (d.getMonth() + 1) + '.')); }
+    const save = el('button', 'btn primary', 'Save / Shrani'); save.disabled = true;
+    items.forEach(([en, sl], i) => {
+      const c = el('div', 'item'); c.style.cssText = 'margin:10px auto;max-width:560px;text-align:left';
+      c.append(el('div', '', en), el('div', 'muted', sl));
+      const row = el('div', 'row'); row.style.cssText = 'margin-top:8px;flex-wrap:wrap;gap:6px';
+      STEPS.forEach(([v, ic, e, sv]) => {
+        const b = el('button', 'btn', ic + ' ' + e + ' · ' + sv);
+        const mark = () => { [...row.children].forEach(x => x.classList.remove('primary')); b.classList.add('primary'); chosen[i] = v; save.disabled = false; };
+        b.onclick = mark; if (cur[i] && cur[i].last === v) { b.classList.add('primary'); }
+        row.append(b);
+      });
+      c.append(row); s.append(c);
+    });
+    const ctl = el('div', 'row center'); ctl.style.marginTop = '14px';
+    const back = el('button', 'btn', 'Back / Nazaj'); back.onclick = () => show('menu');
+    save.onclick = async () => {
+      save.disabled = true;
+      const ratings = Object.keys(chosen).map(i => ({ i: Number(i), r: chosen[i] }));
+      if (!ratings.length) { show('menu'); return; }
+      let msg = 'Could not save. Try again. / Shranjevanje ni uspelo.';
+      try {
+        const j = await postGoal('candoset', { book, unit: set.id, ratings });
+        if (j.ok) {
+          const up = items.filter((_, i) => j.items[i] && j.items[i].first != null && j.items[i].last > j.items[i].first).length;
+          msg = '✓ Saved / Shranjeno' + (up ? ' – ' + up + ' statement' + (up > 1 ? 's' : '') + ' moved up since the first time / ' + up + (up === 1 ? ' trditev se je izboljšala' : up === 2 ? ' trditvi sta se izboljšali' : up <= 4 ? ' trditve so se izboljšale' : ' trditev se je izboljšalo') + ' od prvič.' : '.');
+        }
+      } catch (e) {}
+      const s2 = stage(); s2.append(el('div', 'big', '✋'), el('p', 'hint', msg)); const b2 = el('button', 'btn', 'Other activities'); b2.onclick = () => show('menu'); s2.append(b2);
+    };
+    ctl.append(save, back); s.append(ctl);
   }
 
   // ----- unit test (multiple choice grammar) -----
