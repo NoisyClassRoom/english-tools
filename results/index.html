@@ -33,8 +33,17 @@
   .filters { display: flex; gap: 12px; flex-wrap: wrap; align-items: end; }
   .filters label { display: flex; flex-direction: column; gap: 3px; font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
   .filters select { min-width: 130px; font-size: 15px; text-transform: none; letter-spacing: 0; color: var(--ink); }
-  .tabs { display: flex; gap: 6px; margin: 4px 0 12px; flex-wrap: wrap; }
-  .tabs .btn.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); font-weight: 600; }
+  .fmore { display: none; flex: 0 0 100%; gap: 12px; flex-wrap: wrap; align-items: end; padding-top: 10px; border-top: 1px solid var(--line); }
+  .filters.open .fmore { display: flex; }
+  .ftags { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; font-size: 12px; }
+  .ftags span { background: var(--accent-soft); color: var(--accent); border-radius: 8px; padding: 1px 8px; }
+  .tabs { margin: 4px 0 12px; }
+  .groups, .subtabs { display: flex; gap: 6px; flex-wrap: wrap; }
+  .groups .btn { font-weight: 600; padding: 8px 16px; }
+  .groups .btn.on { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+  .subtabs { margin-top: 8px; padding-left: 4px; border-left: 3px solid var(--accent); }
+  .subtabs .btn { font-size: 14px; padding: 5px 12px; }
+  .subtabs .btn.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); font-weight: 600; }
   .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
   .tile { background: var(--field); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; }
   .tile b { display: block; font-size: 26px; line-height: 1.15; color: var(--accent); }
@@ -135,17 +144,21 @@
   </div>
 
   <div id="app">
-    <div class="card filters">
+    <div class="card filters" id="fbar">
       <label>School year <select id="fYear"></select></label>
-      <label>Class <select id="fClass"></select></label>`n      <label>+ second class <select id="fClass2"></select></label>
-      <label>Accounts <select id="fWho"><option value="p">Pupils (with a class)</option><option value="teacher">Teachers</option><option value="guest">Guests (outside the school)</option><option value="other">Other (e.g. former pupils)</option><option value="n">Not assigned (no class, no category)</option><option value="all">Everyone</option></select></label>
-      <label>Book <select id="fBook"></select></label>
-      <label>Level <select id="fLevel"></select></label>
-      <label>From <input type="date" id="fFrom" class="btn"></label>
-      <label>To <input type="date" id="fTo" class="btn"></label>
-      <button class="btn" id="fReset">Reset</button>
-    </div>
-    <p class="muted no-print" id="whoNote" style="margin:-4px 0 8px;font-size:12px"></p>
+      <label>Class <select id="fClass"></select></label>
+      <button class="btn" id="fMore" type="button" aria-expanded="false">More filters ▾</button>
+      <button class="btn" id="fReset" type="button">Reset</button>
+      <span class="ftags" id="fTags"></span>
+      <div class="fmore" id="fMoreBox">
+        <label>+ second class <select id="fClass2"></select></label>
+        <label>Accounts <select id="fWho"><option value="p">Pupils (with a class)</option><option value="teacher">Teachers</option><option value="guest">Guests (outside the school)</option><option value="other">Other (e.g. former pupils)</option><option value="n">Not assigned (no class, no category)</option><option value="all">Everyone</option></select></label>
+        <label>Book <select id="fBook"></select></label>
+        <label>Level <select id="fLevel"></select></label>
+        <label>From <input type="date" id="fFrom" class="btn"></label>
+        <label>To <input type="date" id="fTo" class="btn"></label>
+      </div>
+    </div>    <p class="muted no-print" id="whoNote" style="margin:-4px 0 8px;font-size:12px"></p>
     <div class="tabs" id="tabs"></div>
     <div class="tools"><button class="btn" id="bCsv">Download table (CSV)</button><button class="btn" id="bRaw">Download all filtered results (CSV)</button><button class="btn" id="bPrint">Print</button></div>
     <div id="printHead"></div>
@@ -226,6 +239,7 @@
   ['fYear:year', 'fClass:cls', 'fClass2:cls2', 'fWho:who', 'fBook:book', 'fLevel:level', 'fFrom:from', 'fTo:to'].forEach(p => {
     const [id, k] = p.split(':'); $('#' + id).onchange = e => { F[k] = e.target.value; if (k === 'cls') syncCls2(); selPupil = ''; render(); };
   });
+  $('#fMore').onclick = () => { const f = $('#fbar'), on = f.classList.toggle('open'); $('#fMore').setAttribute('aria-expanded', on ? 'true' : 'false'); $('#fMore').textContent = on ? 'Fewer filters ▴' : 'More filters ▾'; };
   $('#fReset').onclick = () => { F.cls = F.cls2 = F.book = F.level = F.from = F.to = ''; F.who = 'p'; $('#fWho').value = 'p'; $('#fFrom').value = $('#fTo').value = ''; setupFilters(); selPupil = ''; render(); };
 
   const filtered = (allClasses) => {
@@ -236,9 +250,23 @@
 
   // ---------------------------------------------------------------- tabs
   const TABS = [['overview', 'Overview'], ['report', 'Class report'], ['homework', 'Homework'], ['heat', 'Heat-map'], ['weak', 'Weak spots'], ['questions', 'Questions'], ['progress', 'Progress'], ['compare', 'Compare classes'], ['pupils', 'Pupils'], ['units', 'Units'], ['puzzles', 'Puzzles'], ['srl', 'Self-regulation'], ['quiet', 'Not practising']];
+  const GROUPS = [['class', 'Class', ['overview', 'report', 'homework']], ['pupils', 'Pupils', ['pupils', 'progress', 'quiet']],
+    ['mistakes', 'Mistakes', ['heat', 'weak', 'questions']], ['more', 'More', ['compare', 'units', 'puzzles', 'srl']]], lastTab = {};
+  // the filters that are not shown in the first line are listed as small tags, so it is always clear what is chosen
+  const filterTags = () => {
+    const box = $('#fTags'); box.innerHTML = '';
+    const w = $('#fWho').selectedOptions[0], b = $('#fBook').selectedOptions[0], l = $('#fLevel').selectedOptions[0];
+    [F.cls2 ? '+ ' + F.cls2 : '', F.who !== 'p' && w ? w.textContent : '', F.book && b ? b.textContent : '', F.level && l ? l.textContent : '', F.from ? 'from ' + F.from : '', F.to ? 'to ' + F.to : ''].filter(Boolean).forEach(x => box.append(el('span', '', x)));
+  };
   const render = () => {
     const tabs = $('#tabs'); tabs.innerHTML = '';
-    TABS.forEach(([id, name]) => { const b = el('button', 'btn' + (id === tab ? ' on' : ''), name); b.onclick = () => { tab = id; render(); }; tabs.append(b); });
+    // the tabs are grouped: the weekly ones first, the occasional analysis under "More"; the page for one pupil / the team report belongs to its group
+    const grp = GROUPS.find(g => g[2].includes(tab === 'preport' ? 'pupils' : tab === 'teamreport' ? 'srl' : tab)) || GROUPS[0];
+    if (grp[2].includes(tab)) lastTab[grp[0]] = tab;
+    const gbar = el('div', 'groups'), sbar = el('div', 'subtabs');
+    GROUPS.forEach(g => { const b = el('button', 'btn' + (g === grp ? ' on' : ''), g[1]); b.onclick = () => { tab = lastTab[g[0]] || g[2][0]; render(); }; gbar.append(b); });
+    grp[2].forEach(id => { const b = el('button', 'btn' + (id === tab ? ' on' : ''), (TABS.find(x => x[0] === id) || [0, id])[1]); b.onclick = () => { tab = id; render(); }; sbar.append(b); });
+    tabs.append(gbar, sbar); filterTags();
     document.body.classList.toggle('rep', tab === 'report' || tab === 'preport' || tab === 'teamreport');
     const view = $('#view'); view.innerHTML = '';
     $('#printHead').textContent = 'Results · ' + [clsText(), F.book ? (BOOKS[F.book] || F.book) : 'all books', F.level ? LEVELS[F.level] : '', F.year || 'all years',
