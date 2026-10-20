@@ -730,7 +730,7 @@
   const puzzles = view => {
     if (pState === '') loadPuzzles();
     const card = el('div', 'card'); view.append(card);
-    card.append(el('p', 'note', 'Online puzzles (word search, hangman, word scramble, crossword, tarsia) saved by pupils who were signed in. They are kept in their own Sheet tab ("Puzzles") and are NOT part of the average, heat-map, reports, homework or the pupils\' "My progress" numbers. Word search, crossword and tarsia count when finished; for hangman and scramble the result is words right / words.'));
+    card.append(el('p', 'note', 'Online puzzles (word search, hangman, word scramble, crossword, tarsia, mind map) saved by pupils who were signed in. They are kept in their own Sheet tab ("Puzzles") and are NOT part of the average, heat-map, reports, homework or the pupils\' "My progress" numbers. Word search, crossword and tarsia count when finished; for hangman, scramble and the mind map the result is words right / words.'));
     if (pState !== 'ok') { card.append(el('p', pState === 'error' ? 'msg err' : 'msg', pState === 'error' ? 'The puzzle data could not be loaded.' : 'Loading the puzzle data…')); return; }
     const d = puzzleRows();
     if (!d.length) { card.append(el('p', 'msg', 'No puzzle results for this selection yet.')); return; }
@@ -740,7 +740,7 @@
     const grp = (keyF, extra) => { const by = {}; d.forEach(r => (by[keyF(r)] = by[keyF(r)] || []).push(r)); return Object.keys(by).map(k => Object.assign({ k, n: by[k].length, pupils: new Set(by[k].map(r => r.key)).size, last: by[k].reduce((m, r) => r.t > m ? r.t : m, 0), rows: by[k] }, extra ? extra(by[k]) : {})); };
     card.append(el('h2', '', 'By puzzle'));
     card.append(table('pzT', [{ h: 'Puzzle', k: x => x.k, v: x => x.k }, { h: 'Finished', k: x => x.n, v: x => x.n, num: true }, { h: 'Pupils', k: x => x.pupils, v: x => x.pupils, num: true },
-      { h: 'Average result', k: x => x.avg, v: x => /^(Hangman|Word scramble)$/.test(x.k) ? badge(x.avg) : '–', num: true }], grp(r => r.act, a => ({ avg: avg(a, r => r.p) })), 'Finished'));
+      { h: 'Average result', k: x => x.avg, v: x => /^(Hangman|Word scramble|Mind map)$/.test(x.k) ? badge(x.avg) : '–', num: true }], grp(r => r.act, a => ({ avg: avg(a, r => r.p) })), 'Finished'));
     card.append(el('h2', '', 'By pupil')); card.lastChild.style.marginTop = '14px';
     card.append(table('pzP', [{ h: 'Pupil', k: x => x.name, v: x => x.name }, { h: 'Class', k: x => x.cls, v: x => x.cls }, { h: 'Finished', k: x => x.n, v: x => x.n, num: true },
       { h: 'Last', k: x => x.last, v: x => fmtDate(x.last), num: true }], grp(r => r.key, a => ({ name: a[0].last + ' ' + a[0].first, cls: [...new Set(a.map(r => r.cls).filter(Boolean))].join(', ') })), 'Finished'));
