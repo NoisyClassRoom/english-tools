@@ -65,7 +65,7 @@
       <div id="unitBox"><b id="unitHead">Pick one</b> <span class="muted" id="unitHelp"></span>
         <div class="units" id="units">Loading…</div>
         <label>Words per branch <input type="number" id="perBranch" min="3" max="8" value="6" style="width:64px"></label>
-        <label id="grpWrap">One unit: group by <select id="group"><option value="map">the ready-made map of the unit (when there is one)</option><option value="theme">theme (the ready-made maps are used as a dictionary)</option><option value="type">word type (Words / Verbs / Phrases)</option></select></label>
+        <label id="grpWrap">One unit: group by <select id="group"><option value="map">the ready-made map of the unit (when there is one)</option><option value="grammar">the grammar of the unit: sentences sorted by rule (when there is one)</option><option value="theme">theme (the ready-made maps are used as a dictionary)</option><option value="type">word type (Words / Verbs / Phrases)</option></select></label>
         <button class="btn primary" id="gen">Make the map from this</button></div>
       <h2>2. Edit the text</h2>
       <p class="muted" style="margin:0 0 4px">First line = the topic in the middle. Every other line = one branch: <code>Branch name: word, word, word</code>. Change it freely and press <b>Update</b>.</p>
@@ -128,8 +128,8 @@
     $('#unitHead').textContent = maps ? 'Pick a map' : 'Tick one or several';
     $('#unitHelp').textContent = maps ? '(a ready-made map: Easy has 4 branches, Medium 4-5, Hard 5-6 with rarer words)' : '(one unit: the words are sorted into groups; several units: every unit becomes a branch)';
     current = await loadSource(book, $('#lvl').value); box.innerHTML = '';
-    if (book !== 'maps' && book !== 'extra') { await loadScript('../exercises/unitmaps-' + book + '.js'); const um = window.UNITMAPS || {}, has = current.some(u => um[u.id]); $('#lvlWrap').style.display = has ? '' : 'none'; if (has && !window.__lvlSet) { $('#lvl').value = 'medium'; window.__lvlSet = true; } }
-    current.forEach((u, i) => { const l = el('label'), c = el('input'); c.type = maps ? 'radio' : 'checkbox'; c.name = 'u'; c.value = i; l.append(c, document.createTextNode(' ' + u.label + (maps ? '' : ' (' + u.words.length + ' words)' + ((book === 'extra' ? extraMap(u.id) : (window.UNITMAPS || {})[u.id]) ? ' 🧠 ready-made map' : '')))); box.append(l); });
+    if (book !== 'maps' && book !== 'extra') { await loadScript('../exercises/unitmaps-' + book + '.js'); await loadScript('../exercises/grammarmaps-' + book + '.js'); const um = window.UNITMAPS || {}, has = current.some(u => um[u.id]); $('#lvlWrap').style.display = has ? '' : 'none'; if (has && !window.__lvlSet) { $('#lvl').value = 'medium'; window.__lvlSet = true; } }
+    current.forEach((u, i) => { const l = el('label'), c = el('input'); c.type = maps ? 'radio' : 'checkbox'; c.name = 'u'; c.value = i; l.append(c, document.createTextNode(' ' + u.label + (maps ? '' : ' (' + u.words.length + ' words)' + ((book === 'extra' ? extraMap(u.id) : (window.UNITMAPS || {})[u.id]) ? ' 🧠 ready-made map' : '') + (book !== 'extra' && (window.GMAPS || {})[u.id] ? ' 📖 grammar map' : '')))); box.append(l); });
     if (maps && box.querySelector('input')) box.querySelector('input').checked = true;
     if (!current.length) box.textContent = 'Nothing found.';
   };
@@ -168,7 +168,11 @@
     else {
       const per = Math.max(3, Math.min(8, Number($('#perBranch').value) || 6));
       const um1 = picked.length === 1 && (book === 'extra' ? extraMap(picked[0].id) : (window.UNITMAPS || {})[picked[0].id]);
-      if (um1 && $('#group').value === 'map') map = { topic: um1.title + ($('#lvl').value === 'medium' ? '' : ' (' + $('#lvl').selectedOptions[0].textContent + ')'), branches: um1.levels[$('#lvl').value] };
+      const gm1 = picked.length === 1 && book !== 'extra' && (window.GMAPS || {})[picked[0].id];
+      if (gm1 && $('#group').value === 'grammar') {                         // grammarmaps-<book>.js: rules x sentences (Easy 3 x 3, Medium 4 x 4, Hard all)
+        const lv = $('#lvl').value, nb = lv === 'easy' ? 3 : lv === 'medium' ? 4 : 9, ni = lv === 'easy' ? 3 : lv === 'medium' ? 4 : 9;
+        map = { topic: 'Grammar: ' + (picked[0].title || picked[0].label) + (lv === 'medium' ? '' : ' (' + $('#lvl').selectedOptions[0].textContent + ')'), branches: gm1.maps.slice(0, nb).map(([name, txt]) => ({ name, items: txt.split(' | ').map(x => x.trim()).filter(Boolean).slice(0, ni) })) };
+      } else if (um1 && $('#group').value === 'map') map = { topic: um1.title + ($('#lvl').value === 'medium' ? '' : ' (' + $('#lvl').selectedOptions[0].textContent + ')'), branches: um1.levels[$('#lvl').value] };
       else if (picked.length === 1) { map = $('#group').value !== 'type' ? byTheme(picked[0], per) : byType(picked[0], per); if (map.branches.length < 2) map = byType(picked[0], per); }
       else map = { topic: book === 'extra' ? 'Extra practice' : BOOKS[book], branches: picked.slice(0, 8).map(u => ({ name: u.label.replace(/^Unit \d+ · /, ''), items: shuffle(wordsOf(u)).slice(0, per) })) };
     }
