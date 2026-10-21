@@ -1,5 +1,5 @@
 // ============================================================
-//  MIND MAPS OF THE UNITS - Dream Team Starter (class 7.a)   (written 22 Oct 2026; same format and rules as unitmaps-8b.js)
+//  MIND MAPS OF THE UNITS - Dream Team Starter (class 7.a)   (written 21 Oct 2026; same format and rules as unitmaps-8b.js)
 //  Easy = 4 branches of 4-5 words of the unit, Medium = 4-5 branches of 6, Hard = 6 branches of 8 (also rarer words around the topic and the unit's grammar).
 //  In ONE level a word must not appear twice and must not equal a branch name (the pupils' game relies on it).
 // ============================================================
