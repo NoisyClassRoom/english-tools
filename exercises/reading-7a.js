@@ -1,5 +1,5 @@
 // ============================================================
-//  READING TEXTS FOR THE PRINTED TESTS - Dream Team Starter (class 7.a)          (written 22 Oct 2026; same format as reading-8b.js)
+//  READING TEXTS FOR THE PRINTED TESTS - Dream Team Starter (class 7.a)          (written 21 Oct 2026; same format as reading-8b.js)
 //  window.READING[unit id] = [ { t: title, x: text, tf: [[statement, 'T' | 'F' | 'DS'], ...], q: [[question, answer], ...] }, ... ]
 //  Short and simple texts (A1), two per unit.
 // ============================================================
