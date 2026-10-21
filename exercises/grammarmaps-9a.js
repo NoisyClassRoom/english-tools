@@ -1,5 +1,5 @@
 // ============================================================
-//  GRAMMAR MIND MAPS + TARSIA PAIRS - Dream Team 2 (class 9.a)          (written 22 Oct 2026; same format and rules as grammarmaps-8b.js)
+//  GRAMMAR MIND MAPS + TARSIA PAIRS - Dream Team 2 (class 9.a)          (written 21 Oct 2026; same format and rules as grammarmaps-8b.js)
 //  maps: the most basic rule first. Easy = first 3 rules x 3 sentences, Medium = first 4 x 4, Hard = all. No comma inside a sentence of a map.
 // ============================================================
 window.GMAPS = window.GMAPS || {};
