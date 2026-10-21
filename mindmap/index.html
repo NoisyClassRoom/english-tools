@@ -65,6 +65,7 @@
       <div id="unitBox"><b id="unitHead">Pick one</b> <span class="muted" id="unitHelp"></span>
         <div class="units" id="units">Loading…</div>
         <label>Words per branch <input type="number" id="perBranch" min="3" max="8" value="6" style="width:64px"></label>
+        <label id="grpWrap">One unit: group by <select id="group"><option value="theme">theme (the ready-made maps are used as a dictionary)</option><option value="type">word type (Words / Verbs / Phrases)</option></select></label>
         <button class="btn primary" id="gen">Make the map from this</button></div>
       <h2>2. Edit the text</h2>
       <p class="muted" style="margin:0 0 4px">First line = the topic in the middle. Every other line = one branch: <code>Branch name: word, word, word</code>. Change it freely and press <b>Update</b>.</p>
@@ -121,10 +122,11 @@
   };
   const fillUnits = async () => {
     const box = $('#units'); box.textContent = 'Loading…'; $('#msg').textContent = '';
-    const book = $('#src').value, maps = book === 'maps'; $('#lvlWrap').style.display = book === 'extra' ? '' : 'none';
-    $('#perBranch').parentNode.style.display = maps ? 'none' : '';
+    const book = $('#src').value, maps = book === 'maps'; $('#lvlWrap').style.display = book === 'extra' || maps ? '' : 'none';
+    if (maps && !window.__lvlSet) { $('#lvl').value = 'medium'; window.__lvlSet = true; }
+    $('#perBranch').parentNode.style.display = maps ? 'none' : ''; $('#grpWrap').style.display = maps ? 'none' : '';
     $('#unitHead').textContent = maps ? 'Pick a map' : 'Tick one or several';
-    $('#unitHelp').textContent = maps ? '(a ready-made map with 4-5 branches)' : '(one unit: the words are sorted into groups; several units: every unit becomes a branch)';
+    $('#unitHelp').textContent = maps ? '(a ready-made map: Easy has 4 branches, Medium 4-5, Hard 5-6 with rarer words)' : '(one unit: the words are sorted into groups; several units: every unit becomes a branch)';
     current = await loadSource(book, $('#lvl').value); box.innerHTML = '';
     current.forEach((u, i) => { const l = el('label'), c = el('input'); c.type = maps ? 'radio' : 'checkbox'; c.name = 'u'; c.value = i; l.append(c, document.createTextNode(' ' + u.label + (maps ? '' : ' (' + u.words.length + ' words)'))); box.append(l); });
     if (maps && box.querySelector('input')) box.querySelector('input').checked = true;
@@ -141,14 +143,28 @@
     cut('Words', single.sort((a, b) => a.localeCompare(b))); cut('Verbs', verbs); cut('Phrases', phrases);
     return { topic: u.title || u.label, branches: groups.slice(0, 8) };
   };
+  // one unit by theme: every word that is in a ready-made map (any level) goes to the branch of that map; the biggest themes become branches, the rest is "Other words"
+  let lex = null;
+  const lexicon = () => { if (lex) return lex; lex = {}; (window.MINDMAPS || []).forEach(m => ['easy', 'medium', 'hard'].forEach(l => m.levels[l].forEach(b => b.items.forEach(w => { (lex[w.toLowerCase()] = lex[w.toLowerCase()] || []).push(b.name); })))); return lex; };
+  const byTheme = (u, per) => {
+    const words = wordsOf(u), lx = lexicon(), by = {}, rest = [];
+    words.forEach(w => { const k = w.toLowerCase().replace(/^to\s+/, ''), names = lx[k] || lx[w.toLowerCase()];
+      if (!names) { rest.push(w); return; }
+      const c = {}; names.forEach(n => { c[n] = (c[n] || 0) + 1; }); const best = Object.keys(c).sort((a, b) => c[b] - c[a])[0]; (by[best] = by[best] || []).push(w); });
+    const groups = Object.keys(by).map(n => ({ name: n, items: by[n] })).sort((a, b) => b.items.length - a.items.length), keep = [];
+    groups.forEach(g => { if (g.items.length >= 2 && keep.length < 6) { keep.push({ name: g.name, items: g.items.slice(0, per) }); g.items.slice(per).forEach(w => rest.push(w)); } else g.items.forEach(w => rest.push(w)); });
+    rest.sort((a, b) => a.localeCompare(b)); const n = Math.max(1, Math.round(rest.length / per)), size = Math.ceil(rest.length / n);
+    for (let q = 0; q < n && rest.length && keep.length < 8; q++) keep.push({ name: n > 1 ? 'Other words (' + (q + 1) + ')' : 'Other words', items: rest.slice(q * size, (q + 1) * size) });
+    return { topic: u.title || u.label, branches: keep };
+  };
   const generate = () => {
     const book = $('#src').value, picked = [...document.querySelectorAll('#units input:checked')].map(c => current[Number(c.value)]);
     if (!picked.length) { $('#msg').textContent = 'Pick something first.'; return; }
     let map;
-    if (book === 'maps') map = { topic: picked[0].map.title, branches: picked[0].map.branches };
+    if (book === 'maps') map = { topic: picked[0].map.title + ($('#lvl').value === 'medium' ? '' : ' (' + $('#lvl').selectedOptions[0].textContent + ')'), branches: picked[0].map.levels[$('#lvl').value] };
     else {
       const per = Math.max(3, Math.min(8, Number($('#perBranch').value) || 6));
-      if (picked.length === 1) map = byType(picked[0], per);
+      if (picked.length === 1) { map = $('#group').value === 'theme' ? byTheme(picked[0], per) : byType(picked[0], per); if (map.branches.length < 2) map = byType(picked[0], per); }
       else map = { topic: book === 'extra' ? 'Extra practice' : BOOKS[book], branches: picked.slice(0, 8).map(u => ({ name: u.label.replace(/^Unit \d+ · /, ''), items: shuffle(wordsOf(u)).slice(0, per) })) };
     }
     $('#txt').value = toText(map); render();
