@@ -186,6 +186,7 @@
   .savemsg { font-size: 16px; margin: 0 0 14px; color: var(--muted); }
   .savemsg.ok { color: var(--good); }
   .savemsg.warn { color: var(--bad); }
+  details.extra { margin-top: 18px; } details.extra > summary { cursor: pointer; font-weight: 700; font-size: 1.05rem; padding: 10px 14px; border: 1px solid var(--line, #ddd); border-radius: 12px; background: var(--card, #fff); list-style: none; } details.extra[open] > summary { margin-bottom: 12px; }
 </style>
 </head>
 <body>
@@ -572,8 +573,10 @@
     $('#homeHint').textContent = 'Choose a topic.';
     if (classSets.length) body.append(grid(classSets));
     if (SHARED.length) {
-      if (classSets.length) body.append(el('h2', '', 'Extra practice'));
-      body.append(grid(SHARED));
+      if (classSets.length) {                                          // under a class: Extra practice is folded away (one tap opens it)
+        const dt = el('details', 'extra'), sm = el('summary', '', '⭐ Extra practice (' + SHARED.length + ' topics)');
+        dt.append(sm, grid(SHARED)); body.append(dt);
+      } else body.append(grid(SHARED));
     }
     if (!classSets.length && (window.MINDMAPS || []).length) {                          // Extra practice: the ready-made mind maps
       body.append(el('h2', '', 'Mind maps'));
