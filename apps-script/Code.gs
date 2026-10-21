@@ -85,7 +85,7 @@ var UNITS = {
 
 // Change this text whenever the code of doPost changes: the health check compares it with what the published web app answers,
 // so it can tell you that the saved code has not been deployed as a new version yet.
-var CODE_VERSION = '2026-10-22.5';
+var CODE_VERSION = '2026-10-21.6';
 
 // ---------------------------------------------------------------- saving results
 
