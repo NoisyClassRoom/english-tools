@@ -85,7 +85,7 @@ var UNITS = {
 
 // Change this text whenever the code of doPost changes: the health check compares it with what the published web app answers,
 // so it can tell you that the saved code has not been deployed as a new version yet.
-var CODE_VERSION = '2026-10-22.2';
+var CODE_VERSION = '2026-10-22.3';
 
 // ---------------------------------------------------------------- saving results
 
@@ -166,7 +166,7 @@ function rosterReply_(d) {
 
   var sh = SpreadsheetApp.getActive().getSheetByName(ROSTER);
   if (!sh || sh.getLastRow() < 2) return out_({ ok: true, year: '', classes: {} });
-  var rows = sh.getRange(2, 1, sh.getLastRow() - 1, 6).getValues(), year = '';
+  var rows = sh.getRange(2, 1, sh.getLastRow() - 1, Math.max(6, Math.min(8, sh.getLastColumn()))).getValues().filter(function (r) { return catOf_(r[7]) !== 'test'; }), year = '';
   rows.forEach(function (r) { var y = String(r[1]).trim(); if (/^\d{4}-\d{2}$/.test(y) && y > year) year = y; });
   var byClass = {};
   rows.forEach(function (r) {
@@ -452,8 +452,9 @@ function hwListReply_(d) {
   if (!who || !isTeacher_(who.email)) return out_({ ok: false, error: 'token' });
   var year = schoolYear_(new Date()), rs = SpreadsheetApp.getActive().getSheetByName(ROSTER), people = [];
   if (rs && rs.getLastRow() > 1) {
-    rs.getRange(2, 1, rs.getLastRow() - 1, 4).getValues().forEach(function (r) {
+    rs.getRange(2, 1, rs.getLastRow() - 1, Math.max(4, Math.min(8, rs.getLastColumn()))).getValues().forEach(function (r) {
       var y = String(r[1]).trim(), cls = String(r[2]).trim(), name = String(r[3]).trim(), email = String(r[0]).trim().toLowerCase();
+      if (catOf_(r[7]) === 'test') return;
       if ((y === year || !y) && cls && (name || email)) people.push({ cls: cls, name: name || email, email: email, key: nameKey_(name) });
     });
   }
@@ -740,7 +741,8 @@ function statsReply_(d) {
     sh.getRange(2, 1, sh.getLastRow() - 1, 18).getValues().forEach(function (r) {
       if (!(r[0] instanceof Date) || !r[1]) return;
       var t = r[0].getTime(), y = String(r[10]);
-      rows.push([t, r[3], r[2], r[11], r[4], r[15], r[6], r[14], r[7], r[8], y, String(r[11]).trim() ? '' : catFor_(cats, r[1], r[2], r[3])]);
+      var ct = catFor_(cats, r[1], r[2], r[3]);                                   // a test pupil is shown WITHOUT a class and with category 'test'
+      rows.push([t, r[3], r[2], ct === 'test' ? '' : r[11], r[4], r[15], r[6], r[14], r[7], r[8], y, ct === 'test' ? 'test' : String(r[11]).trim() ? '' : ct]);
       [[byEmail, y + '|' + String(r[1]).toLowerCase()], [byName, y + '|' + nameKey_(r[2] + ' ' + r[3])]].forEach(function (p) {
         var o = p[0][p[1]] = p[0][p[1]] || { n: 0, t: 0 };
         o.n++; if (t > o.t) o.t = t;
@@ -749,9 +751,9 @@ function statsReply_(d) {
   });
   var roster = [], rs = ss.getSheetByName(ROSTER);
   if (rs && rs.getLastRow() > 1) {
-    rs.getRange(2, 1, rs.getLastRow() - 1, 4).getValues().forEach(function (r) {
+    rs.getRange(2, 1, rs.getLastRow() - 1, Math.max(4, Math.min(8, rs.getLastColumn()))).getValues().forEach(function (r) {
       var email = String(r[0]).trim().toLowerCase(), y = String(r[1]).trim(), cls = String(r[2]).trim(), name = String(r[3]).trim();
-      if (!/^\d{4}-\d{2}$/.test(y) || !cls || !(email || name)) return;
+      if (!/^\d{4}-\d{2}$/.test(y) || !cls || !(email || name) || catOf_(r[7]) === 'test') return;                // test pupils are not on the class lists
       var a = email && byEmail[y + '|' + email], b = name && byName[y + '|' + nameKey_(name)];
       var n = (a ? a.n : 0), t = (a ? a.t : 0);
       if (b && (!a || b.n > a.n)) { n = b.n; t = b.t; }
@@ -809,7 +811,8 @@ function puzzleStatsReply_(d) {
   var sh = SpreadsheetApp.getActive().getSheetByName(PSHEET), rows = [], cats = rosterCats_();
   if (sh && sh.getLastRow() > 1) sh.getRange(2, 1, sh.getLastRow() - 1, 18).getValues().forEach(function (r) {
     if (!(r[0] instanceof Date) || !r[1]) return;
-    rows.push([r[0].getTime(), r[3], r[2], r[11], r[4], r[15], r[6], r[14], r[7], r[8], String(r[10]), String(r[11]).trim() ? '' : catFor_(cats, r[1], r[2], r[3])]);
+    var ct = catFor_(cats, r[1], r[2], r[3]);
+    rows.push([r[0].getTime(), r[3], r[2], ct === 'test' ? '' : r[11], r[4], r[15], r[6], r[14], r[7], r[8], String(r[10]), ct === 'test' ? 'test' : String(r[11]).trim() ? '' : ct]);
   });
   return out_({ ok: true, rows: rows });
 }
@@ -869,26 +872,34 @@ function schoolYear_(d) {
 function rosterRows_() {
   var sh = SpreadsheetApp.getActive().getSheetByName(ROSTER);
   if (!sh || sh.getLastRow() < 2) return [];
-  return sh.getRange(2, 1, sh.getLastRow() - 1, 4).getValues().map(function (r) {
+  return sh.getRange(2, 1, sh.getLastRow() - 1, Math.max(4, Math.min(8, sh.getLastColumn()))).getValues().map(function (r) {
     return { email: String(r[0]).trim().toLowerCase(), year: String(r[1]).trim(), cls: String(r[2]).trim(),
-             name: nameKey_(r[3]) };
+             name: nameKey_(r[3]), test: catOf_(r[7]) === 'test' };                // test = a test pupil (Roster column H = test): has a class, but is left out of every count
   }).filter(function (r) { return (r.email || r.name) && r.cls; });
 }
 
 // Category of an account WITHOUT a class: Roster column H (teacher / guest / other). Only for rows with a name or e-mail; it never changes a pupil's class.
 // Returns { byEmail: {email: 'teacher'|'guest'|'other'}, byName: {nameKey: ...} }; rows that have a class are ignored (those are pupils).
-function catOf_(v) { var s = String(v || '').trim().toLowerCase(); if (!s) return ''; if (/^(t|u)/.test(s)) return 'teacher'; if (/^g/.test(s)) return 'guest'; return 'other'; }
+function catOf_(v) { var s = String(v || '').trim().toLowerCase(); if (!s) return ''; if (/^test/.test(s)) return 'test'; if (/^(t|u)/.test(s)) return 'teacher'; if (/^g/.test(s)) return 'guest'; return 'other'; }
 function rosterCats_() {
   var sh = SpreadsheetApp.getActive().getSheetByName(ROSTER), out = { byEmail: {}, byName: {} };
   if (!sh || sh.getLastRow() < 2 || sh.getLastColumn() < 8) return out;
   sh.getRange(2, 1, sh.getLastRow() - 1, 8).getValues().forEach(function (r) {
     var c = catOf_(r[7]), email = String(r[0]).trim().toLowerCase(), key = nameKey_(r[3]);
-    if (!c || String(r[2]).trim() || !(email || key)) return;
+    if (!c || !(email || key)) return;
+    if (String(r[2]).trim() && c !== 'test') return;                         // a category only for people WITHOUT a class, except 'test': a test pupil has a class like everybody else
     if (email) out.byEmail[email] = c;
     if (key) out.byName[key] = c;
   });
   return out;
 }
+// test pupils (Roster column H = test): { byEmail, byName }; they work like a pupil of their class but are left out of every number the teacher sees
+function testSet_() {
+  var o = { byEmail: {}, byName: {} };
+  rosterRows_().forEach(function (r) { if (!r.test) return; if (r.email) o.byEmail[r.email] = 1; if (r.name) o.byName[r.name] = 1; });
+  return o;
+}
+function isTest_(ts, email, first, last) { return !!(ts.byEmail[String(email).toLowerCase()] || (first !== undefined && ts.byName[nameKey_(first + ' ' + last)])); }
 function catFor_(cats, email, first, last) { return cats.byEmail[String(email).toLowerCase()] || cats.byName[nameKey_(first + ' ' + last)] || ''; }
 
 // "Cretnik Sara" and "Sara Čretnik" give the same key.
@@ -1147,7 +1158,7 @@ function hcBackup_(add) {
 // 6) every exercise file on GitHub Pages exists, is not cut off and has no syntax error
 function hcFiles_(add) {
   var files = [['index.html', ''], ['exercises/index.html', ''], ['exercises/classes.js', 'CLASSES'], ['exercises/tracking.js', 'TRACK_CONFIG'], ['exercises/sets.js', 'window.SETS'],
-    ['exercises/hints.js', 'WORD_HINTS'], ['exercises/levels-1.js', 'EXTRA_LEVELS'], ['exercises/levels-2.js', 'EXTRA_LEVELS'], ['exercises/levels-3.js', 'EXTRA_LEVELS'], ['exercises/levels-4.js', 'EXTRA_LEVELS'], ['exercises/levels-5.js', 'EXTRA_LEVELS'], ['exercises/levels-6.js', 'EXTRA_LEVELS'],['exercises/explain.js', 'EXPLAIN'], ['exercises/cando-8b.js', 'CANDO'], ['exercises/cando-6b.js', 'CANDO'], ['exercises/cando-7a.js', 'CANDO'], ['exercises/cando-7bc.js', 'CANDO'], ['exercises/cando-8a.js', 'CANDO'], ['exercises/cando-9a.js', 'CANDO'], ['exercises/cando-9b.js', 'CANDO'],['exercises/puzzles.js', 'Puzzles'], ['exercises/tarsia.js', 'Tarsia'], ['exercises/mindmaps.js', 'MINDMAPS'], ['exercises/unitmaps-6b.js', 'UNITMAPS'], ['exercises/unitmaps-7a.js', 'UNITMAPS'], ['exercises/unitmaps-7bc.js', 'UNITMAPS'], ['exercises/unitmaps-8a.js', 'UNITMAPS'], ['exercises/unitmaps-8b.js', 'UNITMAPS'], ['exercises/unitmaps-9a.js', 'UNITMAPS'], ['exercises/unitmaps-9b.js', 'UNITMAPS'], ['mindmap/index.html', ''], ['puzzles/index.html', ''], ['tests/index.html', ''], ['vendor/qrcode.min.js', 'qrcode'], ['results/index.html', ''], ['board/index.html', ''], ['today/index.html', '']];
+    ['exercises/hints.js', 'WORD_HINTS'], ['exercises/levels-1.js', 'EXTRA_LEVELS'], ['exercises/levels-2.js', 'EXTRA_LEVELS'], ['exercises/levels-3.js', 'EXTRA_LEVELS'], ['exercises/levels-4.js', 'EXTRA_LEVELS'], ['exercises/levels-5.js', 'EXTRA_LEVELS'], ['exercises/levels-6.js', 'EXTRA_LEVELS'],['exercises/explain.js', 'EXPLAIN'], ['exercises/cando-8b.js', 'CANDO'], ['exercises/cando-6b.js', 'CANDO'], ['exercises/cando-7a.js', 'CANDO'], ['exercises/cando-7bc.js', 'CANDO'], ['exercises/cando-8a.js', 'CANDO'], ['exercises/cando-9a.js', 'CANDO'], ['exercises/cando-9b.js', 'CANDO'],['exercises/puzzles.js', 'Puzzles'], ['exercises/tarsia.js', 'Tarsia'], ['exercises/mindmaps.js', 'MINDMAPS'], ['exercises/unitmaps-6b.js', 'UNITMAPS'], ['exercises/unitmaps-7a.js', 'UNITMAPS'], ['exercises/unitmaps-7bc.js', 'UNITMAPS'], ['exercises/unitmaps-8a.js', 'UNITMAPS'], ['exercises/unitmaps-8b.js', 'UNITMAPS'], ['exercises/grammarmaps-8b.js', 'GMAPS'], ['exercises/unitmaps-9a.js', 'UNITMAPS'], ['exercises/unitmaps-9b.js', 'UNITMAPS'], ['mindmap/index.html', ''], ['puzzles/index.html', ''], ['tests/index.html', ''], ['vendor/qrcode.min.js', 'qrcode'], ['results/index.html', ''], ['board/index.html', ''], ['today/index.html', '']];
   CLASS_IDS.forEach(function (id) {
     [['class-', 'CLASS_SETS'], ['hard-', 'HARD_TESTS'], ['more-', 'MORE_SETS'], ['more2-', 'MORE2_SETS'], ['grammar-', 'GRAMMAR']].forEach(function (f) { files.push(['exercises/' + f[0] + id + '.js', f[1]]); });
   });
@@ -1424,7 +1435,7 @@ function srlStatsReply_(d) {
   var who = verify_(d.token);
   if (!who || !isTeacher_(who.email)) return out_({ ok: false, error: 'token' });
   var year = clip_(d.year, 10) || schoolYear_(new Date()), from = Number(d.from) || 0, to = Number(d.to) || 0;
-  var ss = SpreadsheetApp.getActive(), agg = {}, wkCache = {}, rowsBy = {}, ridInfo = {}, weeks = {};
+  var ss = SpreadsheetApp.getActive(), agg = {}, wkCache = {}, rowsBy = {}, ridInfo = {}, weeks = {}, tst = testSet_();
   var inRange = function (t) { return t >= from && (!to || t < to) && schoolYear_(new Date(t)) === year; };
   var weekOf = function (t) { var day = Utilities.formatDate(new Date(t), TZ, 'yyyy-MM-dd'); return wkCache[day] || (wkCache[day] = srlWeek_(t)); };
   var cell = function (cls, wk) {
@@ -1454,7 +1465,7 @@ function srlStatsReply_(d) {
     var sh = ss.getSheetByName(n); if (!sh || sh.getLastRow() < 2) return;
     var w = Math.min(NCOLS, sh.getLastColumn());
     sh.getRange(2, 1, sh.getLastRow() - 1, w).getValues().forEach(function (r) {
-      if (!(r[0] instanceof Date) || !(r[8] > 0)) return;
+      if (!(r[0] instanceof Date) || !(r[8] > 0) || isTest_(tst, r[1], r[2], r[3])) return;
       var t = r[0].getTime(), email = String(r[1]).toLowerCase(), act = String(r[6]), cls = String(r[11] || '').trim(), puzzle = n === PSHEET;
       (rowsBy[email] = rowsBy[email] || []).push({ t: t, book: String(r[4]), topic: String(r[5]), act: act, p: r[7] / r[8] });
       if (!puzzle && w >= NCOLS && r[NCOLS - 1]) ridInfo[String(r[NCOLS - 1])] = { t: t, cls: cls, p: r[7] / r[8] };
@@ -1487,7 +1498,8 @@ function srlStatsReply_(d) {
     if (String(r[1]) !== year) return;
     var g = { week: srlWk_(r[4]), type: String(r[5]), book: String(r[6]), set: String(r[7]), topic: String(r[8]), target: Number(r[9]) }, rg = srlWeekRange_(g.week);
     if (rg[1] <= from || (to && rg[0] >= to)) return;
-    var email = String(r[2]).toLowerCase(), cls = String(r[3]).trim(), ok = srlEval_(g, rowsBy[email] || [], null).reached;
+    var email = String(r[2]).toLowerCase(), cls = String(r[3]).trim(); if (isTest_(tst, email)) return;
+    var ok = srlEval_(g, rowsBy[email] || [], null).reached;
     if (!cls) return;
     weeks[g.week] = 1;
     each(cls, g.week, function (c) { c.goals++; c.goalPup[email] = 1; if (ok) c.goalsOk++; });
@@ -1496,7 +1508,7 @@ function srlStatsReply_(d) {
   // "I can": first vs latest rating of every statement (whole school year)
   var cs = ss.getSheetByName(CSHEET), cd = {};
   if (cs && cs.getLastRow() > 1) cs.getRange(2, 1, cs.getLastRow() - 1, CHEADER.length).getValues().forEach(function (r) {
-    if (!(r[0] instanceof Date) || String(r[1]) !== year || !String(r[3]).trim()) return;
+    if (!(r[0] instanceof Date) || String(r[1]) !== year || !String(r[3]).trim() || isTest_(tst, r[2])) return;
     var k = String(r[2]).toLowerCase() + '\u0001' + r[4] + '\u0001' + r[5] + '\u0001' + r[6], t = r[0].getTime(), o = cd[k] = cd[k] || { cls: String(r[3]).trim(), n: 0, f: 0, ft: Infinity, l: 0, lt: -1 };
     o.n++; if (t < o.ft) { o.ft = t; o.f = Number(r[7]); } if (t >= o.lt) { o.lt = t; o.l = Number(r[7]); }
   });
@@ -1507,7 +1519,7 @@ function srlStatsReply_(d) {
   // pupils per class (Roster of this year)
   var pupilsIn = { '*': 0 }, seen = {};
   rosterRows_().forEach(function (r) {
-    if (r.year && r.year !== year) return;
+    if ((r.year && r.year !== year) || r.test) return;
     var k = (r.email || r.name) + '\u0001' + r.cls; if (seen[k]) return; seen[k] = 1;
     pupilsIn[r.cls] = (pupilsIn[r.cls] || 0) + 1; pupilsIn['*']++;
   });
@@ -1565,7 +1577,7 @@ var SUMMARY_FN = 'weeklySummary';
 
 function summaryData_() {
   var DAY = 86400000, now = Date.now(), w0 = now - 7 * DAY, p0 = w0 - 7 * DAY, q0 = now - 14 * DAY, year = schoolYear_(new Date());
-  var ss = SpreadsheetApp.getActive(), roster = rosterRows_().filter(function (r) { return r.year === year || !r.year; });
+  var ss = SpreadsheetApp.getActive(), roster = rosterRows_().filter(function (r) { return (r.year === year || !r.year) && !r.test; }), tst = testSet_();
   var classes = {}, order = [];
   roster.forEach(function (r) {
     var c = classes[r.cls]; if (!c) { c = classes[r.cls] = { cls: r.cls, pupils: 0, active: {}, n: 0, np: 0, last: 0, quiet: 0 }; order.push(r.cls); }
@@ -1574,7 +1586,7 @@ function summaryData_() {
   var lastByEmail = {}, lastByName = {};
   var sh = ss.getSheetByName(SHEET);
   if (sh && sh.getLastRow() > 1) sh.getRange(2, 1, sh.getLastRow() - 1, 12).getValues().forEach(function (r) {
-    if (!(r[0] instanceof Date) || String(r[10]) !== year) return;
+    if (!(r[0] instanceof Date) || String(r[10]) !== year || isTest_(tst, r[1], r[2], r[3])) return;
     var t = r[0].getTime(), email = String(r[1]).toLowerCase(), nk = nameKey_(r[2] + ' ' + r[3]), c = classes[String(r[11])];
     if (t > (lastByEmail[email] || 0)) lastByEmail[email] = t;
     if (t > (lastByName[nk] || 0)) lastByName[nk] = t;
