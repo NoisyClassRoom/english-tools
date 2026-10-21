@@ -612,11 +612,13 @@
       await loadOpt('more-' + info.id + '.js');
       await loadOpt('more2-' + info.id + '.js');
       await loadOpt('grammar-' + info.id + '.js');
+      await loadOpt('grammarmaps-' + info.id + '.js');            // grammar mind maps and tarsia pairs (only the books that have a file)
       await loadOpt('unitmaps-' + info.id + '.js');                // ready-made mind maps of the units (only the books that have a file)
       await loadOpt('cando-' + info.id + '.js');                  // "I can" statements (self-regulation plan, feature 4); only the books that have a file
       (window.CLASS_SETS || []).forEach(set => {
         const gr = (window.GRAMMAR || {})[set.id];          // grammar-<id>.js: explanation + quick check
         if (gr) { set.grammar = gr.s; set.gcheck = (gr.c || []).map(toTest); }
+        set.gmaps = (window.GMAPS || {})[set.id];
         const hard = (window.HARD_TESTS || {})[set.id];
         if (hard) set.tests2 = hard.map(toTest);
         // more-<id>.js and more2-<id>.js: extra gap sentences, easy and hard test questions
@@ -655,7 +657,10 @@
     { id: 'tarsia', icon: '🔺', name: 'Tarsia', desc: 'Build the triangle from pairs', run: tarsia, need: s => !!window.Tarsia && tarsiaPairs(s.words, s.sentences).length >= 18 },
     { id: 'mindmap', icon: '🧠', name: 'Mind map', desc: 'Sort the words into the branches', run: mindmapGame, need: s => !!s.mindmap },
     { id: 'topicmap', icon: '🧠', name: 'Mind map', desc: 'Sort the words of the topic', run: topicMap, need: s => !!(s.level && s.base && mapOf(s.base.id)) },
-    { id: 'unitmap', icon: '🧠', name: 'Mind map', desc: 'Sort the words: Easy, Medium, Hard', run: unitMapMenu, need: s => !!(window.UNITMAPS && window.UNITMAPS[s.id]) }
+    { id: 'unitmap', icon: '🧠', name: 'Mind map', desc: 'Sort the words: Easy, Medium, Hard', run: unitMapMenu, need: s => !!(window.UNITMAPS && window.UNITMAPS[s.id]) },
+    // from the Grammar texts of the unit (grammar-<class id>.js); saved as the same activities (Tarsia, Mind map)
+    { id: 'gtarsia', icon: '🔺', name: 'Tarsia', tile: 'Grammar tarsia', desc: 'Sentences and their translations', run: () => tarsia(grammarPairs(set)), need: s => !!window.Tarsia && !s.base && grammarPairs(s).length >= 16 },
+    { id: 'gmap', icon: '🧠', name: 'Mind map', tile: 'Grammar mind map', desc: 'Sort the grammar: Easy, Medium, Hard', run: grammarMapMenu, need: s => !s.base && grammarMaps(s).length > 0 }
   ];
   function openSet(s, lvl) {
     if (s.levels && !lvl) {
@@ -674,7 +679,7 @@
     const g = $('#modeGrid'); g.innerHTML = '';
     MODES.filter(m => s.mindmap ? m.id === 'mindmap' : (!m.need || m.need(s))).forEach(m => {
       const b = el('button', 'tile');
-      b.append(el('span', 'ico', m.icon), document.createTextNode(m.name), el('small', '', m.desc));
+      b.append(el('span', 'ico', m.icon), document.createTextNode(m.tile || m.name), el('small', '', m.desc));
       b.onclick = () => startMode(m);
       g.append(b);
     });
@@ -1193,9 +1198,9 @@
       if (q && a && /___/.test(q) && q.length <= 60 && a.length <= 22 && !seen.has(k)) { seen.add(k); out.push([q, a]); } });
     return out;
   };
-  function tarsia() {
-    const T = Tarsia, S = 100, H = S * Math.sqrt(3) / 2, s = stage(), NS = 'http://www.w3.org/2000/svg';
-    const pairs = T.shuffle(tarsiaPairs(set.words, set.sentences)).slice(0, T.SHAPES.tri.pairs);
+  function tarsia(src) {                                              // src = ready pairs [[a, b], ...] (the grammar tarsia); without it the words of the unit
+    const T = Tarsia, S = 100, H = S * Math.sqrt(3) / 2, s = stage(), NS = 'http://www.w3.org/2000/svg', again = () => tarsia(src);
+    const pairs = T.shuffle(src instanceof Array ? src : tarsiaPairs(set.words, set.sentences)).slice(0, T.SHAPES.tri.pairs);
     if (pairs.length < T.SHAPES.tri.pairs) { s.append(el('p', 'hint', 'This unit has too few different words for a tarsia.')); return; }
     const g = T.make('tri', pairs), ps = g.pieces.map(() => ({ slot: -1, rot: Math.floor(Math.random() * 3) }));
     let sel = -1, finished = false;
@@ -1206,7 +1211,7 @@
       const qa = occupant(e.a.t.k), qb = occupant(e.b.t.k); if (qa < 0 || qb < 0) return '';
       const ta = textAt(qa, e.a.t, e.a.side), tb = textAt(qb, e.b.t, e.b.side); return ta && tb && ta.pid === tb.pid ? 'good' : 'bad';
     };
-    s.append(el('p', 'hint', 'Every side has a word. Put the pieces together so that the touching sides are a pair (English word and its Slovenian meaning). Tap a piece, then a place on the board. Green = a pair.'));
+    s.append(el('p', 'hint', 'Every side has a word. Put the pieces together so that the touching sides are a pair (English and its Slovenian meaning, or a question and its answer). Tap a piece, then a place on the board. Green = a pair.'));
     const boardBox = el('div'), tray = el('div', 'tray'), bar = el('div', 'row center'), msg = el('p', 'hint');
     const turn = el('button', 'btn', '⟳ Turn the piece'), back = el('button', 'btn', '↩ Take it back'), show = el('button', 'btn', 'Start again');
     bar.append(turn, back, show); s.append(boardBox, bar, msg, tray);
@@ -1232,7 +1237,7 @@
       setBar(good / g.edges.length);
       turn.disabled = back.disabled = sel < 0; back.disabled = sel < 0 || ps[sel].slot < 0;
       msg.textContent = sel < 0 ? (tray.children.length ? 'Tap a piece below, then a place on the board.' : '') : (ps[sel].slot < 0 ? 'Now tap a place on the board (or turn the piece first).' : 'Turn the piece, take it back, or tap another place to move it.');
-      if (!finished && good === g.edges.length) { finished = true; setTimeout(() => puzzleEnd('Tarsia solved!', tarsia, 'All the pairs fit together.', 1, 1), 900); }
+      if (!finished && good === g.edges.length) { finished = true; setTimeout(() => puzzleEnd('Tarsia solved!', again, 'All the pairs fit together.', 1, 1), 900); }
     };
     function place(k) {
       if (finished) return;
@@ -1249,6 +1254,48 @@
     draw();
   }
 
+  // the Grammar texts of the unit (set.grammar = [{h, l, t, x:[[EN, SL]]}], set.gcheck = quick-check questions) as material for a tarsia and a mind map
+  const grammarPairs = s => {
+    const seen = new Set(), out = [], add = (a, b) => { a = String(a || '').replace(/\s+/g, ' ').trim(); b = String(b || '').replace(/\s+/g, ' ').trim(); const k = a.toLowerCase(), k2 = b.toLowerCase();
+      if (a && b && a.length <= 36 && b.length <= 42 && !seen.has(k) && !seen.has(k2)) { seen.add(k); seen.add(k2); out.push([a, b]); } };
+    (s.grammar || []).forEach(sec => (sec.x || []).forEach(p => add(p[0], p[1])));
+    ((s.gmaps && s.gmaps.pairs) || []).forEach(p => add(p[0], p[1]));
+    (s.gcheck || []).forEach(q => { if (/___/.test(q.q) && q.q.length <= 44) add(q.q.replace(/\s*\([^)]*\)\s*$/, ''), q.answer); });
+    (s.sentences || []).forEach(x => { if (out.length < 24 && /___/.test(x.text || '') && String(x.text).length <= 44 && String(x.answer || '').length <= 22) add(x.text, x.answer); });
+    return out;
+  };
+  // mind maps of the grammar: branch = a section of the explanation, words = its examples and the rows of its table (go - went); returns the levels that exist
+  const grammarMaps = s => {
+    const levels = [['easy', 3, 3], ['medium', 4, 4], ['hard', 9, 9]], out = [], same = br => out.some(o => JSON.stringify(o.branches) === JSON.stringify(br));
+    if (s.gmaps && s.gmaps.maps) {                                          // written maps (grammarmaps-<id>.js): rules x sentences
+      const all = s.gmaps.maps.map(([name, txt]) => ({ name, items: txt.split(' | ').map(x => x.trim()).filter(Boolean) }));
+      levels.forEach(([k, nb, ni]) => { const br = all.slice(0, nb).map(b => ({ name: b.name, items: b.items.slice(0, ni) })); if (br.length >= 3 && !same(br)) out.push({ level: k, branches: br }); });
+      return out;
+    }
+    const seen = new Set(), secs = [];
+    (s.grammar || []).forEach(sec => {
+      const items = [];
+      (sec.x || []).forEach(p => items.push(String(p[0]).trim()));
+      (sec.t || []).slice(1).forEach(r => { if (r.length === 2 && r[0] && r[1]) items.push(r[0] + ' – ' + r[1]); });
+      const u = items.filter(w => w && w.length <= 52 && !seen.has(w.toLowerCase()) && !/^\d/.test(w)); u.forEach(w => seen.add(w.toLowerCase()));
+      if (u.length >= 2 && String(sec.h).length <= 44) secs.push({ name: String(sec.h).replace(/\*\*/g, ''), items: u });
+    });
+    if (secs.length < 3) return [];
+    levels.forEach(([k, nb, ni]) => { const br = secs.slice(0, nb).map(b => ({ name: b.name, items: b.items.slice(0, ni) })); if (br.length >= 3 && !same(br)) out.push({ level: k, branches: br }); });
+    return out;
+  };
+  function grammarMapMenu() {
+    const maps = grammarMaps(set), s = stage();
+    s.append(el('p', 'hint', 'Choose a level. Then sort the example sentences into the grammar rule they belong to.'));
+    const g = el('div', 'grid');
+    maps.forEach(m => {
+      const L = LEVELS[m.level], n = m.branches.reduce((c, b) => c + b.items.length, 0), b = el('button', 'tile');
+      b.append(el('span', 'ico', L[0]), document.createTextNode(L[1]), el('small', '', m.branches.length + ' rules · ' + n + ' sentences'));
+      b.onclick = () => { $('#playInfo').textContent = set.title + ' · Grammar mind map · ' + L[1]; mindmapGame({ title: 'Grammar: ' + set.title, icon: '📖', branches: m.branches }); };
+      g.append(b);
+    });
+    s.append(g);
+  }
   // Extra practice topics: the mind map of the topic at the chosen level (ready-made maps of mindmaps.js; some topics have another id there)
   const MM_ALIAS = { house: 'home', sports: 'sport', technology: 'tech', nature: 'environment' };
   const mapOf = id => (window.MINDMAPS || []).find(m => m.id === (MM_ALIAS[id] || id));
