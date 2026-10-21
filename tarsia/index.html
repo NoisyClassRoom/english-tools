@@ -68,7 +68,7 @@
       <div class="units" id="units">Loading…</div>
       <h2>2. The puzzle</h2>
       <label>Shape <select id="shape"><option value="tri">Triangle (16 pieces, 18 pairs)</option><option value="hex">Hexagon (24 pieces, 30 pairs)</option></select></label>
-      <label>Pairs <select id="kind"><option value="words">English word ↔ Slovenian word</option><option value="qa">Short sentence with a gap ↔ the missing word</option></select></label>
+      <label>Pairs <select id="kind"><option value="mix">English word ↔ Slovenian word (short sentences with a gap fill up if there are too few words)</option><option value="words">English word ↔ Slovenian word only</option><option value="qa">Short sentence with a gap ↔ the missing word</option></select></label>
       <label>Paper <select id="paper"><option value="A4">A4</option><option value="A3">A3 (bigger pieces)</option></select></label>`n      <label>Title <input type="text" id="title" placeholder="(automatic: the unit names)" style="width:min(300px,100%)"></label>
       <label><input type="checkbox" id="key" checked> answer page (numbered pairs and the list)</label>
       <div style="margin-top:8px"><button class="btn primary" id="make">Make the tarsia</button> <button class="btn" id="again" style="display:none">Make it again (new arrangement)</button>
@@ -192,10 +192,11 @@
   const clip = s => String(s || '').replace(/\s+/g, ' ').trim();
   const pairsFor = (units, kind, n) => {
     const seen = new Set(), pool = [];
-    if (kind === 'words') {
+    if (kind === 'words' || kind === 'mix') {
       units.forEach(u => u.words.forEach(w => { const a = clip(w.en), b = clip(w.sl), k = b.toLowerCase(), k2 = a.toLowerCase(); if (a && b && a.length <= 30 && b.length <= 30 && !seen.has(k) && !seen.has(k2)) { seen.add(k); seen.add(k2); pool.push([a, b]); } }));
-    } else {
-      units.forEach(u => u.sentences.forEach(s => { const q = clip(s.text), a = clip(s.answer), k = q.toLowerCase(); if (q && a && q.length <= 38 && a.length <= 18 && /___/.test(q) && !seen.has(k)) { seen.add(k); pool.push([q, a]); } }));
+    }
+    if (kind === 'qa' || (kind === 'mix' && pool.length < n)) {
+      units.forEach(u => u.sentences.forEach(s => { const q = clip(s.text), a = clip(s.answer), k = q.toLowerCase(); if (q && a && q.length <= 52 && a.length <= 20 && /___/.test(q) && !seen.has(k)) { seen.add(k); pool.push([q, a]); } }));
     }
     return { pool, picked: shuffle(pool).slice(0, n) };
   };
