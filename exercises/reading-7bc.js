@@ -1,5 +1,5 @@
 // ============================================================
-//  READING TEXTS FOR THE PRINTED TESTS - Project 2 (classes 7.b / 7.c)          (written 22 Oct 2026; same format as reading-8b.js)
+//  READING TEXTS FOR THE PRINTED TESTS - Project 2 (classes 7.b / 7.c)          (written 21 Oct 2026; same format as reading-8b.js)
 //  window.READING[unit id] = [ { t: title, x: text, tf: [[statement, 'T' | 'F' | 'DS'], ...], q: [[question, answer], ...] }, ... ]
 //  Two texts per unit (A1 - A2).
 // ============================================================
