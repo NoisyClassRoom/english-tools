@@ -157,6 +157,7 @@
         <label>Level <select id="fLevel"></select></label>
         <label>From <input type="date" id="fFrom" class="btn"></label>
         <label>To <input type="date" id="fTo" class="btn"></label>
+        <span class="quick" style="display:inline-flex;gap:6px;flex-wrap:wrap;align-items:flex-end"><button type="button" class="btn" data-range="today">Today</button><button type="button" class="btn" data-range="week">This week</button><button type="button" class="btn" data-range="7">Last 7 days</button><button type="button" class="btn" data-range="all">All dates</button></span>
       </div>
     </div>    <p class="muted no-print" id="whoNote" style="margin:-4px 0 8px;font-size:12px"></p>
     <div class="tabs" id="tabs"></div>
@@ -239,6 +240,15 @@
   ['fYear:year', 'fClass:cls', 'fClass2:cls2', 'fWho:who', 'fBook:book', 'fLevel:level', 'fFrom:from', 'fTo:to'].forEach(p => {
     const [id, k] = p.split(':'); $('#' + id).onchange = e => { F[k] = e.target.value; if (k === 'cls') syncCls2(); selPupil = ''; render(); };
   });
+  // quick date ranges next to From / To (local dates, the week starts on Monday)
+  const ymd = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  document.querySelectorAll('[data-range]').forEach(b => { b.onclick = () => {
+    const now = new Date(), r = b.dataset.range; let a = '', z = '';
+    if (r === 'today') a = z = ymd(now);
+    else if (r === 'week') { const m = new Date(now); m.setDate(now.getDate() - ((now.getDay() + 6) % 7)); a = ymd(m); z = ymd(now); }
+    else if (r === '7') { const m = new Date(now); m.setDate(now.getDate() - 6); a = ymd(m); z = ymd(now); }
+    F.from = a; F.to = z; $('#fFrom').value = a; $('#fTo').value = z; selPupil = ''; render();
+  }; });
   $('#fMore').onclick = () => { const f = $('#fbar'), on = f.classList.toggle('open'); $('#fMore').setAttribute('aria-expanded', on ? 'true' : 'false'); $('#fMore').textContent = on ? 'Fewer filters ▴' : 'More filters ▾'; };
   $('#fReset').onclick = () => { F.cls = F.cls2 = F.book = F.level = F.from = F.to = ''; F.who = 'p'; $('#fWho').value = 'p'; $('#fFrom').value = $('#fTo').value = ''; setupFilters(); selPupil = ''; render(); };
 
