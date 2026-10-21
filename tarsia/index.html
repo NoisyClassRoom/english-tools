@@ -68,8 +68,9 @@
       <div class="units" id="units">Loading…</div>
       <h2>2. The puzzle</h2>
       <label>Shape <select id="shape"><option value="tri">Triangle (16 pieces, 18 pairs)</option><option value="hex">Hexagon (24 pieces, 30 pairs)</option></select></label>
-      <label>Pairs <select id="kind"><option value="mix">English word ↔ Slovenian word (short sentences with a gap fill up if there are too few words)</option><option value="words">English word ↔ Slovenian word only</option><option value="qa">Short sentence with a gap ↔ the missing word</option></select></label>
-      <label>Paper <select id="paper"><option value="A4">A4</option><option value="A3">A3 (bigger pieces)</option></select></label>`n      <label>Title <input type="text" id="title" placeholder="(automatic: the unit names)" style="width:min(300px,100%)"></label>
+      <label>Pairs <select id="kind"><option value="mix">English word ↔ Slovenian word (short sentences with a gap fill up if there are too few words)</option><option value="words">English word ↔ Slovenian word only</option><option value="qa">Short sentence with a gap ↔ the missing word</option><option value="grammar">Grammar: sentence ↔ translation (books with grammar texts)</option></select></label>
+      <label>Paper <select id="paper"><option value="A4">A4</option><option value="A3">A3 (bigger pieces)</option></select></label>
+      <label>Title <input type="text" id="title" placeholder="(automatic: the unit names)" style="width:min(300px,100%)"></label>
       <label><input type="checkbox" id="key" checked> answer page (numbered pairs and the list)</label>
       <div style="margin-top:8px"><button class="btn primary" id="make">Make the tarsia</button> <button class="btn" id="again" style="display:none">Make it again (new arrangement)</button>
         <button class="btn" id="print" style="display:none">🖨 Print</button> <span class="muted" id="msg" style="margin-left:8px"></span></div>
@@ -113,10 +114,12 @@
     } else {
       window.CLASS_SETS = null; window.MORE_SETS = null; window.MORE2_SETS = null;
       await loadScript('../exercises/class-' + book + '.js');
-      for (const f of ['more-', 'more2-']) await loadScript('../exercises/' + f + book + '.js');       // optional files: a missing one is fine
+      for (const f of ['more-', 'more2-', 'grammar-', 'grammarmaps-']) await loadScript('../exercises/' + f + book + '.js');       // optional files: a missing one is fine
       list = (window.CLASS_SETS || []).map(s => {
         const mores = [(window.MORE_SETS || {})[s.id], (window.MORE2_SETS || {})[s.id]].filter(Boolean);
-        return { id: s.id, label: [s.unit, s.title].filter(Boolean).join(' · '), words: s.words || [], sentences: (s.sentences || []).concat(...mores.map(m => (m.gap || []).map(toGap))) };
+        const gr = (window.GRAMMAR || {})[s.id], gm = (window.GMAPS || {})[s.id], gp = [];                // the grammar of the unit: example sentences with their translation
+        if (gm) gm.pairs.forEach(x => gp.push(x)); if (gr) gr.s.forEach(sec => (sec.x || []).forEach(x => gp.push(x)));
+        return { id: s.id, gp, label: [s.unit, s.title].filter(Boolean).join(' · '), words: s.words || [], sentences: (s.sentences || []).concat(...mores.map(m => (m.gap || []).map(toGap))) };
       });
     }
     return cache[key] = list;
@@ -195,6 +198,7 @@
     if (kind === 'words' || kind === 'mix') {
       units.forEach(u => u.words.forEach(w => { const a = clip(w.en), b = clip(w.sl), k = b.toLowerCase(), k2 = a.toLowerCase(); if (a && b && a.length <= 30 && b.length <= 30 && !seen.has(k) && !seen.has(k2)) { seen.add(k); seen.add(k2); pool.push([a, b]); } }));
     }
+    if (kind === 'grammar') units.forEach(u => (u.gp || []).forEach(x => { const a = clip(x[0]), b = clip(x[1]), k = a.toLowerCase(), k2 = b.toLowerCase(); if (a && b && a.length <= 46 && b.length <= 52 && !seen.has(k) && !seen.has(k2)) { seen.add(k); seen.add(k2); pool.push([a, b]); } }));
     if (kind === 'qa' || (kind === 'mix' && pool.length < n)) {
       units.forEach(u => u.sentences.forEach(s => { const q = clip(s.text), a = clip(s.answer), k = q.toLowerCase(); if (q && a && q.length <= 52 && a.length <= 20 && /___/.test(q) && !seen.has(k)) { seen.add(k); pool.push([q, a]); } }));
     }
@@ -207,7 +211,7 @@
     if (!units.length) { $('#msg').textContent = 'Tick at least one unit first.'; return; }
     setPaper($('#paper').value);
     const shape = SHAPES[$('#shape').value], kind = $('#kind').value, { pool, picked } = pairsFor(units, kind, shape.pairs);
-    if (picked.length < shape.pairs) { $('#msg').textContent = 'The ' + shape.name + ' needs ' + shape.pairs + ' pairs, but these units give only ' + pool.length + (kind === 'qa' ? ' sentences with a gap' : ' words') + '. Tick more units.'; return; }
+    if (picked.length < shape.pairs) { $('#msg').textContent = 'The ' + shape.name + ' needs ' + shape.pairs + ' pairs, but these units give only ' + pool.length + (kind === 'qa' ? ' sentences with a gap' : kind === 'grammar' ? ' grammar sentences with a translation' : ' words') + '. Tick more units.'; return; }
     last = { units, shape, kind };
     const layout = edgesOf(shape);
     const order = shuffle(picked.map((p, k) => k));
