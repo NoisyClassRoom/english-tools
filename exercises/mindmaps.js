@@ -1,5 +1,5 @@
 // ============================================================
-//  READY-MADE MIND MAPS (21 Oct 2026, original word groups written for this site, no copied text; levels added 22 Oct 2026)
+//  READY-MADE MIND MAPS (21 Oct 2026, original word groups written for this site, no copied text; levels added 21 Oct 2026)
 //  Global MINDMAPS = [{ id, title, icon, levels: { easy: [branch...], medium: [branch...], hard: [branch...] } }]  with branch = { name, items: [word, ...] }
 //    easy   = 4 branches of 4-5 very common words      medium = 4-5 branches of 6 words      hard   = 5-6 branches of 7-8 rarer words / finer groups
 //  The pupils' game (exercises/index.html, Extra practice > Mind maps) needs every item to belong to ONE branch of its level (no word twice in a level);
