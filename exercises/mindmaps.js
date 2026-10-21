@@ -1,92 +1,110 @@
 // ============================================================
-//  READY-MADE MIND MAPS (21 Oct 2026, original word groups written for this site, no copied text)
-//  Global MINDMAPS = [{ id, title, icon, branches: [{ name, items: [word, word, ...] }, ...] }]
-//  Used by the printable maker (mindmap/index.html) and by the online "Mind map" game for pupils (exercises/index.html):
-//  the pupil sorts the words into the branches, so every word belongs to ONE branch only. Keep 4-5 branches with 5-6 short items each.
-//  To add a map: copy a block, change the id (no spaces) and the words. Items are English words or short phrases.
+//  READY-MADE MIND MAPS (21 Oct 2026, original word groups written for this site, no copied text; levels added 22 Oct 2026)
+//  Global MINDMAPS = [{ id, title, icon, levels: { easy: [branch...], medium: [branch...], hard: [branch...] } }]  with branch = { name, items: [word, ...] }
+//    easy   = 4 branches of 4-5 very common words      medium = 4-5 branches of 6 words      hard   = 5-6 branches of 7-8 rarer words / finer groups
+//  The pupils' game (exercises/index.html, Extra practice > Mind maps) needs every item to belong to ONE branch of its level (no word twice in a level);
+//  the printable maker (mindmap/index.html) and its "group the words of a unit by theme" use all the words as a small dictionary of themes.
+//  To add a map: copy a line of M(...) and change the id (no spaces) and the words. In the strings the words are separated by ", ".
 // ============================================================
-window.MINDMAPS = [
-  { id: 'family', title: 'Family', icon: '👪', branches: [
-    { name: 'Parents and children', items: ['mother', 'father', 'son', 'daughter', 'parents', 'children'] },
-    { name: 'Wider family', items: ['grandmother', 'grandfather', 'aunt', 'uncle', 'cousin', 'nephew'] },
-    { name: 'By marriage', items: ['husband', 'wife', 'stepmother', 'stepfather', 'half-brother', 'in-laws'] },
-    { name: 'Describing people', items: ['tall', 'kind', 'funny', 'strict', 'young', 'shy'] } ] },
-  { id: 'weather', title: 'Weather', icon: '⛅', branches: [
-    { name: 'What is it like?', items: ['sunny', 'cloudy', 'rainy', 'windy', 'foggy', 'snowy'] },
-    { name: 'Temperature', items: ['hot', 'warm', 'cool', 'cold', 'freezing', 'degrees'] },
-    { name: 'Seasons', items: ['spring', 'summer', 'autumn', 'winter', 'season', 'forecast'] },
-    { name: 'What do we wear?', items: ['raincoat', 'umbrella', 'scarf', 'gloves', 'sunglasses', 'boots'] },
-    { name: 'Dangerous weather', items: ['storm', 'thunder', 'lightning', 'flood', 'hurricane', 'drought'] } ] },
-  { id: 'school', title: 'School', icon: '🏫', branches: [
-    { name: 'Subjects', items: ['Maths', 'English', 'History', 'Geography', 'Science', 'PE'] },
-    { name: 'In the classroom', items: ['board', 'desk', 'chair', 'ruler', 'rubber', 'pencil case'] },
-    { name: 'People', items: ['teacher', 'pupil', 'headteacher', 'classmate', 'friend', 'caretaker'] },
-    { name: 'The school day', items: ['lesson', 'break', 'homework', 'test', 'timetable', 'canteen'] } ] },
-  { id: 'food', title: 'Food and drink', icon: '🍎', branches: [
-    { name: 'Fruit and vegetables', items: ['apple', 'banana', 'orange', 'carrot', 'potato', 'tomato'] },
-    { name: 'Meat, fish and dairy', items: ['chicken', 'sausage', 'fish', 'cheese', 'butter', 'yoghurt'] },
-    { name: 'Meals', items: ['breakfast', 'lunch', 'dinner', 'snack', 'starter', 'dessert'] },
-    { name: 'Drinks and sweets', items: ['water', 'juice', 'milk', 'chocolate', 'ice cream', 'biscuit'] },
-    { name: 'At the table', items: ['plate', 'fork', 'knife', 'spoon', 'cup', 'glass'] } ] },
-  { id: 'home', title: 'House and home', icon: '🏠', branches: [
-    { name: 'Rooms', items: ['kitchen', 'bedroom', 'bathroom', 'living room', 'hall', 'attic'] },
-    { name: 'Furniture', items: ['sofa', 'table', 'bed', 'wardrobe', 'shelf', 'armchair'] },
-    { name: 'Parts of a house', items: ['roof', 'floor', 'wall', 'door', 'window', 'stairs'] },
-    { name: 'Outside', items: ['garden', 'garage', 'fence', 'gate', 'balcony', 'terrace'] } ] },
-  { id: 'hobbies', title: 'Free time', icon: '🎸', branches: [
-    { name: 'Sports', items: ['football', 'swimming', 'tennis', 'skiing', 'cycling', 'basketball'] },
-    { name: 'Music', items: ['guitar', 'piano', 'drums', 'violin', 'sing', 'concert'] },
-    { name: 'At home', items: ['read a book', 'watch TV', 'play computer games', 'cook', 'draw', 'listen to music'] },
-    { name: 'Out and about', items: ['cinema', 'park', 'museum', 'shopping centre', 'swimming pool', 'library'] } ] },
-  { id: 'clothes', title: 'Clothes', icon: '👕', branches: [
-    { name: 'On top', items: ['T-shirt', 'shirt', 'jumper', 'sweatshirt', 'blouse', 'cardigan'] },
-    { name: 'On the legs', items: ['jeans', 'trousers', 'shorts', 'skirt', 'tights', 'leggings'] },
-    { name: 'On the feet', items: ['trainers', 'boots', 'sandals', 'socks', 'slippers', 'shoes'] },
-    { name: 'Outdoors', items: ['coat', 'jacket', 'raincoat', 'scarf', 'gloves', 'hat'] },
-    { name: 'Describing clothes', items: ['tight', 'loose', 'stripy', 'fashionable', 'comfortable', 'old-fashioned'] } ] },
-  { id: 'travel', title: 'Travel', icon: '✈️', branches: [
-    { name: 'Ways to travel', items: ['car', 'bus', 'train', 'plane', 'ship', 'bike'] },
-    { name: 'Places', items: ['airport', 'station', 'harbour', 'hotel', 'beach', 'campsite'] },
-    { name: 'Things you take', items: ['suitcase', 'passport', 'ticket', 'map', 'camera', 'sunglasses'] },
-    { name: 'Travel words', items: ['journey', 'trip', 'luggage', 'delay', 'reservation', 'sightseeing'] } ] },
-  { id: 'body', title: 'Body and health', icon: '🩺', branches: [
-    { name: 'Head', items: ['hair', 'eye', 'ear', 'nose', 'mouth', 'tooth'] },
-    { name: 'Body', items: ['arm', 'leg', 'back', 'stomach', 'shoulder', 'knee'] },
-    { name: 'Problems', items: ['headache', 'cough', 'fever', 'sore throat', 'toothache', 'injury'] },
-    { name: 'Getting better', items: ['medicine', 'doctor', 'rest', 'plaster', 'vitamin', 'hospital'] } ] },
-  { id: 'jobs', title: 'Jobs', icon: '💼', branches: [
-    { name: 'Health and care', items: ['doctor', 'nurse', 'vet', 'pharmacist', 'dentist', 'social worker'] },
-    { name: 'Education and office', items: ['teacher', 'secretary', 'lawyer', 'accountant', 'journalist', 'translator'] },
-    { name: 'Making and fixing', items: ['builder', 'carpenter', 'plumber', 'electrician', 'engineer', 'farmer'] },
-    { name: 'Services', items: ['waiter', 'hairdresser', 'shop assistant', 'bus driver', 'postman', 'police officer'] } ] },
-  { id: 'feelings', title: 'Feelings', icon: '😊', branches: [
-    { name: 'Feeling good', items: ['happy', 'excited', 'proud', 'delighted', 'cheerful', 'relieved'] },
-    { name: 'Sad or angry', items: ['sad', 'angry', 'upset', 'furious', 'disappointed', 'lonely'] },
-    { name: 'Feeling nervous', items: ['nervous', 'scared', 'anxious', 'worried', 'embarrassed', 'ashamed'] },
-    { name: 'Other', items: ['bored', 'tired', 'surprised', 'jealous', 'curious', 'confused'] } ] },
-  { id: 'countries', title: 'Countries and languages', icon: '🌍', branches: [
-    { name: 'Neighbours of Slovenia', items: ['Italy', 'Austria', 'Hungary', 'Croatia'] },
-    { name: 'Capital cities', items: ['Rome', 'Vienna', 'Paris', 'Berlin', 'Madrid', 'London'] },
-    { name: 'People', items: ['Italian', 'Austrian', 'French', 'German', 'Spanish', 'British'] },
-    { name: 'Continents', items: ['Europe', 'Asia', 'Africa', 'North America', 'South America', 'Australia'] } ] },
-  { id: 'pastsimple', title: 'Past simple', icon: '⏮️', branches: [
-    { name: 'Regular verbs (-ed)', items: ['played', 'watched', 'visited', 'walked', 'liked', 'studied'] },
-    { name: 'Irregular verbs', items: ['went', 'saw', 'had', 'bought', 'ate', 'wrote'] },
-    { name: 'Time words', items: ['yesterday', 'last week', 'two days ago', 'in 2020', 'when I was ten', 'last summer'] },
-    { name: 'Questions and negatives', items: ['Did you …?', 'I didn\'t …', 'Yes, I did.', 'No, I didn\'t.', 'Where did …?', 'What did …?'] } ] },
-  { id: 'presentperfect', title: 'Present perfect', icon: '✅', branches: [
-    { name: 'The form', items: ['have + past participle', 'has + past participle', 'I\'ve done', 'she\'s seen', 'haven\'t finished', 'hasn\'t come'] },
-    { name: 'Time words', items: ['just', 'already', 'yet', 'ever', 'never', 'so far'] },
-    { name: 'Irregular participles', items: ['been', 'seen', 'done', 'eaten', 'written', 'gone'] },
-    { name: 'We use it for', items: ['experience', 'recent news', 'unfinished time', 'a result now', 'for and since', 'life so far'] } ] },
-  { id: 'comparing', title: 'Comparing things', icon: '⚖️', branches: [
-    { name: 'Short adjectives (-er)', items: ['bigger', 'taller', 'older', 'colder', 'faster', 'cheaper'] },
-    { name: 'Long adjectives (more)', items: ['more interesting', 'more expensive', 'more difficult', 'more beautiful', 'more dangerous', 'more useful'] },
-    { name: 'The most / the -est', items: ['the biggest', 'the tallest', 'the oldest', 'the most famous', 'the best', 'the worst'] },
-    { name: 'Irregular', items: ['good - better - best', 'bad - worse - worst', 'far - further - furthest', 'little - less - least', 'much - more - most', 'many - more - most'] } ] },
-  { id: 'modals', title: 'Modal verbs', icon: '🔑', branches: [
-    { name: 'Ability', items: ['can', 'can\'t', 'could', 'couldn\'t', 'be able to', 'know how to'] },
-    { name: 'Rules and duty', items: ['must', 'mustn\'t', 'have to', 'don\'t have to', 'need to', 'be allowed to'] },
-    { name: 'Advice', items: ['should', 'shouldn\'t', 'ought to', 'had better', 'Why don\'t you …?', 'If I were you …'] },
-    { name: 'Possibility and offers', items: ['may', 'might', 'perhaps', 'Shall I …?', 'Would you like …?', 'Can I …?'] } ] }
-];
+(() => {
+  const B = (name, s) => ({ name, items: s.split(', ') });
+  const M = (id, title, icon, easy, medium, hard) => ({ id, title, icon, levels: { easy: easy.map(a => B(a[0], a[1])), medium: medium.map(a => B(a[0], a[1])), hard: hard.map(a => B(a[0], a[1])) } });
+  window.MINDMAPS = [
+    M('family', 'Family', '👪',
+      [['Parents and children', 'mother, father, son, daughter, brother, sister'], ['Grandma and grandpa', 'grandmother, grandfather, grandma, grandpa, grandparents'], ['Other relatives', 'aunt, uncle, cousin, nephew, niece'], ['Describing people', 'tall, short, kind, funny, young']],
+      [['Parents and children', 'mother, father, son, daughter, parents, children'], ['Wider family', 'grandmother, grandfather, aunt, uncle, cousin, nephew'], ['By marriage', 'husband, wife, stepmother, stepfather, half-brother, in-laws'], ['Describing people', 'tall, kind, funny, strict, young, shy']],
+      [['Close family', 'twin, sibling, only child, eldest, youngest, half-sister, stepsister, adopted'], ['Relatives', 'ancestor, relative, grandchildren, great-grandmother, godfather, godmother, cousin, great-uncle'], ['Relationships', 'get on with, fall out with, look after, bring up, take after, grow up, look up to, be close to'], ['Family life', 'housework, chores, celebration, reunion, tradition, generation, household, upbringing'], ['Character', 'generous, bossy, easy-going, protective, supportive, stubborn, reliable, sensitive']]),
+    M('weather', 'Weather', '⛅',
+      [['What is it like?', 'sunny, cloudy, rainy, windy, snowy'], ['Hot or cold', 'hot, warm, cold, cool, freezing'], ['Seasons', 'spring, summer, autumn, winter'], ['What do we wear?', 'umbrella, raincoat, scarf, gloves, sunglasses']],
+      [['What is it like?', 'sunny, cloudy, rainy, windy, foggy, snowy'], ['Temperature', 'hot, warm, cool, cold, freezing, degrees'], ['Seasons', 'spring, summer, autumn, winter, season, forecast'], ['What do we wear?', 'raincoat, umbrella, scarf, gloves, sunglasses, boots'], ['Dangerous weather', 'storm, thunder, lightning, flood, hurricane, drought']],
+      [['Rain and snow', 'drizzle, shower, hail, sleet, downpour, blizzard, mist, dew'], ['Wind and storms', 'breeze, gale, tornado, thunderstorm, gust, typhoon, whirlwind, squall'], ['Feeling the weather', 'humid, mild, chilly, scorching, boiling, muggy, frosty, damp'], ['The weather report', 'forecast, temperature, humidity, pressure, outlook, weather map, rainfall, chance of rain'], ['Climate', 'climate change, global warming, heatwave, tropical, polar, monsoon, flood, drought'], ['Sky words', 'overcast, gloomy, breezy, bright, stormy, misty, clear, cloudless']]),
+    M('school', 'School', '🏫',
+      [['Subjects', 'Maths, English, Art, Music, PE, Science'], ['In the classroom', 'board, desk, chair, book, pen, bag'], ['People', 'teacher, pupil, friend, classmate'], ['The school day', 'lesson, break, homework, test']],
+      [['Subjects', 'Maths, English, History, Geography, Science, PE'], ['In the classroom', 'board, desk, chair, ruler, rubber, pencil case'], ['People', 'teacher, pupil, headteacher, classmate, friend, caretaker'], ['The school day', 'lesson, break, homework, test, timetable, canteen']],
+      [['Subjects', 'Biology, Chemistry, Physics, ICT, Slovenian, German, Technology, Home economics'], ['Equipment', 'protractor, compass, calculator, highlighter, stapler, glue stick, sharpener, pencil sharpener'], ['School places', 'library, gym, playground, staff room, assembly hall, locker, corridor, cloakroom'], ['School staff', 'headteacher, form teacher, librarian, secretary, supply teacher, tutor, prefect, janitor'], ['School life', 'register, detention, exam, report, certificate, uniform, term, semester'], ['Study skills', 'revise, memorise, concentrate, attend, hand in, take notes, look up, practise']]),
+    M('food', 'Food and drink', '🍎',
+      [['Fruit', 'apple, banana, orange, grapes, strawberry'], ['Vegetables', 'carrot, potato, tomato, onion, cucumber'], ['Meals', 'breakfast, lunch, dinner, snack'], ['Drinks', 'water, milk, juice, tea, coffee']],
+      [['Fruit and vegetables', 'apple, banana, orange, carrot, potato, tomato'], ['Meat, fish and dairy', 'chicken, sausage, fish, cheese, butter, yoghurt'], ['Meals', 'breakfast, lunch, dinner, snack, starter, dessert'], ['Drinks and sweets', 'water, juice, milk, chocolate, ice cream, biscuit'], ['At the table', 'plate, fork, knife, spoon, cup, glass']],
+      [['Fruit and nuts', 'pineapple, peach, cherry, melon, plum, pear, almond, walnut'], ['Vegetables', 'cabbage, cauliflower, spinach, pepper, lettuce, broccoli, mushroom, pumpkin'], ['Meat and fish', 'beef, pork, lamb, turkey, salmon, tuna, prawn, ham'], ['Dairy and bakery', 'cream, bread, roll, cake, pastry, pancake, cottage cheese, whipped cream'], ['Cooking', 'boil, fry, bake, roast, grill, chop, slice, stir'], ['Tastes', 'sweet, sour, salty, bitter, spicy, delicious, tasty, bland']]),
+    M('home', 'House and home', '🏠',
+      [['Rooms', 'kitchen, bedroom, bathroom, living room'], ['Furniture', 'bed, table, chair, sofa, shelf'], ['Parts of a house', 'door, window, roof, floor, wall'], ['Outside', 'garden, garage, fence, gate']],
+      [['Rooms', 'kitchen, bedroom, bathroom, living room, hall, attic'], ['Furniture', 'sofa, table, bed, wardrobe, shelf, armchair'], ['Parts of a house', 'roof, floor, wall, door, window, stairs'], ['Outside', 'garden, garage, fence, gate, balcony, terrace']],
+      [['Rooms and spaces', 'cellar, landing, study, utility room, loft, porch, conservatory, pantry'], ['Furniture', 'cupboard, bookcase, chest of drawers, desk, bunk bed, stool, bench, coffee table'], ['Appliances', 'cooker, fridge, freezer, dishwasher, washing machine, microwave, kettle, toaster'], ['Decoration', 'carpet, curtains, wallpaper, mirror, cushion, lamp, rug, poster'], ['Types of home', 'flat, bungalow, cottage, detached house, semi-detached house, block of flats, villa, farmhouse'], ['Around the home', 'fireplace, chimney, staircase, doorbell, letterbox, driveway, shed, hedge']]),
+    M('hobbies', 'Free time', '🎸',
+      [['Sports', 'football, swimming, tennis, skiing, cycling'], ['Music', 'guitar, piano, drums, sing'], ['At home', 'read, draw, cook, play games'], ['Out and about', 'cinema, park, museum, library']],
+      [['Sports', 'football, swimming, tennis, skiing, cycling, basketball'], ['Music', 'guitar, piano, drums, violin, sing, concert'], ['At home', 'read a book, watch TV, play computer games, cook, draw, listen to music'], ['Out and about', 'cinema, park, museum, shopping centre, swimming pool, library']],
+      [['Team sports', 'volleyball, handball, hockey, rugby, baseball, water polo, cricket, rowing'], ['Individual sports', 'gymnastics, athletics, judo, archery, fencing, surfing, skateboarding, climbing'], ['Music', 'trumpet, flute, saxophone, band, choir, lyrics, melody, orchestra'], ['Creative hobbies', 'painting, pottery, knitting, photography, calligraphy, origami, sewing, woodwork'], ['Collecting and games', 'stamps, coins, board games, chess, puzzles, cards, video games, trading cards'], ['Out and about', 'fair, gallery, theatre, zoo, funfair, festival, exhibition, aquarium']]),
+    M('clothes', 'Clothes', '👕',
+      [['On top', 'T-shirt, shirt, jumper, dress'], ['On the legs', 'jeans, trousers, shorts, skirt'], ['On the feet', 'shoes, trainers, boots, sandals, socks'], ['Outdoors', 'coat, jacket, hat, scarf, gloves']],
+      [['On top', 'T-shirt, shirt, jumper, sweatshirt, blouse, cardigan'], ['On the legs', 'jeans, trousers, shorts, skirt, tights, leggings'], ['On the feet', 'trainers, boots, sandals, socks, slippers, shoes'], ['Outdoors', 'coat, jacket, raincoat, scarf, gloves, hat'], ['Describing clothes', 'tight, loose, stripy, fashionable, comfortable, old-fashioned']],
+      [['Formal clothes', 'suit, tie, waistcoat, blazer, bow tie, cufflinks, evening dress, formal shirt'], ['Sportswear', 'tracksuit, swimsuit, sweatband, jersey, hoodie, swimming trunks, sports bra, shin pads'], ['Accessories', 'belt, necklace, bracelet, earrings, watch, handbag, backpack, purse'], ['Footwear', 'high heels, wellies, flip-flops, loafers, ankle boots, sneakers, clogs, moccasins'], ['Patterns and materials', 'spotted, checked, plain, cotton, wool, leather, silk, denim'], ['Fit and style', 'baggy, smart, casual, trendy, elegant, scruffy, comfy, matching']]),
+    M('travel', 'Travel', '✈️',
+      [['Ways to travel', 'car, bus, train, plane, ship, bike'], ['Places', 'airport, station, hotel, beach'], ['Things you take', 'ticket, passport, suitcase, map'], ['People', 'pilot, driver, tourist, guide']],
+      [['Ways to travel', 'car, bus, train, plane, ship, bike'], ['Places', 'airport, station, harbour, hotel, beach, campsite'], ['Things you take', 'suitcase, passport, ticket, map, camera, sunglasses'], ['Travel words', 'journey, trip, luggage, delay, reservation, sightseeing']],
+      [['By road', 'motorway, junction, roundabout, traffic jam, petrol station, pedestrian, pavement, zebra crossing'], ['At the airport', 'departure, arrival, boarding card, gate, runway, customs, check-in, security'], ['By rail and sea', 'platform, carriage, ferry, cabin, deck, lifeboat, ticket office, waiting room'], ['Accommodation', 'reception, single room, double room, hostel, resort, full board, bed and breakfast, campsite'], ['Kinds of holiday', 'package holiday, backpacking, cruise, road trip, excursion, city break, abroad, sightseeing'], ['Problems', 'delayed, cancelled, lost luggage, missed connection, overbooked, jet lag, sunburn, queue']]),
+    M('body', 'Body and health', '🩺',
+      [['Head', 'hair, eye, ear, nose, mouth'], ['Body', 'arm, leg, hand, foot, back'], ['Feeling ill', 'headache, cough, fever, cold'], ['Getting better', 'doctor, medicine, rest, hospital']],
+      [['Head', 'hair, eye, ear, nose, mouth, tooth'], ['Body', 'arm, leg, back, stomach, shoulder, knee'], ['Problems', 'headache, cough, fever, sore throat, toothache, injury'], ['Getting better', 'medicine, doctor, rest, plaster, vitamin, hospital']],
+      [['Head and face', 'eyebrow, eyelash, forehead, cheek, chin, jaw, lip, tongue'], ['Arms and legs', 'elbow, wrist, thumb, ankle, shin, thigh, heel, calf'], ['Inside the body', 'heart, lungs, brain, muscle, bone, skin, blood, kidney'], ['Illnesses', 'flu, allergy, infection, sprain, bruise, fracture, rash, asthma'], ['Treatment', 'prescription, bandage, injection, ambulance, operation, pharmacy, thermometer, x-ray'], ['Healthy living', 'diet, exercise, sleep, fresh air, balanced meal, check-up, hygiene, relaxation']]),
+    M('jobs', 'Jobs', '💼',
+      [['Health', 'doctor, nurse, vet, dentist'], ['School and office', 'teacher, secretary, lawyer, journalist'], ['Making things', 'builder, farmer, baker, carpenter'], ['Services', 'waiter, hairdresser, postman, police officer']],
+      [['Health and care', 'doctor, nurse, vet, pharmacist, dentist, social worker'], ['Education and office', 'teacher, secretary, lawyer, accountant, journalist, translator'], ['Making and fixing', 'builder, carpenter, plumber, electrician, engineer, farmer'], ['Services', 'waiter, hairdresser, shop assistant, bus driver, postman, police officer']],
+      [['Health and care', 'surgeon, paramedic, midwife, physiotherapist, optician, psychologist, nursing assistant, dietician'], ['Science and technology', 'scientist, programmer, architect, mechanic, pilot, astronaut, chemist, researcher'], ['Law and business', 'judge, banker, manager, salesperson, receptionist, lawyer, accountant, secretary'], ['Arts and media', 'actor, singer, photographer, designer, interpreter, presenter, painter, musician'], ['Outdoor jobs', 'fisherman, gardener, lifeguard, forester, miner, builder, farmer, plumber'], ['Services', 'chef, cashier, firefighter, tour guide, cleaner, flight attendant, waiter, hairdresser']]),
+    M('feelings', 'Feelings', '😊',
+      [['Feeling happy', 'happy, glad, excited, proud'], ['Feeling sad', 'sad, unhappy, lonely, upset'], ['Angry or scared', 'angry, scared, nervous, worried'], ['Other', 'tired, bored, surprised, hungry']],
+      [['Feeling good', 'happy, excited, proud, delighted, cheerful, relieved'], ['Sad or angry', 'sad, angry, upset, furious, disappointed, lonely'], ['Feeling nervous', 'nervous, scared, anxious, worried, embarrassed, ashamed'], ['Other', 'bored, tired, surprised, jealous, curious, confused']],
+      [['Very happy', 'delighted, thrilled, overjoyed, ecstatic, grateful, relieved, cheerful, content'], ['Sad or disappointed', 'miserable, gloomy, heartbroken, disappointed, depressed, homesick, discouraged, hopeless'], ['Angry', 'furious, annoyed, irritated, outraged, jealous, bitter, resentful, impatient'], ['Afraid and worried', 'terrified, anxious, panicky, uneasy, frightened, stressed, tense, insecure'], ['Embarrassed', 'ashamed, guilty, awkward, shy, self-conscious, humiliated, sorry, regretful'], ['Mixed feelings', 'curious, confused, amazed, shocked, bored, indifferent, hesitant, determined']]),
+    M('countries', 'Countries and languages', '🌍',
+      [['Neighbours of Slovenia', 'Italy, Austria, Hungary, Croatia'], ['Capital cities', 'Rome, Vienna, Paris, London'], ['People', 'Italian, French, German, Spanish'], ['Continents', 'Europe, Asia, Africa, America']],
+      [['Neighbours of Slovenia', 'Italy, Austria, Hungary, Croatia'], ['Capital cities', 'Rome, Vienna, Paris, Berlin, Madrid, London'], ['People', 'Italian, Austrian, French, German, Spanish, British'], ['Continents', 'Europe, Asia, Africa, North America, South America, Australia']],
+      [['Western Europe', 'France, Spain, Portugal, Ireland, Belgium, Netherlands, Switzerland, Luxembourg'], ['Eastern Europe and the Balkans', 'Poland, Czech Republic, Serbia, Bosnia, Romania, Bulgaria, Ukraine, Montenegro'], ['Capital cities', 'Berlin, Madrid, Prague, Warsaw, Athens, Lisbon, Dublin, Budapest'], ['Languages', 'German, Spanish, Italian, Portuguese, Polish, Greek, Dutch, Croatian'], ['Geography words', 'border, coast, peninsula, island, desert, valley, capital, population'], ['Famous places', 'Eiffel Tower, Big Ben, Colosseum, Alps, Danube, Sahara, Mount Everest, Triglav']]),
+    M('pastsimple', 'Past simple', '⏮️',
+      [['Regular verbs (-ed)', 'played, watched, walked, liked'], ['Irregular verbs', 'went, saw, had, ate, bought'], ['Time words', 'yesterday, last week, last year, ago'], ['Questions and answers', 'Did you …?, I didn\'t …, Yes I did, No I didn\'t']],
+      [['Regular verbs (-ed)', 'played, watched, visited, walked, liked, studied'], ['Irregular verbs', 'went, saw, had, bought, ate, wrote'], ['Time words', 'yesterday, last week, two days ago, in 2020, when I was ten, last summer'], ['Questions and negatives', 'Did you …?, I didn\'t …, Yes I did, No I didn\'t, Where did …?, What did …?']],
+      [['Spelling of -ed', 'worked, danced, stopped, planned, carried, travelled, tried, enjoyed'], ['Irregular (1)', 'began, broke, brought, built, chose, drove, drank, fell'], ['Irregular (2)', 'flew, forgot, gave, grew, hid, knew, lost, met'], ['Irregular (3)', 'paid, ran, rang, sang, slept, spoke, taught, wore'], ['Questions and negatives', 'Did she …?, They didn\'t …, Who did you …?, How did it …?, Why did they …?, He didn\'t go, What did you do?, Where did she live?'], ['Time expressions', 'yesterday evening, two weeks ago, in 1999, the day before, last Monday, a long time ago, on Sunday, at the weekend']]),
+    M('presentperfect', 'Present perfect', '✅',
+      [['Who has / have', 'I have, you have, he has, she has'], ['Time words', 'just, already, yet, ever, never'], ['Past participles', 'been, seen, done, eaten, written'], ['We use it for', 'experience, news, result, life']],
+      [['The form', 'have + past participle, has + past participle, I\'ve done, she\'s seen, haven\'t finished, hasn\'t come'], ['Time words', 'just, already, yet, ever, never, so far'], ['Irregular participles', 'been, seen, done, eaten, written, gone'], ['We use it for', 'experience, recent news, unfinished time, a result now, for and since, life so far']],
+      [['Forms and answers', 'I\'ve finished, she hasn\'t come, Have you ever …?, Has he …?, they haven\'t started, We\'ve been …, Yes I have, No he hasn\'t'], ['Regular participles', 'finished, visited, worked, studied, played, watched, started, opened'], ['Irregular participles', 'begun, broken, brought, chosen, driven, flown, forgotten, given'], ['Time words', 'since, for, so far, recently, lately, today, this week, up to now'], ['Past simple or present perfect?', 'yesterday, in 2020, last week, ever, already, just, never, not yet'], ['Uses', 'experience, recent news, unfinished period, result now, change over time, repeated action, how long, life achievements']]),
+    M('comparing', 'Comparing things', '⚖️',
+      [['Short adjectives (-er)', 'bigger, taller, older, faster'], ['Long adjectives (more)', 'more beautiful, more difficult, more expensive, more interesting'], ['The -est', 'the biggest, the tallest, the oldest, the fastest'], ['Irregular', 'better, worse, the best, the worst']],
+      [['Short adjectives (-er)', 'bigger, taller, older, colder, faster, cheaper'], ['Long adjectives (more)', 'more interesting, more expensive, more difficult, more beautiful, more dangerous, more useful'], ['The most / the -est', 'the biggest, the tallest, the oldest, the most famous, the best, the worst'], ['Irregular', 'good - better - best, bad - worse - worst, far - further - furthest, little - less - least, much - more - most, many - more - most']],
+      [['Spelling', 'happier, nicer, thinner, easier, hotter, simpler, busier, larger'], ['Than and as', 'taller than, as tall as, not as old as, more than, less than, twice as big, much bigger, a bit smaller'], ['Superlatives', 'the most famous, the least expensive, the earliest, the furthest, the happiest, the most dangerous, the funniest, the richest'], ['Irregular forms', 'good - better - best, bad - worse - worst, far - further - furthest, little - less - least, old - older - oldest, late - later - latest, much - more - most, many - more - most'], ['Quantity', 'more people, fewer cars, less water, the most money, the fewest mistakes, as many as, not so much, far too many'], ['Opposites', 'cheaper / more expensive, faster / slower, easier / harder, safer / more dangerous, louder / quieter, lighter / heavier, wider / narrower, stronger / weaker']]),
+    M('modals', 'Modal verbs', '🔑',
+      [['Ability', 'can, can\'t, could, couldn\'t'], ['Duty', 'must, mustn\'t, have to, need to'], ['Advice', 'should, shouldn\'t, ought to'], ['Possibility', 'may, might, will, perhaps']],
+      [['Ability', 'can, can\'t, could, couldn\'t, be able to, know how to'], ['Rules and duty', 'must, mustn\'t, have to, don\'t have to, need to, be allowed to'], ['Advice', 'should, shouldn\'t, ought to, had better, Why don\'t you …?, If I were you …'], ['Possibility and offers', 'may, might, perhaps, Shall I …?, Would you like …?, Can I …?']],
+      [['Ability', 'be able to, manage to, know how to, was able to, couldn\'t, was good at, succeed in, be capable of'], ['Obligation', 'must, have to, need to, had to, be supposed to, it is necessary, be required to, I am obliged to'], ['Prohibition and no need', 'mustn\'t, can\'t, not allowed to, don\'t have to, needn\'t, forbidden, no need to, not necessary'], ['Advice', 'should, shouldn\'t, ought to, had better, if I were you, why don\'t you, it\'s a good idea, I would recommend'], ['Possibility', 'may, might, could, perhaps, probably, it\'s possible, there\'s a chance, maybe'], ['Requests and offers', 'Can I …?, Could you …?, Would you …?, Shall I …?, Would you like …?, May I …?, Let me …, How about …?']]),
+    M('animals', 'Animals', '🦁',
+      [['Pets', 'dog, cat, hamster, rabbit'], ['Farm animals', 'cow, pig, sheep, horse, chicken'], ['Wild animals', 'lion, elephant, tiger, monkey, giraffe'], ['Water and sky', 'fish, shark, dolphin, bird, eagle']],
+      [['Pets and farm', 'dog, cat, hamster, cow, pig, sheep'], ['Wild animals', 'lion, elephant, tiger, monkey, giraffe, zebra'], ['In the sea', 'fish, shark, dolphin, whale, octopus, jellyfish'], ['Birds', 'eagle, owl, penguin, parrot, swan, duck'], ['Insects', 'bee, ant, butterfly, mosquito, beetle, ladybird']],
+      [['Mammals', 'bat, bear, wolf, fox, deer, squirrel, hedgehog, kangaroo'], ['Reptiles and amphibians', 'crocodile, lizard, snake, turtle, frog, toad, tortoise, chameleon'], ['Birds', 'peacock, sparrow, ostrich, flamingo, seagull, swallow, pigeon, woodpecker'], ['Insects and bugs', 'grasshopper, wasp, cricket, moth, dragonfly, spider, flea, cockroach'], ['Sea life', 'octopus, seahorse, crab, starfish, lobster, seal, walrus, stingray'], ['Parts of animals', 'paw, tail, wing, fur, feather, claw, beak, hoof']]),
+    M('sport', 'Sport', '🏅',
+      [['Ball sports', 'football, basketball, tennis, volleyball'], ['Water and snow', 'swimming, skiing, sailing, surfing'], ['Other sports', 'running, cycling, gymnastics, judo'], ['Things we use', 'ball, racket, net, goal, helmet']],
+      [['Ball games', 'football, basketball, handball, tennis, volleyball, golf'], ['Water and winter', 'swimming, sailing, rowing, skiing, skating, snowboarding'], ['Athletics', 'sprint, relay, high jump, long jump, marathon, hurdles'], ['Equipment', 'ball, racket, net, helmet, goggles, boots'], ['People and places', 'player, coach, referee, fan, stadium, pitch']],
+      [['Football words', 'penalty, offside, corner, header, tackle, goalkeeper, striker, substitute'], ['Basketball and handball', 'dribble, rebound, free throw, slam dunk, pivot, fast break, timeout, jump shot'], ['Winter sports', 'slalom, ski jump, ice hockey, bobsleigh, figure skating, curling, cross-country, biathlon'], ['Athletics', 'sprint, relay, javelin, discus, shot put, pole vault, hurdles, decathlon'], ['Competitions', 'tournament, league, championship, final, qualifier, medal, trophy, record'], ['Sport verbs', 'score, win, lose, draw, train, compete, beat, cheer']]),
+    M('town', 'Town and city', '🏙️',
+      [['Places', 'school, shop, bank, cinema, park'], ['Transport', 'bus, tram, taxi, bike'], ['Directions', 'left, right, straight on, turn'], ['People', 'shopkeeper, driver, tourist, policeman']],
+      [['Buildings', 'school, hospital, library, museum, cinema, church'], ['Shops', 'bakery, supermarket, bookshop, chemist, butcher, florist'], ['Transport', 'bus stop, tram, taxi, station, bridge, traffic lights'], ['Directions', 'turn left, turn right, go straight on, next to, opposite, between']],
+      [['Public buildings', 'town hall, post office, police station, fire station, court, city council, embassy, prison'], ['Shops and services', 'bakery, butcher, florist, chemist, greengrocer, hairdresser, laundry, dry cleaner'], ['Streets and traffic', 'crossroads, roundabout, pavement, zebra crossing, traffic jam, one-way street, bypass, underpass'], ['Places to visit', 'castle, cathedral, monument, fountain, gallery, market, square, harbour'], ['Giving directions', 'at the corner, across the street, on the left, behind, in front of, take the second turning, keep going, you can\'t miss it'], ['City life', 'skyscraper, suburb, neighbourhood, population, commuter, rush hour, pollution, crowded']]),
+    M('tech', 'Technology', '💻',
+      [['Devices', 'phone, computer, tablet, camera'], ['On the internet', 'website, email, app, video'], ['Computer parts', 'screen, keyboard, mouse, printer'], ['What we do', 'click, type, send, download']],
+      [['Devices', 'laptop, smartphone, tablet, camera, headphones, charger'], ['On the internet', 'website, email, app, password, social media, search'], ['Computer parts', 'screen, keyboard, mouse, printer, battery, memory'], ['What we do', 'click, type, send, download, upload, delete']],
+      [['Hardware', 'processor, hard drive, motherboard, webcam, router, speaker, USB stick, memory card'], ['Software and apps', 'software, update, install, browser, program, game, operating system, antivirus'], ['Online life', 'blog, podcast, streaming, hashtag, profile, post, follower, comment'], ['Safety and privacy', 'privacy, hacker, virus, firewall, login, cyberbullying, scam, spam'], ['Computer actions', 'scroll, log in, log out, copy, paste, save, back up, shut down'], ['Future technology', 'robot, drone, artificial intelligence, virtual reality, self-driving car, 3D printer, wearable, solar panel']]),
+    M('environment', 'Environment', '🌱',
+      [['Nature', 'tree, river, sea, mountain'], ['Rubbish', 'plastic, paper, glass, bin'], ['What we can do', 'recycle, reuse, save water, save energy'], ['Problems', 'pollution, litter, smoke, noise']],
+      [['Nature', 'forest, river, ocean, mountain, lake, island'], ['Rubbish', 'plastic, paper, glass, can, bin, litter'], ['What we can do', 'recycle, reuse, reduce, save water, save energy, plant a tree'], ['Problems', 'pollution, smoke, noise, climate change, flood, drought']],
+      [['Energy', 'solar power, wind farm, fossil fuel, electricity, coal, oil, renewable, nuclear'], ['Pollution', 'exhaust fumes, smog, oil spill, acid rain, greenhouse gas, waste, toxic, contamination'], ['Protecting nature', 'endangered, extinct, habitat, rainforest, national park, conservation, wildlife, species'], ['Climate', 'global warming, climate change, melting ice, sea level, drought, heatwave, carbon dioxide, ozone layer'], ['What we can do', 'recycle, reuse, reduce, compost, carpool, switch off, plant trees, volunteer'], ['Everyday words', 'rubbish bin, bottle bank, plastic bag, packaging, second-hand, refill, tap water, public transport']]),
+    M('celebrations', 'Holidays and celebrations', '🎉',
+      [['Birthday', 'cake, candles, party, balloon'], ['Christmas', 'Santa Claus, Christmas tree, stocking, star'], ['Easter', 'egg, bunny, basket, chick'], ['New Year', 'fireworks, midnight, resolution, countdown']],
+      [['Birthday', 'cake, candles, party, balloon, card, invitation'], ['Christmas', 'Santa Claus, Christmas tree, stocking, carol, reindeer, snowman'], ['Easter', 'egg, bunny, basket, chick, chocolate, spring'], ['New Year', 'fireworks, midnight, resolution, countdown, champagne, toast'], ['Other celebrations', 'wedding, anniversary, graduation, carnival, Halloween, festival']],
+      [['Weddings', 'bride, groom, ceremony, bouquet, reception, honeymoon, best man, witness'], ['Christmas traditions', 'advent calendar, mistletoe, gingerbread, nativity, midnight mass, wrapping paper, decorations, cracker'], ['Festivals', 'parade, costume, procession, firework display, float, street party, harvest festival, bonfire'], ['Party words', 'host, guest, invite, congratulations, toast, gift, surprise, celebrate'], ['Public holidays', 'bank holiday, national day, day off, Labour Day, Independence Day, All Saints\' Day, Saint Martin\'s Day, Statehood Day'], ['Feelings at a party', 'cheerful, excited, grateful, generous, thrilled, delighted, festive, joyful']]),
+    M('shopping', 'Shopping', '🛒',
+      [['Shops', 'bakery, supermarket, bookshop, chemist'], ['Money', 'euro, cent, price, change'], ['Shopping words', 'buy, sell, pay, cost'], ['Things', 'basket, trolley, bag, receipt']],
+      [['Shops', 'bakery, butcher, bookshop, chemist, florist, supermarket'], ['Money', 'euro, cent, price, change, cash, credit card'], ['Shopping words', 'buy, sell, pay, cost, spend, save'], ['In the shop', 'basket, trolley, bag, receipt, queue, checkout, shelf']],
+      [['Kinds of shops', 'greengrocer, newsagent, jeweller, optician, shopping centre, department store, market stall, corner shop'], ['Money', 'coins, notes, currency, cash, refund, discount, bargain, deposit'], ['Paying', 'credit card, receipt, cashier, checkout, contactless, price tag, till, bill'], ['Asking in a shop', 'How much is it?, Can I try it on?, Do you have a smaller size?, I\'ll take it, It\'s too expensive, Can I pay by card?, Is there a sale?, I\'m just looking'], ['Shopping online', 'basket, delivery, order, website, review, return, voucher, free shipping'], ['Describing goods', 'cheap, expensive, second-hand, brand new, fashionable, good quality, sold out, in stock']]),
+    M('routine', 'Daily routine', '⏰',
+      [['Morning', 'get up, wash, have breakfast, go to school'], ['Afternoon', 'have lunch, do homework, play, visit friends'], ['Evening', 'have dinner, watch TV, read, brush teeth'], ['Night', 'go to bed, sleep, dream, set the alarm']],
+      [['Morning', 'wake up, get up, take a shower, get dressed, have breakfast, leave home'], ['At school', 'arrive, have lessons, have a break, eat lunch, do a test, go home'], ['Afternoon', 'do homework, play outside, meet friends, practise, go shopping, help at home'], ['Evening', 'cook dinner, watch TV, chat online, tidy up, brush teeth, go to bed']],
+      [['Getting up', 'wake up, get dressed, make the bed, wash my face, comb my hair, pack my bag, miss the bus, oversleep'], ['School and work', 'commute, attend, hand in, take notes, finish early, stay late, have a meeting, meet a deadline'], ['Chores', 'tidy up, do the washing-up, hang out the washing, take out the rubbish, vacuum, sweep, iron, water the plants'], ['Free time', 'hang out, work out, log on, scroll, text, binge-watch, practise, go for a walk'], ['Meals', 'prepare, set the table, clear the table, have a snack, grab a bite, skip breakfast, order a takeaway, wash the dishes'], ['Winding down', 'wind down, turn off the light, set the alarm, fall asleep, have a bath, read in bed, get some sleep, lie awake']])
+  ];
+})();
