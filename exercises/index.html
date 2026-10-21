@@ -652,8 +652,9 @@
     { id: 'hangman', icon: '🔠', name: 'Hangman', desc: 'Guess the word', run: hangman, need: s => (s.words || []).length >= 5 },
     { id: 'scramble', icon: '🔀', name: 'Word scramble', desc: 'Put the letters in order', run: scramble, need: s => Puzzles.items(s.words, 4, 12).length >= 5 },
     { id: 'crossword', icon: '🧩', name: 'Crossword', desc: 'Slovenian clues', run: crossword, need: s => Puzzles.items(s.words, 3, 10).length >= 6 },
-    { id: 'tarsia', icon: '🔺', name: 'Tarsia', desc: 'Build the triangle from pairs', run: tarsia, need: s => !!window.Tarsia && tarsiaPairs(s.words).length >= 18 },
+    { id: 'tarsia', icon: '🔺', name: 'Tarsia', desc: 'Build the triangle from pairs', run: tarsia, need: s => !!window.Tarsia && tarsiaPairs(s.words, s.sentences).length >= 18 },
     { id: 'mindmap', icon: '🧠', name: 'Mind map', desc: 'Sort the words into the branches', run: mindmapGame, need: s => !!s.mindmap },
+    { id: 'topicmap', icon: '🧠', name: 'Mind map', desc: 'Sort the words of the topic', run: topicMap, need: s => !!(s.level && s.base && mapOf(s.base.id)) },
     { id: 'unitmap', icon: '🧠', name: 'Mind map', desc: 'Sort the words: Easy, Medium, Hard', run: unitMapMenu, need: s => !!(window.UNITMAPS && window.UNITMAPS[s.id]) }
   ];
   function openSet(s, lvl) {
@@ -1182,15 +1183,19 @@
 
   // tarsia: 16 triangular pieces with a word on every side that touches another piece. Tap a piece (below the board), tap a place
   // on the board; tap a piece on the board to turn it (button) or take it back. Where two touching sides belong together they turn green.
-  const tarsiaPairs = words => {
+  // the pairs of a tarsia: the English word and its Slovenian meaning; when there are fewer than 18 words (the Extra practice topics have 15 per level),
+  // short gap sentences (sentence with ___ and the missing word) fill up
+  const tarsiaPairs = (words, sentences) => {
     const seen = new Set(), out = [];
     (words || []).forEach(w => { const a = String(w.en || '').trim(), b = String(w.sl || '').trim(), k = b.toLowerCase(), k2 = a.toLowerCase();
       if (a && b && a.length <= 26 && b.length <= 26 && !seen.has(k) && !seen.has(k2)) { seen.add(k); seen.add(k2); out.push([a, b]); } });
+    if (out.length < 18) (sentences || []).forEach(x => { const q = String(x.text || '').replace(/\s+/g, ' ').trim(), a = String(x.answer || '').trim(), k = q.toLowerCase();
+      if (q && a && /___/.test(q) && q.length <= 60 && a.length <= 22 && !seen.has(k)) { seen.add(k); out.push([q, a]); } });
     return out;
   };
   function tarsia() {
     const T = Tarsia, S = 100, H = S * Math.sqrt(3) / 2, s = stage(), NS = 'http://www.w3.org/2000/svg';
-    const pairs = T.shuffle(tarsiaPairs(set.words)).slice(0, T.SHAPES.tri.pairs);
+    const pairs = T.shuffle(tarsiaPairs(set.words, set.sentences)).slice(0, T.SHAPES.tri.pairs);
     if (pairs.length < T.SHAPES.tri.pairs) { s.append(el('p', 'hint', 'This unit has too few different words for a tarsia.')); return; }
     const g = T.make('tri', pairs), ps = g.pieces.map(() => ({ slot: -1, rot: Math.floor(Math.random() * 3) }));
     let sel = -1, finished = false;
@@ -1244,6 +1249,10 @@
     draw();
   }
 
+  // Extra practice topics: the mind map of the topic at the chosen level (ready-made maps of mindmaps.js; some topics have another id there)
+  const MM_ALIAS = { house: 'home', sports: 'sport', technology: 'tech', nature: 'environment' };
+  const mapOf = id => (window.MINDMAPS || []).find(m => m.id === (MM_ALIAS[id] || id));
+  function topicMap() { const mp = mapOf(set.base.id); mindmapGame({ title: mp.title, icon: mp.icon, branches: mp.levels[set.level] }); }
   // the mind map of a unit (unitmaps-<class id>.js): first the level, then the same sorting game; the result is saved for the unit as the activity "Mind map"
   function unitMapMenu() {
     const um = window.UNITMAPS[set.id], s = stage();
