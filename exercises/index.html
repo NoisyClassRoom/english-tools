@@ -612,6 +612,7 @@
       await loadOpt('more-' + info.id + '.js');
       await loadOpt('more2-' + info.id + '.js');
       await loadOpt('grammar-' + info.id + '.js');
+      await loadOpt('unitmaps-' + info.id + '.js');                // ready-made mind maps of the units (only the books that have a file)
       await loadOpt('cando-' + info.id + '.js');                  // "I can" statements (self-regulation plan, feature 4); only the books that have a file
       (window.CLASS_SETS || []).forEach(set => {
         const gr = (window.GRAMMAR || {})[set.id];          // grammar-<id>.js: explanation + quick check
@@ -652,7 +653,8 @@
     { id: 'scramble', icon: '🔀', name: 'Word scramble', desc: 'Put the letters in order', run: scramble, need: s => Puzzles.items(s.words, 4, 12).length >= 5 },
     { id: 'crossword', icon: '🧩', name: 'Crossword', desc: 'Slovenian clues', run: crossword, need: s => Puzzles.items(s.words, 3, 10).length >= 6 },
     { id: 'tarsia', icon: '🔺', name: 'Tarsia', desc: 'Build the triangle from pairs', run: tarsia, need: s => !!window.Tarsia && tarsiaPairs(s.words).length >= 18 },
-    { id: 'mindmap', icon: '🧠', name: 'Mind map', desc: 'Sort the words into the branches', run: mindmapGame, need: s => !!s.mindmap }
+    { id: 'mindmap', icon: '🧠', name: 'Mind map', desc: 'Sort the words into the branches', run: mindmapGame, need: s => !!s.mindmap },
+    { id: 'unitmap', icon: '🧠', name: 'Mind map', desc: 'Sort the words: Easy, Medium, Hard', run: unitMapMenu, need: s => !!(window.UNITMAPS && window.UNITMAPS[s.id]) }
   ];
   function openSet(s, lvl) {
     if (s.levels && !lvl) {
@@ -1242,9 +1244,22 @@
     draw();
   }
 
+  // the mind map of a unit (unitmaps-<class id>.js): first the level, then the same sorting game; the result is saved for the unit as the activity "Mind map"
+  function unitMapMenu() {
+    const um = window.UNITMAPS[set.id], s = stage();
+    s.append(el('p', 'hint', 'Choose a level. Then sort the words of the unit into the branches of the mind map.'));
+    const g = el('div', 'grid');
+    Object.keys(LEVELS).filter(k => um.levels[k]).forEach(k => {
+      const L = LEVELS[k], br = um.levels[k], n = br.reduce((c, b) => c + b.items.length, 0), b = el('button', 'tile');
+      b.append(el('span', 'ico', L[0]), document.createTextNode(L[1]), el('small', '', br.length + ' branches · ' + n + ' words'));
+      b.onclick = () => { $('#playInfo').textContent = set.title + ' · Mind map · ' + L[1]; mindmapGame({ title: um.title, icon: um.icon, branches: br }); };
+      g.append(b);
+    });
+    s.append(g);
+  }
   // mind map: sort the words into the branches. Tap a word, then the branch it belongs to; a wrong branch shakes red and counts as a mistake.
-  function mindmapGame() {
-    const m = set.mindmap, s = stage(), total = m.branches.reduce((n, b) => n + b.items.length, 0), cols = ['#e8710a', '#1f9d55', '#2563eb', '#c026d3', '#d97706', '#0e9aa7'];
+  function mindmapGame(mm) {
+    const m = mm || set.mindmap, s = stage(), total = m.branches.reduce((n, b) => n + b.items.length, 0), cols = ['#e8710a', '#1f9d55', '#2563eb', '#c026d3', '#d97706', '#0e9aa7'];
     let sel = null, mistakes = 0, done = 0;
     s.append(el('p', 'hint', 'Sort the words into the right branch. Tap a word, then the branch.'), el('div', 'mmcentre', (m.icon || '🧠') + ' ' + m.title));
     const grid = el('div', 'mm'), bank = el('div', 'mmbank'), msg = el('p', 'hint');
@@ -1253,7 +1268,7 @@
     const put = (i, c, got) => {
       if (!sel) { msg.textContent = 'First tap a word below.'; return; }
       if (sel.i === i) { got.append(el('span', '', sel.w)); sel.t.remove(); sel = null; msg.textContent = ''; done++; setBar(done / total);
-        if (done === total) setTimeout(() => puzzleEnd('Mind map complete!', mindmapGame, mistakes ? 'Every word is in the right branch (' + mistakes + (mistakes === 1 ? ' mistake' : ' mistakes') + ').' : 'No mistakes at all!', Math.max(0, total - mistakes), total), 500); }
+        if (done === total) setTimeout(() => puzzleEnd('Mind map complete!', () => mindmapGame(mm), mistakes ? 'Every word is in the right branch (' + mistakes + (mistakes === 1 ? ' mistake' : ' mistakes') + ').' : 'No mistakes at all!', Math.max(0, total - mistakes), total), 500); }
       else { mistakes++; msg.textContent = 'Not this branch. Try another one.'; c.classList.add('no'); setTimeout(() => c.classList.remove('no'), 400); }
     };
     s.append(grid, msg, bank);
