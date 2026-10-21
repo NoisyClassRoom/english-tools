@@ -1,5 +1,5 @@
 // ============================================================
-//  MIND MAPS OF THE UNITS - Project 3 (class 8.b)         (written 22 Oct 2026 from the unit word lists, gap sentences and Grammar texts; original groups)
+//  MIND MAPS OF THE UNITS - Project 3 (class 8.b)         (written 21 Oct 2026 from the unit word lists, gap sentences and Grammar texts; original groups)
 //  Global UNITMAPS = { "<unit id>": { id, title, icon, levels: { easy, medium, hard } } }, same levels as exercises/mindmaps.js (written with the same helper):
 //    easy = 4 branches of 4-5 words of the unit, medium = 4-5 branches of 6 words, hard = 6 branches of 8 words (also rarer words around the topic).
 //  In ONE level a word must not appear twice and must not equal a branch name (the pupils' game relies on it).
