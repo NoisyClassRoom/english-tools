@@ -5,7 +5,7 @@
 //  with ___) to [English, Slovenian]. For questions that share their text ("Which sentence is correct?") use the key
 //  "question||right answer" (both lower case). One line at a time, no other file has to change. A question without an entry
 //  just points to the unit's Grammar (if the unit has one).
-//  First batch (15 Oct 2026): the questions that pupils missed most often in the Results (Questions tab).
+//  First batch (15 Oct 2026); second batch (22 Oct 2026): the questions that pupils missed most often in the Results (Questions tab).
 // ============================================================
 window.EXPLAIN = window.EXPLAIN || {};
 Object.assign(window.EXPLAIN, {
@@ -60,5 +60,75 @@ Object.assign(window.EXPLAIN, {
   "my grandmother's sister is my great-___.": ["Your grandmother's sister is your great-aunt (a great-uncle is a grandparent's brother).", "Babičina sestra je your great-aunt (prateta); great-uncle je dedkov ali babičin brat."],
   // ---- feelings
   "she was very ___ before the exam. (she felt worried.)": ["Nervous = worried before something that will happen, like an exam. After 'was' we use an adjective.", "Nervous = nervozen, zaskrbljen pred nečim, kar se bo zgodilo (izpit). Za 'was' stoji pridevnik."],
-  "i'm really ___ about my exam tomorrow.": ["Nervous = nervozen. Use it for a feeling before an exam, a match or a performance.", "Nervous = nervozen. Uporabimo ga za občutek pred izpitom, tekmo ali nastopom."]
+  "i'm really ___ about my exam tomorrow.": ["Nervous = nervozen. Use it for a feeling before an exam, a match or a performance.", "Nervous = nervozen. Uporabimo ga za občutek pred izpitom, tekmo ali nastopom."],
+  // ---- second batch (22 Oct 2026): the questions of Project 2 / Project 3 / Starter that pupils missed most
+  // ---- questions and short answers
+  "___ millie read the questions? yes, she does.": ["With he / she / it a question starts with Does, and the short answer repeats it: Yes, she does.", "Vprašanje s he / she / it se začne z Does, kratek odgovor pa ga ponovi: Yes, she does."],
+  "___ your mother work in a shop?": ["Your mother = she, so the question starts with Does (not Do).", "Your mother = she, zato se vprašanje začne z Does (ne Do)."],
+  "___ they play football?": ["With they the question starts with Do: Do they play football?", "Pri they se vprašanje začne z Do: Do they play football?"],
+  "___ you eat breakfast? yes, i did.": ["The answer says 'did', so the question is in the past simple and starts with Did.", "Odgovor vsebuje 'did', zato je vprašanje v preteklem času in se začne z Did."],
+  "which short answer? 'did they win?'||no, they didn't.": ["The short answer repeats the helping verb of the question: Did they win? – No, they didn't.", "Kratek odgovor ponovi pomožni glagol iz vprašanja: Did they win? – No, they didn't."],
+  "were sally and edward watching tv? no, they ___.": ["The short answer repeats the verb of the question: Were they …? – No, they weren't.", "Kratek odgovor ponovi glagol iz vprašanja: Were they …? – No, they weren't."],
+  "have simon and tanja got computers? yes, they ___.": ["The short answer repeats the helping verb: Have they got …? – Yes, they have.", "Kratek odgovor ponovi pomožni glagol: Have they got …? – Yes, they have."],
+  "which question is correct?||were sally and judith writing an e-mail?": ["Two people = plural, so we use Were (not Was): Were Sally and Judith writing …?", "Dve osebi = množina, zato Were (ne Was): Were Sally and Judith writing …?"],
+  "which question is correct?||when did the film begin?": ["After did the verb is in the base form: begin (not began).", "Za did je glagol v osnovni obliki: begin (ne began)."],
+  "which question is correct?||did they go to the party last night?": ["After did the verb is in the base form: go (not went).", "Za did je glagol v osnovni obliki: go (ne went)."],
+  "which sentence is correct?||what did she say to you?": ["The question word + did + subject + base verb: What did she say? (not 'said').", "Vprašalnica + did + osebek + osnovni glagol: What did she say? (ne 'said')."],
+  "which sentence is correct?||could you tell me where the bank is?": ["In a polite question the word order is like a statement: where the bank is (not 'where is the bank').", "V vljudnem vprašanju je besedni red kot v trdilnem stavku: where the bank is (ne 'where is the bank')."],
+  "___ we take a taxi? (suggestion)": ["To suggest something we say 'Shall we …?' (or 'Let's …').", "Predlog podamo s 'Shall we …?' (ali 'Let's …')."],
+  "___ we take a taxi or go by tram? (suggestion)": ["To suggest something we say 'Shall we …?' (or 'Let's …').", "Predlog podamo s 'Shall we …?' (ali 'Let's …')."],
+  "___ you help me, please? (polite request)": ["For a polite request we say 'Could you …?' – it is more polite than 'Can you …?'.", "Za vljudno prošnjo rečemo 'Could you …?' – bolj vljudno kot 'Can you …?'."],
+  // ---- present simple: he / she / it
+  "she ___ tv in the evening. (watch)": ["Verbs ending in -ch add -es with he / she / it: watches.", "Glagoli na -ch dobijo pri he / she / it končnico -es: watches."],
+  "she ___ to school by bus.": ["With she the verb gets an ending: go – goes.", "Pri she dobi glagol končnico: go – goes."],
+  "alison ___ home at ten past eight. (leave)": ["Alison = she, so the verb gets -s: leaves. ('Go' would not fit: she leaves home.)", "Alison = she, zato glagol dobi -s: leaves."],
+  // ---- past simple
+  "we ___ a lot of fun last weekend. (have)": ["'Have' is irregular: the past simple is had (not 'haved').", "'Have' je nepravilen glagol: pretekli čas je had (ne 'haved')."],
+  "past of 'drink':": ["'Drink' is irregular: drink – drank – drunk. The past simple is drank.", "'Drink' je nepravilen glagol: drink – drank – drunk. Pretekli čas je drank."],
+  "which is the past of 'teach'?": ["'Teach' is irregular: teach – taught – taught.", "'Teach' je nepravilen glagol: teach – taught – taught."],
+  "i ___ my keys yesterday. (lose)": ["'Lose' is irregular: lose – lost. 'Yesterday' tells us it is the past.", "'Lose' je nepravilen glagol: lose – lost. 'Yesterday' kaže na preteklik."],
+  "i ___ him a question. (ask)": ["A finished action in the past: regular verbs add -ed: asked.", "Končano dejanje v preteklosti: pravilni glagoli dobijo -ed: asked."],
+  "she ___ the answer. (know, negative)": ["Negative past: didn't + base verb: didn't know (not 'didn't knew').", "Nikalni pretekli čas: didn't + osnovni glagol: didn't know (ne 'didn't knew')."],
+  "i met her two weeks ___.": ["'Ago' comes after the time and means 'back from now': two weeks ago (it goes with the past simple).", "'Ago' stoji za časom in pomeni 'pred': two weeks ago (uporabljamo ga s preteklim časom)."],
+  "which time expression goes with the past simple?||in 2019": ["A finished time in the past (in 2019) → past simple. 'Since' and 'already' belong to the present perfect.", "Končan čas v preteklosti (in 2019) → past simple. 'Since' in 'already' sodita k present perfect."],
+  "which sentence is correct?||edward's mum gave him some money.": ["Past simple of 'give' is gave. We do not add 'has' in the past simple.", "Pretekli čas od 'give' je gave. V past simple ne dodamo 'has'."],
+  "which sentence is correct?||they met sally outside the shop.": ["'Meet' is irregular: met. In the past simple there is no 'has' and no -ed.", "'Meet' je nepravilen: met. V past simple ni 'has' in ne -ed."],
+  "which sentence is correct?||i met my best friend ten years ago.": ["A finished time (ten years ago) → past simple: I met. (Not 'did meet' and not 'have met'.)", "Končan čas (ten years ago) → past simple: I met. (Ne 'did meet' in ne 'have met'.)"],
+  "which sentence is correct?||they didn't buy the shoes because they forgot.": ["After didn't the verb is in the base form: didn't buy (not 'didn't bought').", "Za didn't je glagol v osnovni obliki: didn't buy (ne 'didn't bought')."],
+  "which sentence is correct?||she told me a secret, but i didn't tell anyone.": ["Positive past: told (irregular). After didn't: base form tell.", "Trdilno: told (nepravilen). Za didn't: osnovna oblika tell."],
+  "which sentence is correct?||my cousin, who lives in celje, came to visit us.": ["'Come' is irregular: came. 'Who' is for people.", "'Come' je nepravilen: came. 'Who' uporabimo za osebe."],
+  // ---- past continuous
+  "they ___ watching tv.": ["They = plural, so was / were: they were watching.", "They = množina, zato were: they were watching."],
+  "which sentence is correct?||sally was drinking cola.": ["Past continuous: was / were + verb-ing: was drinking. (Not 'was drink'; and 'is' does not fit the past.)", "Past continuous: was / were + glagol-ing: was drinking. (Ne 'was drink'; 'is' ne pasuje v preteklik.)"],
+  "which sentence is correct?||while i was going home, i heard some footsteps.": ["While + past continuous (long action), then the past simple for the short action: I heard (not 'was heard').", "While + past continuous (dolgo dejanje), nato past simple za kratko dejanje: I heard (ne 'was heard')."],
+  // ---- be, have got, there is / are
+  "where ___ the boxes? they are in front of the café.": ["'The boxes' = plural, so we use are: Where are the boxes?", "'The boxes' = množina, zato are: Where are the boxes?"],
+  "there ___ two eggs in the box.": ["Two eggs = plural, so: There are.", "Two eggs = množina, zato: There are."],
+  "which is correct?||my parents are teachers.": ["'Parents' is plural, so we use are (not is / am).", "'Parents' je množina, zato are (ne is / am)."],
+  "which sentence is not correct?||they is my friends.": ["With they we use are: They are my friends. ('They is' is wrong.)", "Pri they uporabimo are: They are my friends. ('They is' je napačno.)"],
+  "are you ___ to me? yes, i am.": ["Present continuous: are + verb-ing: Are you listening to me?", "Present continuous: are + glagol-ing: Are you listening to me?"],
+  // ---- prepositions, dates, possessive
+  "my birthday is ___ june.": ["Months take 'in': in June. (Days take 'on': on Monday.)", "Pred meseci uporabimo 'in': in June. (Pred dnevi 'on': on Monday.)"],
+  "which date is written correctly?||the 3rd of may": ["Ordinal numbers: 1st, 2nd, 3rd, then -th (4th, 5th). We say 'the third of May'.", "Vrstilni števniki: 1st, 2nd, 3rd, nato -th (4th, 5th). Rečemo 'the third of May'."],
+  "he's ___ the house. (on the other side of the street)": ["'Opposite' = on the other side (across from). 'Next to' = right beside.", "'Opposite' = nasproti (na drugi strani). 'Next to' = tik ob."],
+  "this is my ___ bike. it belongs to my brother.": ["One brother → 's before the s: my brother's bike (more brothers: brothers').", "En brat → 's: my brother's bike (več bratov: brothers')."],
+  "my aunt's children are my ___.": ["Your aunt's or uncle's children are your cousins.", "Otroci tvoje tete ali strica so tvoji cousins (bratranci in sestrične)."],
+  "i'd like to ___ you to my birthday party.": ["'Invite' = povabiti. Do not mix it up with 'invent' (izumiti).", "'Invite' = povabiti. Ne zamenjaj z 'invent' (izumiti)."],
+  // ---- spelling
+  "which spelling is correct?||opposite": ["Spelling: o-p-p-o-s-i-t-e – two p, one s, ending -ite.", "Črkovanje: o-p-p-o-s-i-t-e – dva p, en s, končnica -ite."],
+  "a monkey likes to eat a ___.": ["Spelling: banana – one n in the middle: ba-na-na.", "Črkovanje: banana – ba-na-na, brez dvojnega n."],
+  "i take a shower in the ___.": ["Spelling: bathroom = bath + room.", "Črkovanje: bathroom = bath + room."],
+  "we watch tv in the ___ room.": ["The room where we watch TV is the living room (also: sitting room).", "Soba, kjer gledamo TV, je the living room (dnevna soba)."],
+  "flowers grow in the ___.": ["The English word is garden (not the German 'Garten').", "Angleška beseda je garden (ne nemško 'Garten')."],
+  "two days ___ i bought a new phone.": ["'Ago' comes after the time and means 'back from now': two days ago (past simple).", "'Ago' stoji za časom in pomeni 'pred': two days ago (pretekli čas)."],
+  "he's ___ the fridge. (at its side)": ["'Next to' = right beside, at the side. 'Opposite' = on the other side.", "'Next to' = tik ob, ob strani. 'Opposite' = na drugi strani, nasproti."],
+  "i didn't ___ the answer. (know)": ["After didn't the verb is in the base form: didn't know.", "Za didn't je glagol v osnovni obliki: didn't know."],
+  "past of 'think':": ["'Think' is irregular: think – thought – thought.", "'Think' je nepravilen glagol: think – thought – thought."],
+  "i ___ my keys yesterday.": ["'Yesterday' = the past simple. 'Lose' is irregular: lost.", "'Yesterday' = pretekli čas. 'Lose' je nepravilen: lost."],
+  "christmas is ___ december.": ["Months take 'in': in December. (Days take 'on': on Monday.)", "Pred meseci uporabimo 'in': in December. (Pred dnevi 'on': on Monday.)"],
+  "my birthday is ___ may.": ["Months take 'in': in May. (A date takes 'on': on 5 May.)", "Pred meseci uporabimo 'in': in May. (Pred datumom 'on': on 5 May.)"],
+  "february is the ___ month. (2nd)": ["The 2nd is 'second' (not 'twice'): the second month.", "Drugi je 'second': the second month."],
+  "is she a student? no, she ___.": ["The short answer repeats the verb: Is she …? – No, she isn't.", "Kratek odgovor ponovi glagol: Is she …? – No, she isn't."],
+  "___ you open the window, please? (polite request)": ["For a polite request we say 'Could you …?'.", "Za vljudno prošnjo rečemo 'Could you …?'."],
+  "we cook in the ___.": ["The room where we cook is the kitchen.", "Prostor, kjer kuhamo, je the kitchen (kuhinja)."]
 });
