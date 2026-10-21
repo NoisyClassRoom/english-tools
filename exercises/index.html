@@ -577,7 +577,7 @@
     }
     if (!classSets.length && (window.MINDMAPS || []).length) {                          // Extra practice: the ready-made mind maps
       body.append(el('h2', '', 'Mind maps'));
-      const g2 = el('div', 'grid'); window.MINDMAPS.forEach(m => { const b = el('button', 'tile'); b.append(el('span', 'ico', m.icon || '🧠'), document.createTextNode(m.title), el('small', '', 'Mind map · ' + m.branches.length + ' branches')); b.onclick = () => { openSet({ id: 'mm-' + m.id, title: 'Mind map: ' + m.title, icon: m.icon || '🧠', words: [], sentences: [], mindmap: m }); startMode(MODES.find(x => x.id === 'mindmap')); }; g2.append(b); }); body.append(g2);
+      const g2 = el('div', 'grid'); window.MINDMAPS.forEach(m => { const b = el('button', 'tile'); b.append(el('span', 'ico', m.icon || '🧠'), document.createTextNode(m.title), el('small', '', 'Mind map · Easy, Medium, Hard')); b.onclick = () => openMapMenu(m); g2.append(b); }); body.append(g2);
     }
     if (!classSets.length && !SHARED.length) body.textContent = 'No exercises yet.';
   };
@@ -678,6 +678,19 @@
     if (s.base) { const c = el('button', 'tile'); c.append(el('span', 'ico', '🎚️'), document.createTextNode('Change level'), el('small', '', 'Easy, medium or hard')); c.onclick = () => openSet(s.base); g.append(c); }
     show('menu');
     addMistakesTile(s);
+  }
+  // a mind map has three levels (mindmaps.js): the menu offers Easy / Medium / Hard and starts the game for the chosen one
+  function openMapMenu(m) {
+    set = { id: 'mm-' + m.id, title: 'Mind map: ' + m.title, icon: m.icon || '🧠', words: [], sentences: [] };
+    $('#menuTitle').textContent = (m.icon || '🧠') + ' ' + m.title;
+    const g = $('#modeGrid'); g.innerHTML = '';
+    Object.keys(LEVELS).filter(k => m.levels[k]).forEach(k => {
+      const L = LEVELS[k], br = m.levels[k], n = br.reduce((s, b) => s + b.items.length, 0), b = el('button', 'tile');
+      b.append(el('span', 'ico', L[0]), document.createTextNode(L[1]), el('small', '', br.length + ' branches · ' + n + ' words'));
+      b.onclick = () => { set = { id: 'mm-' + m.id + '.' + k, title: 'Mind map: ' + m.title + ' · ' + L[1], icon: m.icon || '🧠', words: [], sentences: [], mindmap: { title: m.title, icon: m.icon, branches: br } }; startMode(MODES.find(x => x.id === 'mindmap')); };
+      g.append(b);
+    });
+    show('menu');
   }
   function startMode(m) { mode = m; show('play'); $('#playInfo').textContent = set.title + ' · ' + m.name; setBar(0); m.run(); }
   // a homework link (?class=8a&set=<unit id>&mode=quiz) goes straight to the unit and the activity
