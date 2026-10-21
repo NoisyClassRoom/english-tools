@@ -52,6 +52,8 @@
   .blank.long { min-width: 200px; }
   .opts { display: block; margin: 2px 0 0 0; text-indent: 0; } .opts span { display: inline-block; margin-right: 26px; text-indent: 0; }          /* text-indent 0: the line of the question has a hanging indent that otherwise pulls every answer into the one before it */
   .opts.col span { display: block; margin-right: 0; }          /* long answers: one under the other */
+  .rtext { border: 1px solid #111; border-radius: 6px; padding: 8px 12px; margin: 4px 0 10px 30px; font-size: 13.5px; line-height: 1.5; break-inside: avoid; } .rtext h5 { margin: 0 0 4px; font-size: 14px; }
+  .rline { display: block; border-bottom: 1px solid #111; height: 1.7em; margin: 2px 0 0 0; text-indent: 0; } .tfans { display: inline-block; min-width: 46px; border-bottom: 1px solid #111; height: 1em; vertical-align: baseline; } .tfhint { color: #555; font-size: 12px; margin-left: 10px; }
   .two { display: grid; grid-template-columns: 1fr 1fr; gap: 0 40px; margin-left: 30px; } .two div { margin: 0 0 6px; }
   .tot { margin-top: 18px; display: flex; justify-content: space-between; align-items: flex-end; gap: 18px; flex-wrap: wrap; break-inside: avoid; }
   .tot .t { font-size: 18px; font-weight: 700; }
@@ -100,8 +102,10 @@
         <label>A3 Match the words <input type="number" id="nMatch" min="0" max="10" value="6"></label>
         <label>B1 Circle the correct answer <input type="number" id="nMc" min="0" max="30" value="10"></label>
         <label>B2 Complete the sentences <input type="number" id="nGap" min="0" max="30" value="10"></label>
+        <label>C1 Reading: True / False / Doesn't say <input type="number" id="nTf" min="0" max="8" value="0"></label>
+        <label>C2 Reading: answer the questions <input type="number" id="nRq" min="0" max="5" value="0"></label>
       </div>
-      <label style="margin-top:8px">Circle-the-answer questions from
+      <p class="muted" style="margin:6px 0 0">C1 and C2 use a short text of the unit (a different text for group B); only books with reading texts have them (the unit list shows how many). 0 = leave the part out.</p>
         <select id="mcSrc"><option value="both">the Unit test and the harder Unit test 2</option><option value="easy">the Unit test</option><option value="hard">the harder Unit test 2</option></select></label>
       <h2>3. Sheet</h2>
       <label>Title <input type="text" id="title" placeholder="(automatic: the unit names)" style="width:min(340px,100%)"></label>
@@ -151,14 +155,14 @@
         const l = x[level]; if (!l) { b.skip = true; return; }
         b.lv = { words: (level === 'easy' ? b.words : []).concat(l.w.map(toW)), sentences: (level === 'easy' ? b.sentences : []).concat((l.s || []).map(a => ({ text: a[0], answer: a[1], alt: a.slice(2) }))) };
       });
-      list = base.filter(b => !b.skip && (b.lv || !(window.EXTRA_LEVELS || []).some(x => x.id === b.id))).map(b => ({ id: b.id, label: b.title + ' · ' + level[0].toUpperCase() + level.slice(1), words: (b.lv || b).words, sentences: (b.lv || b).sentences, mcEasy: [], mcHard: [] }));
+      list = base.filter(b => !b.skip && (b.lv || !(window.EXTRA_LEVELS || []).some(x => x.id === b.id))).map(b => ({ id: b.id, label: b.title + ' · ' + level[0].toUpperCase() + level.slice(1), words: (b.lv || b).words, sentences: (b.lv || b).sentences, mcEasy: [], mcHard: [], reading: [] }));
     } else {
-      window.CLASS_SETS = null; window.HARD_TESTS = null; window.MORE_SETS = null; window.MORE2_SETS = null;
+      window.CLASS_SETS = null; window.HARD_TESTS = null; window.MORE_SETS = null; window.MORE2_SETS = null; window.READING = null;
       await loadScript('../exercises/class-' + book + '.js');
-      for (const f of ['hard-', 'more-', 'more2-']) await loadScript('../exercises/' + f + book + '.js');       // optional files: a missing one is fine
+      for (const f of ['hard-', 'more-', 'more2-', 'reading-']) await loadScript('../exercises/' + f + book + '.js');       // optional files: a missing one is fine
       list = (window.CLASS_SETS || []).map(s => {
         const mores = [(window.MORE_SETS || {})[s.id], (window.MORE2_SETS || {})[s.id]].filter(Boolean);
-        return { id: s.id, label: [s.unit, s.title].filter(Boolean).join(' · '), words: s.words || [],
+        return { id: s.id, reading: (window.READING || {})[s.id] || [], label: [s.unit, s.title].filter(Boolean).join(' · '), words: s.words || [],
           sentences: (s.sentences || []).concat(...mores.map(m => (m.gap || []).map(toGap))),
           mcEasy: (s.tests || []).concat(...mores.map(m => (m.easy || []).map(toTest))),
           mcHard: ((window.HARD_TESTS || {})[s.id] || []).map(toTest).concat(...mores.map(m => (m.hard || []).map(toTest))) };
@@ -170,7 +174,7 @@
     const box = $('#units'); box.textContent = 'Loading…'; $('#msg').textContent = '';
     const book = $('#src').value; $('#lvlWrap').style.display = book === 'extra' ? '' : 'none';
     current = await loadSource(book, $('#lvl').value); box.innerHTML = '';
-    current.forEach((u, i) => { const l = el('label'), c = el('input'); c.type = 'checkbox'; c.value = i; l.append(c, document.createTextNode(' ' + u.label + ' (' + u.words.length + ' words, ' + u.sentences.length + ' sentences, ' + (u.mcEasy.length + u.mcHard.length) + ' test questions)')); box.append(l); });
+    current.forEach((u, i) => { const l = el('label'), c = el('input'); c.type = 'checkbox'; c.value = i; l.append(c, document.createTextNode(' ' + u.label + ' (' + u.words.length + ' words, ' + u.sentences.length + ' sentences, ' + (u.mcEasy.length + u.mcHard.length) + ' test questions' + (u.reading && u.reading.length ? ', ' + u.reading.length + ' reading texts' : '') + ')')); box.append(l); });
     if (!current.length) box.textContent = 'Nothing found.';
   };
 
@@ -182,7 +186,7 @@
   const makePicker = pool => { const used = new Set(); return n => { let fresh = shuffle(pool.filter(x => !used.has(x))); if (fresh.length < n) { used.clear(); fresh = shuffle(pool); } const out = fresh.slice(0, n); out.forEach(x => used.add(x)); return out; }; };
 
   const buildGroup = (label, data, o) => {
-    const { pickWordsSl, pickWordsEn, pickMatch, pickMc, pickGap } = data;
+    const { pickWordsSl, pickWordsEn, pickMatch, pickMc, pickGap, pickReading } = data;
     const secs = [];           // sections of the test: { letter, name, exercises: [...] }
     const A = { letter: 'A', name: 'Vocabulary', ex: [] }, B = { letter: 'B', name: 'Grammar', ex: [] };
     if (o.nSl2En) { const ex = pickWordsSl(o.nSl2En + 1); const exm = ex.length > o.nSl2En ? ex.pop() : null; A.ex.push({ ins: 'Translate the Slovenian words into English.', exm: exm && [clue(exm.w) + '   →   ', exm.word], items: ex.slice(0, o.nSl2En).map(i => ({ q: clue(i.w), a: i.word, kind: 'line' })) }); }
@@ -195,7 +199,16 @@
       const slots = shuffle(items.map((_, k) => k % 3)); for (let t = 0; t < 40 && slots.some((p, k) => k > 1 && p === slots[k - 1] && p === slots[k - 2]); t++) slots.splice(0, slots.length, ...shuffle(items.map((_, k) => k % 3)));
       B.ex.push({ ins: 'Circle the correct answer.', exm: exm && mk(exm, 0), items: items.map((t, k) => mk(t, slots[k])) }); }
     if (o.nGap) { const g = pickGap(o.nGap + 1); const exm = g.length > o.nGap ? g.pop() : null; B.ex.push({ ins: 'Complete the sentences. Write one word.', exm: exm && { gap: exm }, items: g.slice(0, o.nGap).map(s => ({ gap: s, a: s.answer + ((s.alt && s.alt.length) ? '  (also: ' + s.alt.join(', ') + ')' : ''), kind: 'gap' })) }); }
-    [A, B].forEach(s => { if (s.ex.length) secs.push(s); });
+    const C = { letter: 'C', name: 'Reading', ex: [] };
+    if (o.nTf || o.nRq) {
+      const r = pickReading();
+      if (r) {
+        let shown = false;
+        if (o.nTf) { C.ex.push({ ins: 'Read the text. Write T (true), F (false) or DS (the text doesn\'t say).', text: r, items: shuffle(r.tf).slice(0, o.nTf).map(s => ({ q: s[0], a: s[1], kind: 'tf' })) }); shown = true; }
+        if (o.nRq) C.ex.push({ ins: shown ? 'Answer the questions about the text.' : 'Read the text and answer the questions.', text: shown ? null : r, items: shuffle(r.q).slice(0, o.nRq).map(s => ({ q: s[0], a: s[1], kind: 'rq' })) });
+      }
+    }
+    [A, B, C].forEach(s => { if (s.ex.length) secs.push(s); });
     let n = 0; secs.forEach(s => { s.ex.forEach(e => { e.no = ++n; e.marks = e.match ? e.match.length : e.items.length; }); s.pts = s.ex.reduce((u, e) => u + e.marks, 0); });
     return { label, secs, total: secs.reduce((t, s) => t + s.ex.reduce((u, e) => u + e.marks, 0), 0) };
   };
@@ -204,6 +217,8 @@
     const li = el('li');
     if (it.kind === 'mc') { li.append(blankize(it.q, false)); const o = el('span', 'opts' + (it.opts.join('').length > 55 ? ' col' : '')); it.opts.forEach((t, i) => o.append(el('span', '', 'abcdefgh'[i] + ') ' + t))); li.append(document.createTextNode(' '), o); }
     else if (it.kind === 'gap') { li.append(blankize(it.gap.text, true)); }
+    else if (it.kind === 'tf') { li.append(document.createTextNode(it.q + '   '), el('span', 'tfans'), el('span', 'tfhint', 'T / F / DS')); }
+    else if (it.kind === 'rq') { li.append(document.createTextNode(it.q), el('span', 'rline'), el('span', 'rline')); if (key) li.append(el('span', 'keyans', '→ ' + it.a)); return li; }
     else { li.append(document.createTextNode(it.q + '   '), el('span', 'blank')); }
     if (key) li.append(document.createTextNode('   '), el('span', 'keyans', '→ ' + it.a));
     return li;
@@ -225,6 +240,7 @@
       const h = el('h4'); h.append(el('span', '', sec.letter + '   ' + sec.name), el('span', 'pts', sec.pts + (sec.pts === 1 ? ' point' : ' points'))); s.append(h);
       sec.ex.forEach(e => {
         const x = el('div', 'ex'), ins = el('p', 'ins'); ins.append(el('span', 'n', e.no), el('span', 't', e.ins), el('span', 'mk', key ? e.marks + (e.marks === 1 ? ' point' : ' points') : '____ / ' + e.marks)); x.append(ins);
+        if (e.text) { const rt = el('div', 'rtext'); rt.append(el('h5', '', e.text.t), document.createTextNode(e.text.x)); x.append(rt); }
         if (e.match) {
           const row = el('div', 'two'), L = el('div'), R = el('div');
           e.match.forEach((m, i) => { const a = el('div'); a.append(el('b', '', (i + 1) + '  '), document.createTextNode(m.en + '  '), key ? el('span', 'keyans', '→ ' + 'abcdefghij'[m.right]) : el('span', 'blank', '')); L.append(a); });
@@ -269,7 +285,7 @@
     const units = [...document.querySelectorAll('#units input:checked')].map(c => current[Number(c.value)]), box = $('#sheets'); box.innerHTML = ''; $('#print').style.display = 'none';
     if (!units.length) { $('#msg').textContent = 'Tick at least one unit first.'; return; }
     const num = id => Math.max(0, Math.min(Number($(id).max), Math.floor(Number($(id).value) || 0)));
-    const o = { nSl2En: num('#nSl2En'), nEn2Sl: num('#nEn2Sl'), nMatch: num('#nMatch'), nMc: num('#nMc'), nGap: num('#nGap'),
+    const o = { nSl2En: num('#nSl2En'), nEn2Sl: num('#nEn2Sl'), nMatch: num('#nMatch'), nMc: num('#nMc'), nGap: num('#nGap'), nTf: num('#nTf'), nRq: num('#nRq'),
       groups: $('#groups').checked, key: $('#key').checked, nameLine: $('#nameLine').checked, gradeBox: $('#gradeBox').checked, qr: $('#qr').checked, qrUrl: playUrl(units),
       g5: Number($('#g5').value) || 90, g4: Number($('#g4').value) || 80, g3: Number($('#g3').value) || 65, g2: Number($('#g2').value) || 40,
       title: $('#title').value.trim() || (units.length === 1 ? units[0].label : units.map(u => u.label.replace(/ ·.*$/, '')).join(', ')),
@@ -292,7 +308,8 @@
       const m = shuffle(c).slice(0, n); m.forEach(w => matchUsed.add(w));
       const pos = shuffle(m.map((_, i) => i)); return m.map((w, i) => ({ en: String(w.en).trim(), sl: w.sl, right: pos[i], rightPos: pos[i] }));
     };
-    const data = { pickWordsSl: n => pw(n), pickWordsEn: n => pw(n), pickMc: n => pmc(n), pickGap: n => pg(n), pickMatch };
+    const readPool = []; units.forEach(u => (u.reading || []).forEach(r => readPool.push(r))); const prd = makePicker(readPool);
+    const data = { pickWordsSl: n => pw(n), pickWordsEn: n => pw(n), pickMc: n => pmc(n), pickGap: n => pg(n), pickMatch, pickReading: () => readPool.length ? prd(1)[0] : null };
     // match: the letter of each English word is the position of its Slovenian word in the right-hand column
     const labels = o.groups ? ['A', 'B'] : ['A'], groups = labels.map(l => buildGroup(l, data, o));
     if (!groups[0].total) { $('#msg').textContent = 'The test is empty: these units have no questions of the chosen kinds. Choose other numbers or more units.'; return; }
@@ -301,6 +318,7 @@
     $('#print').style.display = '';
     const short = [];
     if (o.nMc && mcPool.length < o.nMc) short.push('only ' + mcPool.length + ' circle-the-answer questions exist in these units');
+    if ((o.nTf || o.nRq) && !readPool.length) short.push('these units have no reading texts yet (C is left out)');
     if (o.nGap && all.gap.length < o.nGap) short.push('only ' + all.gap.length + ' sentences');
     if (o.nSl2En && itemsWords.length < o.nSl2En + o.nEn2Sl) short.push('only ' + itemsWords.length + ' words');
     $('#msg').textContent = 'Total ' + groups[0].total + ' marks' + (o.groups ? ' per group' : '') + '.' + (short.length ? ' Note: ' + short.join(', ') + ' (some questions may repeat or be missing).' : '') + ' Press Print; choose "Save as PDF" for a file.';
