@@ -1,5 +1,5 @@
 // ============================================================
-//  GRAMMAR MIND MAPS + TARSIA PAIRS - Project 3 (class 8.b)          (written 22 Oct 2026)
+//  GRAMMAR MIND MAPS + TARSIA PAIRS - Project 3 (class 8.b)          (written 21 Oct 2026)
 //  window.GMAPS[unit] = { maps: [[rule, 'sentence | sentence | ...'], ...], pairs: [[English, Slovenian], ...] }
 //  maps: the most basic rule first. Easy = first 3 rules x 3 sentences, Medium = first 4 x 4, Hard = all.
 //        A sentence appears once in the unit and never equals a rule name (the pupils' sorting game relies on it).
