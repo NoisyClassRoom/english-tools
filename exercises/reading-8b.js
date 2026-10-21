@@ -1,5 +1,5 @@
 // ============================================================
-//  READING TEXTS FOR THE PRINTED TESTS - Project 3 (class 8.b)          (written 22 Oct 2026)
+//  READING TEXTS FOR THE PRINTED TESTS - Project 3 (class 8.b)          (written 21 Oct 2026)
 //  window.READING[unit id] = [ { t: title, x: text, tf: [[statement, 'T' | 'F' | 'DS'], ...], q: [[question, answer], ...] }, ... ]
 //  tf: True / False / Doesn't say (DS) statements about the text; q: short-answer questions (reading for specific information).
 //  Two texts per unit (so that group A and group B of a test get different texts); the language follows the unit.
