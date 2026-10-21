@@ -42,6 +42,7 @@
     .sheet:last-child { page-break-after: auto; break-after: auto; }
   }
 </style>
+<style id="pageStyle"></style>
 </head>
 <body>
 <script src="../exercises/tracking.js"></script>
@@ -68,7 +69,7 @@
       <h2>2. The puzzle</h2>
       <label>Shape <select id="shape"><option value="tri">Triangle (16 pieces, 18 pairs)</option><option value="hex">Hexagon (24 pieces, 30 pairs)</option></select></label>
       <label>Pairs <select id="kind"><option value="words">English word ↔ Slovenian word</option><option value="qa">Short sentence with a gap ↔ the missing word</option></select></label>
-      <label>Title <input type="text" id="title" placeholder="(automatic: the unit names)" style="width:min(300px,100%)"></label>
+      <label>Paper <select id="paper"><option value="A4">A4</option><option value="A3">A3 (bigger pieces)</option></select></label>`n      <label>Title <input type="text" id="title" placeholder="(automatic: the unit names)" style="width:min(300px,100%)"></label>
       <label><input type="checkbox" id="key" checked> answer page (numbered pairs and the list)</label>
       <div style="margin-top:8px"><button class="btn primary" id="make">Make the tarsia</button> <button class="btn" id="again" style="display:none">Make it again (new arrangement)</button>
         <button class="btn" id="print" style="display:none">🖨 Print</button> <span class="muted" id="msg" style="margin-left:8px"></span></div>
@@ -147,7 +148,8 @@
   };
 
   // ---- drawing (SVG in millimetres; the triangle side is 45 mm so that the 4-unit wide shapes fit on an A4 page)
-  const S = 45, H = S * Math.sqrt(3) / 2;
+  let S = 45, H = S * Math.sqrt(3) / 2;           // the triangle side in mm: 45 for A4 (4 sides = 180 mm), 66 for A3 (264 mm)
+  const setPaper = p => { S = p === 'A3' ? 66 : 45; H = S * Math.sqrt(3) / 2; $('#pageStyle').textContent = '@media print { @page { size: ' + (p === 'A3' ? 'A3' : 'A4') + ' portrait; margin: 14mm; } }'; };
   const NS = 'http://www.w3.org/2000/svg';
   const sv = (tag, attrs, text) => { const e = document.createElementNS(NS, tag); Object.keys(attrs || {}).forEach(k => e.setAttribute(k, attrs[k])); if (text != null) e.textContent = text; return e; };
   const corners = t => { const x = t.i * S / 2, y = t.r * H; return t.up
@@ -158,14 +160,14 @@
     const c = corners(t), [p1, p2] = c[side], mx = (p1[0] + p2[0]) / 2, my = (p1[1] + p2[1]) / 2;
     let nx = c.cen[0] - mx, ny = c.cen[1] - my; const nl = Math.hypot(nx, ny); nx /= nl; ny /= nl;           // the unit vector from the side towards the inside
     let th = Math.atan2(p2[1] - p1[1], p2[0] - p1[0]); if (Math.sin(th) * nx - Math.cos(th) * ny < 0) th += Math.PI;   // the top of the letters points to the inside
-    const fit = ls => Math.min(S * (ls.length > 1 ? 0.45 : 0.52) / (Math.max(1, ...ls.map(l => l.length)) * 0.5), 4.2);
+    const k = S / 45, fit = ls => Math.min(S * (ls.length > 1 ? 0.45 : 0.52) / (Math.max(1, ...ls.map(l => l.length)) * 0.5), 4.2 * k);
     let lines = [text], size = fit(lines);
-    if (size < 3.3 && /\s/.test(text)) {
+    if (size < 3.3 * k && /\s/.test(text)) {
       const words = text.split(/\s+/); let best = null;
       for (let k = 1; k < words.length; k++) { const a = words.slice(0, k).join(' '), b = words.slice(k).join(' '), m = Math.max(a.length, b.length); if (!best || m < best.m) best = { l: [a, b], m }; }
       if (best) { lines = best.l; size = fit(lines); }
     }
-    size = Math.max(size, 2.2); const lh = size * 1.15, d0 = 0.07 * H + (lines.length - 1) * lh;
+    size = Math.max(size, 2.2 * k); const lh = size * 1.15, d0 = 0.07 * H + (lines.length - 1) * lh;
     lines.forEach((ln, k) => {
       const off = d0 - k * lh, px = mx + nx * off, py = my + ny * off;           // line 0 is the one farthest from the side (top of the text)
       const e = sv('text', { transform: 'translate(' + px.toFixed(2) + ' ' + py.toFixed(2) + ') rotate(' + (th * 180 / Math.PI).toFixed(1) + ')', 'text-anchor': 'middle', 'font-size': size.toFixed(2), 'font-family': 'Arial, Helvetica, sans-serif', fill: '#111' }, ln);
@@ -176,10 +178,10 @@
     const w = shape.w * S, h = shape.rows * H, pad = 1;
     const svg = sv('svg', { viewBox: (-pad) + ' ' + (-pad) + ' ' + (w + 2 * pad) + ' ' + (h + 2 * pad), width: (w + 2 * pad) + 'mm', height: (h + 2 * pad) + 'mm' });
     const minI = Math.min(...layout.tris.map(t => t.i)), g = sv('g', {}); svg.append(g);
-    layout.tris.forEach(t => { const c = corners(t); g.append(sv('polygon', { points: c.pts.map(p => p[0].toFixed(2) + ',' + p[1].toFixed(2)).join(' '), fill: 'none', stroke: '#111', 'stroke-width': 0.35 })); });
+    layout.tris.forEach(t => { const c = corners(t); g.append(sv('polygon', { points: c.pts.map(p => p[0].toFixed(2) + ',' + p[1].toFixed(2)).join(' '), fill: 'none', stroke: '#111', 'stroke-width': S > 50 ? 0.5 : 0.35 })); });
     layout.edges.forEach(e => {
       [e.a, e.b].forEach(h => { if (!numbered) putText(g, h.t, h.side, h.text); });
-      if (numbered) { const c = corners(e.a.t)[e.a.side], mx = (c[0][0] + c[1][0]) / 2, my = (c[0][1] + c[1][1]) / 2; g.append(sv('circle', { cx: mx, cy: my, r: 3.2, fill: '#fff', stroke: '#0a4f9c', 'stroke-width': 0.4 }), sv('text', { x: mx, y: my + 1.2, 'text-anchor': 'middle', 'font-size': 3.4, 'font-family': 'Arial, sans-serif', fill: '#0a4f9c', 'font-weight': 'bold' }, String(e.no))); }
+      if (numbered) { const c = corners(e.a.t)[e.a.side], mx = (c[0][0] + c[1][0]) / 2, my = (c[0][1] + c[1][1]) / 2; g.append(sv('circle', { cx: mx, cy: my, r: 3.2 * S / 45, fill: '#fff', stroke: '#0a4f9c', 'stroke-width': 0.4 }), sv('text', { x: mx, y: my + 1.2 * S / 45, 'text-anchor': 'middle', 'font-size': 3.4 * S / 45, 'font-family': 'Arial, sans-serif', fill: '#0a4f9c', 'font-weight': 'bold' }, String(e.no))); }
     });
     // the leftmost corner of the shape is at x = (minI - 1) * S / 2
     g.setAttribute('transform', 'translate(' + (-(minI - 1) * S / 2) + ' 0)');
@@ -202,6 +204,7 @@
   const make = () => {
     const units = [...document.querySelectorAll('#units input:checked')].map(c => current[Number(c.value)]), box = $('#sheets'); box.innerHTML = ''; ['#print', '#again'].forEach(s => $(s).style.display = 'none');
     if (!units.length) { $('#msg').textContent = 'Tick at least one unit first.'; return; }
+    setPaper($('#paper').value);
     const shape = SHAPES[$('#shape').value], kind = $('#kind').value, { pool, picked } = pairsFor(units, kind, shape.pairs);
     if (picked.length < shape.pairs) { $('#msg').textContent = 'The ' + shape.name + ' needs ' + shape.pairs + ' pairs, but these units give only ' + pool.length + (kind === 'qa' ? ' sentences with a gap' : ' words') + '. Tick more units.'; return; }
     last = { units, shape, kind };
@@ -219,7 +222,7 @@
       const ol = el('ol'); layout.edges.forEach(e => { const li = el('li'); li.value = e.no; li.textContent = e.pair[0] + '   ↔   ' + e.pair[1]; ol.append(li); }); s2.append(ol); box.append(s2);
     }
     $('#print').style.display = ''; $('#again').style.display = '';
-    $('#msg').textContent = shape.pairs + ' pairs, ' + shape.cells.length + ' pieces. Print on A4, cut along the lines; for a longer life print on card or laminate. Press Print (Save as PDF for a file).';
+    $('#msg').textContent = shape.pairs + ' pairs, ' + shape.cells.length + ' pieces. Print on ' + $('#paper').value + ', cut along the lines; for a longer life print on card or laminate. Press Print (Save as PDF for a file).';
   };
 
   const load = async () => {
