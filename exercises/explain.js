@@ -5,7 +5,7 @@
 //  with ___) to [English, Slovenian]. For questions that share their text ("Which sentence is correct?") use the key
 //  "question||right answer" (both lower case). One line at a time, no other file has to change. A question without an entry
 //  just points to the unit's Grammar (if the unit has one).
-//  First batch (15 Oct 2026); second batch (22 Oct 2026): the questions that pupils missed most often in the Results (Questions tab).
+//  First batch (15 Oct 2026); second batch (21 Oct 2026): the questions that pupils missed most often in the Results (Questions tab).
 // ============================================================
 window.EXPLAIN = window.EXPLAIN || {};
 Object.assign(window.EXPLAIN, {
@@ -61,7 +61,7 @@ Object.assign(window.EXPLAIN, {
   // ---- feelings
   "she was very ___ before the exam. (she felt worried.)": ["Nervous = worried before something that will happen, like an exam. After 'was' we use an adjective.", "Nervous = nervozen, zaskrbljen pred nečim, kar se bo zgodilo (izpit). Za 'was' stoji pridevnik."],
   "i'm really ___ about my exam tomorrow.": ["Nervous = nervozen. Use it for a feeling before an exam, a match or a performance.", "Nervous = nervozen. Uporabimo ga za občutek pred izpitom, tekmo ali nastopom."],
-  // ---- second batch (22 Oct 2026): the questions of Project 2 / Project 3 / Starter that pupils missed most
+  // ---- second batch (21 Oct 2026): the questions of Project 2 / Project 3 / Starter that pupils missed most
   // ---- questions and short answers
   "___ millie read the questions? yes, she does.": ["With he / she / it a question starts with Does, and the short answer repeats it: Yes, she does.", "Vprašanje s he / she / it se začne z Does, kratek odgovor pa ga ponovi: Yes, she does."],
   "___ your mother work in a shop?": ["Your mother = she, so the question starts with Does (not Do).", "Your mother = she, zato se vprašanje začne z Does (ne Do)."],
