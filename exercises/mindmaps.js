@@ -9,6 +9,7 @@
 (() => {
   const B = (name, s) => ({ name, items: s.split(', ') });
   const M = (id, title, icon, easy, medium, hard) => ({ id, title, icon, levels: { easy: easy.map(a => B(a[0], a[1])), medium: medium.map(a => B(a[0], a[1])), hard: hard.map(a => B(a[0], a[1])) } });
+  window.mmMake = M;                                   // also used by exercises/unitmaps-<class id>.js (the maps of the units of a coursebook)
   window.MINDMAPS = [
     M('family', 'Family', '👪',
       [['Parents and children', 'mother, father, son, daughter, brother, sister'], ['Grandma and grandpa', 'grandmother, grandfather, grandma, grandpa, grandparents'], ['Other relatives', 'aunt, uncle, cousin, nephew, niece'], ['Describing people', 'tall, short, kind, funny, young']],
