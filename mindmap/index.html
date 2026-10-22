@@ -46,6 +46,7 @@
 <script src="../exercises/tracking.js"></script>
 <script src="../exercises/puzzles.js"></script>
 <script src="../exercises/mindmaps.js"></script>
+<script src="../exercises/deepmaps.js"></script>
 <div class="wrap">
   <div class="top no-print">
     <h1>🧠 Mind map maker</h1><span class="sp"></span>
@@ -61,14 +62,14 @@
     <div class="card no-print">
       <h2>1. Content</h2>
       <label>From <select id="src"></select></label>
-      <label id="lvlWrap" style="display:none">Level <select id="lvl"><option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option></select></label>
+      <label id="lvlWrap" style="display:none">Level <select id="lvl"><option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option><option value="expert">Expert (branches inside branches, when the map has them)</option></select></label>
       <div id="unitBox"><b id="unitHead">Pick one</b> <span class="muted" id="unitHelp"></span>
         <div class="units" id="units">Loading…</div>
         <label>Words per branch <input type="number" id="perBranch" min="3" max="8" value="6" style="width:64px"></label>
         <label id="grpWrap">One unit: group by <select id="group"><option value="map">the ready-made map of the unit (when there is one)</option><option value="grammar">the grammar of the unit: sentences sorted by rule (when there is one)</option><option value="theme">theme (the ready-made maps are used as a dictionary)</option><option value="type">word type (Words / Verbs / Phrases)</option></select></label>
         <button class="btn primary" id="gen">Make the map from this</button></div>
       <h2>2. Edit the text</h2>
-      <p class="muted" style="margin:0 0 4px">First line = the topic in the middle. Every other line = one branch: <code>Branch name: word, word, word</code>. Change it freely and press <b>Update</b>.</p>
+      <p class="muted" style="margin:0 0 4px">First line = the topic in the middle. Every other line = one branch: <code>Branch name: word, word, word</code>. For <b>branches inside branches</b> indent a line by two spaces (one level deeper) or four spaces (two levels deeper); a group that only contains smaller groups has no words after its name. Change it freely and press <b>Update</b>.</p>
       <textarea id="txt" spellcheck="false" placeholder="Family&#10;Parents and children: mother, father, son&#10;Wider family: aunt, uncle, cousin"></textarea>
       <h2>3. Look</h2>
       <label>Shape <select id="layout"><option value="radial">Radial (topic in the middle)</option><option value="tree">Tree (left to right)</option></select></label>
@@ -127,8 +128,8 @@
     $('#perBranch').parentNode.style.display = maps ? 'none' : ''; $('#grpWrap').style.display = maps ? 'none' : '';
     $('#unitHead').textContent = maps ? 'Pick a map' : 'Tick one or several';
     $('#unitHelp').textContent = maps ? '(a ready-made map: Easy has 4 branches, Medium 4-5, Hard 5-6 with rarer words)' : '(one unit: the words are sorted into groups; several units: every unit becomes a branch)';
-    current = await loadSource(book, $('#lvl').value); box.innerHTML = '';
-    if (book !== 'maps' && book !== 'extra') { await loadScript('../exercises/unitmaps-' + book + '.js'); await loadScript('../exercises/grammarmaps-' + book + '.js'); const um = window.UNITMAPS || {}, has = current.some(u => um[u.id]); $('#lvlWrap').style.display = has ? '' : 'none'; if (has && !window.__lvlSet) { $('#lvl').value = 'medium'; window.__lvlSet = true; } }
+    current = await loadSource(book, $('#lvl').value === 'expert' ? 'hard' : $('#lvl').value); box.innerHTML = '';
+    if (book !== 'maps' && book !== 'extra') { await loadScript('../exercises/unitmaps-' + book + '.js'); await loadScript('../exercises/grammarmaps-' + book + '.js'); await loadScript('../exercises/deepunits-' + book + '.js'); const um = window.UNITMAPS || {}, has = current.some(u => um[u.id]); $('#lvlWrap').style.display = has ? '' : 'none'; if (has && !window.__lvlSet) { $('#lvl').value = 'medium'; window.__lvlSet = true; } }
     current.forEach((u, i) => { const l = el('label'), c = el('input'); c.type = maps ? 'radio' : 'checkbox'; c.name = 'u'; c.value = i; l.append(c, document.createTextNode(' ' + u.label + (maps ? '' : ' (' + u.words.length + ' words)' + ((book === 'extra' ? extraMap(u.id) : (window.UNITMAPS || {})[u.id]) ? ' 🧠 ready-made map' : '') + (book !== 'extra' && (window.GMAPS || {})[u.id] ? ' 📖 grammar map' : '')))); box.append(l); });
     if (maps && box.querySelector('input')) box.querySelector('input').checked = true;
     if (!current.length) box.textContent = 'Nothing found.';
@@ -164,26 +165,35 @@
     const book = $('#src').value, picked = [...document.querySelectorAll('#units input:checked')].map(c => current[Number(c.value)]);
     if (!picked.length) { $('#msg').textContent = 'Pick something first.'; return; }
     let map;
-    if (book === 'maps') map = { topic: picked[0].map.title + ($('#lvl').value === 'medium' ? '' : ' (' + $('#lvl').selectedOptions[0].textContent + ')'), branches: picked[0].map.levels[$('#lvl').value] };
+    const lv = $('#lvl').value, lvName = lv === 'expert' ? 'Expert' : $('#lvl').selectedOptions[0].textContent, suffix = lv === 'medium' ? '' : ' (' + lvName + ')';
+    if (book === 'maps') { const dp = lv === 'expert' && (window.DEEPMAPS || {})[picked[0].map.id]; map = { topic: picked[0].map.title + suffix, branches: dp || picked[0].map.levels[lv === 'expert' ? 'hard' : lv] }; if (lv === 'expert' && !dp) $('#msg').textContent = 'This map has no Expert version yet; the Hard map is shown.'; }
     else {
       const per = Math.max(3, Math.min(8, Number($('#perBranch').value) || 6));
       const um1 = picked.length === 1 && (book === 'extra' ? extraMap(picked[0].id) : (window.UNITMAPS || {})[picked[0].id]);
       const gm1 = picked.length === 1 && book !== 'extra' && (window.GMAPS || {})[picked[0].id];
-      if (gm1 && $('#group').value === 'grammar') {                         // grammarmaps-<book>.js: rules x sentences (Easy 3 x 3, Medium 4 x 4, Hard all)
+      const dpu = picked.length === 1 && lv === 'expert' && (book === 'extra' ? (window.DEEPMAPS || {})[MM_ALIAS[picked[0].id] || picked[0].id] : (window.DEEPUNITS || {})[picked[0].id]);        // Expert: branches inside branches (deepmaps.js / deepunits-<book>.js)
+      if (dpu && $('#group').value === 'map') map = { topic: (um1 ? um1.title : picked[0].title || picked[0].label) + ' (Expert)', branches: dpu };
+      else if (gm1 && $('#group').value === 'grammar') {                         // grammarmaps-<book>.js: rules x sentences (Easy 3 x 3, Medium 4 x 4, Hard all)
         const lv = $('#lvl').value, nb = lv === 'easy' ? 3 : lv === 'medium' ? 4 : 9, ni = lv === 'easy' ? 3 : lv === 'medium' ? 4 : 9;
         map = { topic: 'Grammar: ' + (picked[0].title || picked[0].label) + (lv === 'medium' ? '' : ' (' + $('#lvl').selectedOptions[0].textContent + ')'), branches: gm1.maps.slice(0, nb).map(([name, txt]) => ({ name, items: txt.split(' | ').map(x => x.trim()).filter(Boolean).slice(0, ni) })) };
-      } else if (um1 && $('#group').value === 'map') map = { topic: um1.title + ($('#lvl').value === 'medium' ? '' : ' (' + $('#lvl').selectedOptions[0].textContent + ')'), branches: um1.levels[$('#lvl').value] };
+      } else if (um1 && $('#group').value === 'map') map = { topic: um1.title + (lv === 'medium' ? '' : ' (' + lvName + ')'), branches: um1.levels[lv === 'expert' ? 'hard' : lv] };
       else if (picked.length === 1) { map = $('#group').value !== 'type' ? byTheme(picked[0], per) : byType(picked[0], per); if (map.branches.length < 2) map = byType(picked[0], per); }
       else map = { topic: book === 'extra' ? 'Extra practice' : BOOKS[book], branches: picked.slice(0, 8).map(u => ({ name: u.label.replace(/^Unit \d+ · /, ''), items: shuffle(wordsOf(u)).slice(0, per) })) };
     }
     $('#txt').value = toText(map); render();
   };
-  const toText = m => [m.topic].concat(m.branches.map(b => b.name + ': ' + b.items.join(', '))).join('\n');
+  const toText = m => { const out = [m.topic]; const w = (ns, d) => ns.forEach(n => { out.push('  '.repeat(d) + n.name + (n.items && n.items.length ? ': ' + n.items.join(', ') : '')); w(n.kids || [], d + 1); }); w(m.branches, 0); return out.join('\n'); };
+  // the text of a map: first line = topic, then one line per group; two spaces more = one level deeper (sub-branch, sub-sub-branch)
   const parse = text => {
-    const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-    return { topic: lines[0] || 'Topic', branches: lines.slice(1, 9).map(l => { const q = l.indexOf(':'); const name = q < 0 ? l : l.slice(0, q).trim(), items = q < 0 ? [] : l.slice(q + 1).split(',').map(s => s.trim()).filter(Boolean); return { name, items }; }) };
+    const lines = text.split(/\r?\n/).filter(l => l.trim()), branches = [], stack = [];
+    lines.slice(1).forEach(l => {
+      const depth = Math.floor(l.match(/^[ \t]*/)[0].replace(/\t/g, '  ').length / 2), s = l.trim(), q = s.indexOf(':');
+      const node = { name: (q < 0 ? s : s.slice(0, q)).trim(), items: q < 0 ? [] : s.slice(q + 1).split(',').map(x => x.trim()).filter(Boolean), kids: [] };
+      if (!depth || !stack.length) { branches.push(node); stack.length = 0; stack.push(node); }
+      else { const d = Math.min(depth, stack.length); stack.length = d; stack[d - 1].kids.push(node); stack.push(node); }
+    });
+    return { topic: (lines[0] || 'Topic').trim(), branches: branches.slice(0, 8) };
   };
-
   // ---- drawing (SVG in millimetres on an A4 landscape page: 277 x 190)
   const W = 277, Hh = 190, NS = 'http://www.w3.org/2000/svg';
   const COLORS = [['#e8710a', '#fdeedd'], ['#1f9d55', '#dcf5e6'], ['#2563eb', '#dfe9fd'], ['#c026d3', '#f7e0fb'], ['#d97706', '#fdf0cc'], ['#0e9aa7', '#d9f3f5'], ['#dc2626', '#fde4e4'], ['#65a30d', '#ecf6d4']];
@@ -252,15 +262,67 @@
     });
     return svg;
   };
+  // A map with branches inside branches: the topic on top, the branches as panels in two columns (a spine in the middle), inside a panel every sub-branch is a line:
+  // its name, then its words; a sub-sub-branch is indented once more. Everything is scaled (up to 150 %, down to 55 %) to use the page as well as possible.
+  const drawDeep = (map, o) => {
+    const svg = sv('svg', { viewBox: '0 0 ' + W + ' ' + Hh, width: W + 'mm', height: Hh + 'mm', 'font-family': 'Arial, Helvetica, sans-serif' });
+    svg.append(sv('rect', { x: 0, y: 0, width: W, height: Hh, fill: '#fff' }));
+    const conn = sv('g', {}), shapes = sv('g', {}), texts = sv('g', {}); svg.append(conn, shapes, texts);
+    const box = (x, y, w, h, st) => shapes.append(sv('rect', { x: x.toFixed(1), y: y.toFixed(1), width: w.toFixed(1), height: h.toFixed(1), rx: Math.min(3, h / 2), fill: st.fill, stroke: st.stroke, 'stroke-width': st.sw || 0.4, 'stroke-dasharray': st.dash || '' }));
+    const label = (x, y, w, h, t, size, weight, anchor) => texts.append(sv('text', { x: (anchor === 'start' ? x + 1.5 : x + w / 2).toFixed(1), y: (y + h / 2 + size * 0.35).toFixed(1), 'text-anchor': anchor || 'middle', 'font-size': size.toFixed(2), 'font-weight': weight || 'normal', fill: '#111' }, t));
+    const PW = 134, avail = Hh - 22 - ($('#nameLine').checked && o.mode !== 'full' ? 10 : 3);
+    const wordsOf = n => o.mode === 'full' ? n.items : new Array(n.items.length ? (o.mode === 'blank' ? Math.min(n.items.length, 4) : Math.min(n.items.length, 6)) : 0).fill('');
+    const plan = (br, s) => {                                     // positions inside the panel (relative), for the scale s
+      const ls = 3.1 * s, ws = 3.1 * s, rowH = 6.9 * s, bh = 5.5 * s, gap = 1.5 * s, pad = 3, ops = [], hh = 8 * s;
+      let y = hh + 2 * s;
+      const walk = (nodes, depth) => nodes.forEach(n => {
+        const name = o.mode === 'blank' ? '' : n.name, ind = pad + (depth - 1) * 5 * s, lw = name ? boxW(name, ls) + 1 : 18 * s;
+        ops.push({ k: 'lab', x: ind, y, w: lw, h: bh, t: name, size: ls, depth });
+        let x = ind + lw + gap; const startX = lw < 48 * s ? x : ind + 4 * s;
+        wordsOf(n).forEach(wd => { const w = wd ? boxW(wd, ws) : 17 * s; if (x + w > PW - pad) { y += rowH; x = startX; } ops.push({ k: 'word', x, y, w, h: bh, t: wd, size: ws }); x += w + gap; });
+        y += rowH; walk(n.kids || [], depth + 1);
+      });
+      if (br.items.length) { let x = pad; wordsOf(br).forEach(wd => { const w = wd ? boxW(wd, ws) : 17 * s; if (x + w > PW - pad) { y += rowH; x = pad; } ops.push({ k: 'word', x, y, w, h: bh, t: wd, size: ws }); x += w + gap; }); y += rowH; }
+      walk(br.kids || [], 1);
+      return { ops, h: y + 1.5 * s, hh, s };
+    };
+    let best = null;
+    for (let s = 1.5; s >= 0.549; s -= 0.05) {
+      const plans = map.branches.map(b => plan(b, s)), cols = [[], []], hs = [0, 0];
+      plans.forEach((pl, i) => { const c = hs[0] <= hs[1] ? 0 : 1; cols[c].push(i); hs[c] += pl.h + 3 * s; });
+      best = { s, plans, cols, hs }; if (Math.max(hs[0], hs[1]) <= avail) break;
+    }
+    const tw = Math.max(50, boxW(map.topic, 7) + 8), ty = 3;
+    box(W / 2 - tw / 2, ty, tw, 11, { fill: '#fff4e0', stroke: '#111', sw: 0.9 }); label(W / 2 - tw / 2, ty, tw, 11, map.topic, Math.min(7, 90 / Math.max(6, map.topic.length) * 1.6), 'bold');
+    conn.append(sv('line', { x1: W / 2, y1: ty + 11, x2: W / 2, y2: Hh - 4, stroke: '#bbb', 'stroke-width': 0.5 }));
+    best.cols.forEach((idx, c) => {
+      let y = 20; const px = c === 0 ? 5 : W - 5 - PW;
+      idx.forEach(i => {
+        const b = map.branches[i], pl = best.plans[i], col = COLORS[i % COLORS.length], s = best.s;
+        box(px, y, PW, pl.h, { fill: '#fff', stroke: col[0], sw: 0.7 });
+        box(px, y, PW, pl.hh, { fill: col[1], stroke: col[0], sw: 0.7 });
+        if (o.mode !== 'blank') label(px, y, PW, pl.hh, b.name, 4.4 * s, 'bold');
+        const ex = c === 0 ? px + PW : px; conn.append(sv('line', { x1: W / 2, y1: y + pl.hh / 2, x2: ex, y2: y + pl.hh / 2, stroke: col[0], 'stroke-width': 0.7 }));
+        pl.ops.forEach(op => {
+          if (op.k === 'lab') { box(px + op.x, y + op.y, op.w, op.h, { fill: col[1], stroke: col[0], sw: 0.5, dash: op.depth > 1 ? '1 0.8' : '' }); if (op.t) label(px + op.x, y + op.y, op.w, op.h, op.t, op.size, 'bold'); }
+          else if (op.t) { box(px + op.x, y + op.y, op.w, op.h, { fill: '#fff', stroke: col[0], sw: 0.35 }); label(px + op.x, y + op.y, op.w, op.h, op.t, op.size); }
+          else box(px + op.x, y + op.y, op.w, op.h, { fill: '#fff', stroke: col[0], sw: 0.45, dash: '1.2 1.2' });
+        });
+        y += pl.h + 3 * s;
+      });
+    });
+    svg.dataset.scale = best.s.toFixed(2); svg.dataset.fits = Math.max(best.hs[0], best.hs[1]) <= avail ? '1' : '0';
+    return svg;
+  };
   const render = () => {
     const box = $('#sheets'); box.innerHTML = ''; $('#msg').textContent = '';
     const map = parse($('#txt').value);
     if (!map.branches.length) { $('#msg').textContent = 'Add at least one branch line (Branch name: word, word).'; return; }
     const o = { layout: $('#layout').value, mode: $('#mode').value, empties: Math.max(2, Math.min(8, Number($('#empties').value) || 5)) };
-    const s = el('div', 'sheet'); s.append(drawMap(map, o));
+    const deep = map.branches.some(b => b.kids && b.kids.length), s = el('div', 'sheet'), svgEl = deep ? drawDeep(map, o) : drawMap(map, o); s.append(svgEl);
     if ($('#nameLine').checked && o.mode !== 'full') { const nl = sv('text', { x: 8, y: 186, 'font-size': 3.6, fill: '#111', 'font-family': 'Arial, sans-serif' }, 'Name: ______________________    Class: ________    Date: ______________'); s.firstChild.append(nl); }
     box.append(s);
-    $('#msg').textContent = map.branches.length + ' branches. Print on A4 landscape (Save as PDF for a file).';
+    $('#msg').textContent = map.branches.length + ' branches' + (deep ? ' with branches inside branches (the Shape choice does not apply)' + (svgEl.dataset.fits === '0' ? ' - too much for one page even in small print: use fewer words' : svgEl.dataset.scale < 1 ? ' (printed smaller to fit)' : '') : '') + '. Print on A4 landscape (Save as PDF for a file).';
   };
 
   const load = async () => {
