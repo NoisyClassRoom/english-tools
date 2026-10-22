@@ -73,7 +73,7 @@
       <textarea id="txt" spellcheck="false" placeholder="Family&#10;Parents and children: mother, father, son&#10;Wider family: aunt, uncle, cousin"></textarea>
       <h2>3. Look</h2>
       <label>Shape <select id="layout"><option value="radial">Radial (topic in the middle)</option><option value="tree">Tree (left to right)</option><option value="panels">Panels (compact, only for branches inside branches)</option></select></label>
-      <label>Paper <select id="paper"><option value="a4">A4</option><option value="a3">A3</option><option value="a3x2">Two A3 sheets side by side (a wall map)</option></select></label>
+      <label>Paper <select id="paper"><option value="a4">A4</option><option value="a3">A3</option><option value="a2p">Two A3 sheets upright, side by side = an A2 poster</option><option value="a3x2">Two A3 sheets lying, side by side (a wide wall map)</option></select></label>
       <label>Print <select id="mode"><option value="full">With all the words (for the board)</option><option value="names">Branch names only, empty boxes (pupils fill in)</option><option value="blank">Only the topic, empty branches</option></select></label>
       <label>Empty boxes per branch <input type="number" id="empties" min="2" max="8" value="5" style="width:64px"></label>
       <label><input type="checkbox" id="nameLine" checked> name line</label>
@@ -316,7 +316,7 @@
     return svg;
   };
   // ---- branches inside branches, drawn like the ordinary map (radial or tree) on A4, A3 or two A3 sheets side by side
-  const paperOf = () => { const p = $('#paper').value; return p === 'a3x2' ? { WW: 800, HH: 277, pages: 2, name: 'two A3 sheets' } : p === 'a3' ? { WW: 400, HH: 277, pages: 1, name: 'A3' } : { WW: 277, HH: 190, pages: 1, name: 'A4' }; };
+  const paperOf = () => { const p = $('#paper').value; return p === 'a2p' ? { WW: 554, HH: 400, pages: 2, name: 'two A3 sheets (A2 poster)' } : p === 'a3x2' ? { WW: 800, HH: 277, pages: 2, name: 'two A3 sheets' } : p === 'a3' ? { WW: 400, HH: 277, pages: 1, name: 'A3' } : { WW: 277, HH: 190, pages: 1, name: 'A4' }; };
   const relaxIn = (boxes, WW, HH, seam) => {
     for (let it = 0; it < 120; it++) {
       let moved = false;
@@ -344,7 +344,7 @@
     const { WW, HH } = P, tree = map.branches.map(b => shown(b, o)), D = tree.reduce((m, b) => Math.max(m, depthOf(b)), 1), radial = o.layout !== 'tree';
     const seam = P.pages === 2 ? WW / 2 : 0;
     let best = null;
-    for (let k = (P.WW > 300 ? 1.7 : 1.2); k >= 0.55; k -= 0.05) {
+    for (let k = Math.min(2.4, P.WW / 277 * 1.15, P.HH / 190 * 1.15); k >= 0.55; k -= 0.05) {
       const L = radial ? layoutRadial(tree, map.topic, o, WW, HH, k, D, seam) : layoutTree(tree, map.topic, o, WW, HH, k, D);
       best = L; if (L.ok) break;
     }
@@ -372,7 +372,8 @@
   const layoutRadial = (tree, topic, o, WW, HH, k, D, seam) => {
     const cx = WW / 2, cy = HH / 2, RX = WW / 2 - 10, RY = HH / 2 - 8, boxes = [], links = [];
     const wsz = 3.3 * k, lsz = 3.7 * k, bsz = 4.8 * k, bh = wsz * 2.0, lh = lsz * 2.0, bhh = bsz * 1.9;
-    const topicSize = Math.min(7.5 * k, 110 * k / Math.max(8, topic.length) * 1.5), cen = { x: cx, y: cy, w: Math.max(34, boxW(topic, topicSize) + 8), h: topicSize * 2.4, fixed: true, t: topic, size: topicSize };
+    const topicSize = Math.min(7.5 * k, 10.5, 110 * k / Math.max(8, topic.length) * 1.5), cen = { x: cx, y: cy, w: Math.max(34, boxW(topic, topicSize) + 8), h: topicSize * 2.4, fixed: true, t: topic, size: topicSize };
+    if (seam) cen.x = seam - cen.w / 2 - 3;                                // the topic stays on the left sheet (nothing is cut by the join)
     styleBox(cen, 'topic'); boxes.push(cen);
     const rings = D === 1 ? [0.36] : D === 2 ? [0.30, 0.56] : [0.24, 0.43, 0.62];
     const wt = n => Math.max(1.3, n.items.length + n.kids.reduce((s, c) => s + wt(c), 0));
@@ -411,7 +412,7 @@
   const layoutTree = (tree, topic, o, WW, HH, k, D) => {
     const boxes = [], links = [], wsz = 3.3 * k, lsz = 3.7 * k, bsz = 4.8 * k, bh = wsz * 2.0, lh = lsz * 2.0, bhh = bsz * 1.9, rowH = bh + 1.8 * k, gap = 1.6 * k;
     const colW = []; const meas = (nodes, d) => nodes.forEach(n => { colW[d] = Math.max(colW[d] || 0, n.name ? boxW(n.name, d === 0 ? bsz : lsz) + 4 : 22 * k); meas(n.kids, d + 1); }); meas(tree, 0);
-    const topicSize = Math.min(7.5 * k, 110 * k / Math.max(8, topic.length) * 1.5), tw = Math.max(30, boxW(topic, topicSize) + 8);
+    const topicSize = Math.min(7.5 * k, 10.5, 110 * k / Math.max(8, topic.length) * 1.5), tw = Math.max(30, boxW(topic, topicSize) + 8);
     const colX = []; let x = 6 + tw + 14 * k; for (let d = 0; d < colW.length; d++) { colX[d] = x; x += colW[d] + 10 * k; }
     const wordsX = d => (colX[d + 1] === undefined ? colX[d] + colW[d] + 10 * k : colX[d + 1]);
     let y = 5, ok = true;
@@ -444,9 +445,10 @@
     const o = { layout: $('#layout').value, mode: $('#mode').value, empties: Math.max(2, Math.min(8, Number($('#empties').value) || 5)) };
     const deep = map.branches.some(b => b.kids && b.kids.length), P = paperOf(), paper = $('#paper').value;
     let svgs, note = '', big = deep && o.layout !== 'panels';
+    const pp = big ? paper : (paper === 'a4' ? 'a4' : 'a3');            // a flat map or the panels never use the two-sheet papers
     if (big) { const sv0 = drawDeepBig(map, o, P); if (sv0.dataset.fits === '0') note = ' - it does not fit even in small print: use fewer words or a bigger paper'; svgs = [sv0]; if (P.pages === 2) { const half = P.WW / 2; sv0.setAttribute('viewBox', '0 0 ' + half + ' ' + P.HH); const s2 = sv0.cloneNode(true); s2.setAttribute('viewBox', half + ' 0 ' + half + ' ' + P.HH); svgs = [sv0, s2]; } }
     else { const one = deep ? drawDeep(map, o) : drawMap(map, o); svgs = [one]; }
-    const pageW = paper === 'a4' ? 277 : 400, pageH = paper === 'a4' ? 190 : 277, vbW = P.pages === 2 ? P.WW / 2 : big ? P.WW : 277, vbH = big ? P.HH : 190;
+    const pageW = pp === 'a4' ? 277 : pp === 'a2p' ? 277 : 400, pageH = pp === 'a4' ? 190 : pp === 'a2p' ? 400 : 277, vbW = P.pages === 2 ? P.WW / 2 : big ? P.WW : 277, vbH = big ? P.HH : 190;
     svgs.forEach((svgEl, n) => {
       const s = el('div', 'sheet');
       const wmm = big ? pageW : pageW, hmm = big ? pageH : Math.round(pageW * 190 / 277);
@@ -456,8 +458,8 @@
       box.append(s);
     });
     let st = document.getElementById('pageStyle'); if (!st) { st = document.createElement('style'); st.id = 'pageStyle'; document.head.append(st); }
-    st.textContent = '@media print { @page { size: ' + (paper === 'a4' ? 'A4' : 'A3') + ' landscape; margin: 10mm; } }';
-    $('#msg').textContent = map.branches.length + ' branches' + (deep ? ' with branches inside branches' : '') + note + '. Print on ' + (paper === 'a4' ? 'A4' : 'A3') + ' landscape' + (P.pages === 2 ? ': 2 pages; cut off the white margin at the joining edges and tape the right page to the left one' : '') + ' (Save as PDF for a file).';
+    st.textContent = '@media print { @page { size: ' + (pp === 'a4' ? 'A4 landscape' : pp === 'a2p' ? 'A3 portrait' : 'A3 landscape') + '; margin: 10mm; } }';
+    $('#msg').textContent = map.branches.length + ' branches' + (deep ? ' with branches inside branches' : '') + note + '. Print on ' + (pp === 'a4' ? 'A4' : 'A3') + (pp === 'a2p' ? ' upright (portrait)' : ' landscape') + (P.pages === 2 ? ': 2 pages; cut off the white margin at the joining edges and tape the right page to the left one' : '') + ' (Save as PDF for a file).';
   };
   const load = async () => {
     if (!Track.token()) return;
