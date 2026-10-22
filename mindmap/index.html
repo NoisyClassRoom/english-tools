@@ -166,18 +166,18 @@
     const book = $('#src').value, picked = [...document.querySelectorAll('#units input:checked')].map(c => current[Number(c.value)]);
     if (!picked.length) { $('#msg').textContent = 'Pick something first.'; return; }
     let map;
-    const lv = $('#lvl').value, lvName = lv === 'expert' ? 'Expert' : $('#lvl').selectedOptions[0].textContent, suffix = lv === 'medium' ? '' : ' (' + lvName + ')';
+    const lv = $('#lvl').value, lvName = lv === 'expert' ? 'Expert' : $('#lvl').selectedOptions[0].textContent, suffix = lv === 'medium' || lv === 'expert' ? '' : ' (' + lvName + ')';
     if (book === 'maps') { const dp = lv === 'expert' && (window.DEEPMAPS || {})[picked[0].map.id]; map = { topic: picked[0].map.title + suffix, branches: dp || picked[0].map.levels[lv === 'expert' ? 'hard' : lv] }; if (lv === 'expert' && !dp) $('#msg').textContent = 'This map has no Expert version yet; the Hard map is shown.'; }
     else {
       const per = Math.max(3, Math.min(8, Number($('#perBranch').value) || 6));
       const um1 = picked.length === 1 && (book === 'extra' ? extraMap(picked[0].id) : (window.UNITMAPS || {})[picked[0].id]);
       const gm1 = picked.length === 1 && book !== 'extra' && (window.GMAPS || {})[picked[0].id];
       const dpu = picked.length === 1 && lv === 'expert' && (book === 'extra' ? (window.DEEPMAPS || {})[MM_ALIAS[picked[0].id] || picked[0].id] : (window.DEEPUNITS || {})[picked[0].id]);        // Expert: branches inside branches (deepmaps.js / deepunits-<book>.js)
-      if (dpu && $('#group').value === 'map') map = { topic: (um1 ? um1.title : picked[0].title || picked[0].label) + ' (Expert)', branches: dpu };
+      if (dpu && $('#group').value === 'map') map = { topic: um1 ? um1.title : picked[0].title || picked[0].label, branches: dpu };
       else if (gm1 && $('#group').value === 'grammar') {                         // grammarmaps-<book>.js: rules x sentences (Easy 3 x 3, Medium 4 x 4, Hard all)
         const lv = $('#lvl').value, nb = lv === 'easy' ? 3 : lv === 'medium' ? 4 : 9, ni = lv === 'easy' ? 3 : lv === 'medium' ? 4 : 9;
         map = { topic: 'Grammar: ' + (picked[0].title || picked[0].label) + (lv === 'medium' ? '' : ' (' + $('#lvl').selectedOptions[0].textContent + ')'), branches: gm1.maps.slice(0, nb).map(([name, txt]) => ({ name, items: txt.split(' | ').map(x => x.trim()).filter(Boolean).slice(0, ni) })) };
-      } else if (um1 && $('#group').value === 'map') map = { topic: um1.title + (lv === 'medium' ? '' : ' (' + lvName + ')'), branches: um1.levels[lv === 'expert' ? 'hard' : lv] };
+      } else if (um1 && $('#group').value === 'map') map = { topic: um1.title + (lv === 'medium' || lv === 'expert' ? '' : ' (' + lvName + ')'), branches: um1.levels[lv === 'expert' ? 'hard' : lv] };
       else if (picked.length === 1) { map = $('#group').value !== 'type' ? byTheme(picked[0], per) : byType(picked[0], per); if (map.branches.length < 2) map = byType(picked[0], per); }
       else map = { topic: book === 'extra' ? 'Extra practice' : BOOKS[book], branches: picked.slice(0, 8).map(u => ({ name: u.label.replace(/^Unit \d+ · /, ''), items: shuffle(wordsOf(u)).slice(0, per) })) };
     }
