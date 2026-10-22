@@ -38,7 +38,7 @@
     .no-print, .top { display: none !important; }
     .sheet { border-radius: 0; padding: 0; margin: 0; page-break-after: always; break-after: page; }
     .sheet:last-child { page-break-after: auto; break-after: auto; }
-    .sheet svg { width: 277mm; height: 190mm; }
+    .sheet svg { width: var(--w, 277mm); height: var(--h, 190mm); }
   }
 </style>
 </head>
@@ -72,7 +72,8 @@
       <p class="muted" style="margin:0 0 4px">First line = the topic in the middle. Every other line = one branch: <code>Branch name: word, word, word</code>. For <b>branches inside branches</b> indent a line by two spaces (one level deeper) or four spaces (two levels deeper); a group that only contains smaller groups has no words after its name. Change it freely and press <b>Update</b>.</p>
       <textarea id="txt" spellcheck="false" placeholder="Family&#10;Parents and children: mother, father, son&#10;Wider family: aunt, uncle, cousin"></textarea>
       <h2>3. Look</h2>
-      <label>Shape <select id="layout"><option value="radial">Radial (topic in the middle)</option><option value="tree">Tree (left to right)</option></select></label>
+      <label>Shape <select id="layout"><option value="radial">Radial (topic in the middle)</option><option value="tree">Tree (left to right)</option><option value="panels">Panels (compact, only for branches inside branches)</option></select></label>
+      <label>Paper <select id="paper"><option value="a4">A4</option><option value="a3">A3</option><option value="a3x2">Two A3 sheets side by side (a wall map)</option></select></label>
       <label>Print <select id="mode"><option value="full">With all the words (for the board)</option><option value="names">Branch names only, empty boxes (pupils fill in)</option><option value="blank">Only the topic, empty branches</option></select></label>
       <label>Empty boxes per branch <input type="number" id="empties" min="2" max="8" value="5" style="width:64px"></label>
       <label><input type="checkbox" id="nameLine" checked> name line</label>
@@ -314,17 +315,150 @@
     svg.dataset.scale = best.s.toFixed(2); svg.dataset.fits = Math.max(best.hs[0], best.hs[1]) <= avail ? '1' : '0';
     return svg;
   };
+  // ---- branches inside branches, drawn like the ordinary map (radial or tree) on A4, A3 or two A3 sheets side by side
+  const paperOf = () => { const p = $('#paper').value; return p === 'a3x2' ? { WW: 800, HH: 277, pages: 2, name: 'two A3 sheets' } : p === 'a3' ? { WW: 400, HH: 277, pages: 1, name: 'A3' } : { WW: 277, HH: 190, pages: 1, name: 'A4' }; };
+  const relaxIn = (boxes, WW, HH, seam) => {
+    for (let it = 0; it < 120; it++) {
+      let moved = false;
+      for (let a = 0; a < boxes.length; a++) for (let b = a + 1; b < boxes.length; b++) {
+        const p = boxes[a], q = boxes[b]; if (p.fixed && q.fixed) continue;
+        const dx = q.x - p.x, dy = q.y - p.y, ox = (p.w + q.w) / 2 + 1 - Math.abs(dx), oy = (p.h + q.h) / 2 + 1 - Math.abs(dy);
+        if (ox <= 0 || oy <= 0) continue; moved = true;
+        const pw = p.fixed ? 0 : q.fixed ? 1 : 0.5, qw = q.fixed ? 0 : p.fixed ? 1 : 0.5;
+        if (oy < ox) { const s = dy >= 0 ? 1 : -1; p.y -= s * oy * pw; q.y += s * oy * qw; } else { const s = dx >= 0 ? 1 : -1; p.x -= s * ox * pw; q.x += s * ox * qw; }
+      }
+      boxes.forEach(b => {
+        if (b.fixed) return;
+        b.x = Math.max(4 + b.w / 2, Math.min(WW - 4 - b.w / 2, b.x)); b.y = Math.max(4 + b.h / 2, Math.min(HH - 4 - b.h / 2, b.y));
+        if (seam && Math.abs(b.x - seam) < b.w / 2 + 1.5) { b.x = b.x < seam ? seam - b.w / 2 - 1.5 : seam + b.w / 2 + 1.5; moved = true; }     // nothing is printed across the join of two sheets
+      });
+      if (!moved) break;
+    }
+  };
+  const overlaps = boxes => { let n = 0; for (let a = 0; a < boxes.length; a++) for (let b = a + 1; b < boxes.length; b++) { const p = boxes[a], q = boxes[b]; if ((p.w + q.w) / 2 - Math.abs(q.x - p.x) > 0.4 && (p.h + q.h) / 2 - Math.abs(q.y - p.y) > 0.4) n++; } return n; };
+  // the tree of the map as it is printed: all words, only the names (empty boxes) or only empty groups
+  const shown = (n, o) => ({ name: o.mode === 'blank' ? '' : n.name, items: o.mode === 'full' ? n.items : new Array(n.items.length ? Math.min(n.items.length, o.mode === 'blank' ? 4 : 6) : 0).fill(''), kids: (n.kids || []).map(c => shown(c, o)) });
+  const countWords = n => n.items.length + n.kids.reduce((s, c) => s + countWords(c), 0);
+  const depthOf = n => 1 + n.kids.reduce((m, c) => Math.max(m, depthOf(c)), 0);
+  const drawDeepBig = (map, o, P) => {
+    const { WW, HH } = P, tree = map.branches.map(b => shown(b, o)), D = tree.reduce((m, b) => Math.max(m, depthOf(b)), 1), radial = o.layout !== 'tree';
+    const seam = P.pages === 2 ? WW / 2 : 0;
+    let best = null;
+    for (let k = (P.WW > 300 ? 1.7 : 1.2); k >= 0.55; k -= 0.05) {
+      const L = radial ? layoutRadial(tree, map.topic, o, WW, HH, k, D, seam) : layoutTree(tree, map.topic, o, WW, HH, k, D);
+      best = L; if (L.ok) break;
+    }
+    const svg = sv('svg', { viewBox: '0 0 ' + WW + ' ' + HH, 'font-family': 'Arial, Helvetica, sans-serif' });
+    svg.append(sv('rect', { x: 0, y: 0, width: WW, height: HH, fill: '#fff' }));
+    const conn = sv('g', {}), shapes = sv('g', {}), texts = sv('g', {}); svg.append(conn, shapes, texts);
+    best.links.forEach(l => conn.append(sv('path', { d: l.d, fill: 'none', stroke: l.col, 'stroke-width': l.sw || 0.8 })));
+    best.boxes.forEach(b => {
+      shapes.append(sv('rect', { x: (b.x - b.w / 2).toFixed(1), y: (b.y - b.h / 2).toFixed(1), width: b.w.toFixed(1), height: b.h.toFixed(1), rx: Math.min(4, b.h / 2), fill: b.fill, stroke: b.stroke, 'stroke-width': b.sw, 'stroke-dasharray': b.dash || '' }));
+      if (b.t) texts.append(sv('text', { x: b.x.toFixed(1), y: (b.y + b.size * 0.35).toFixed(1), 'text-anchor': 'middle', 'font-size': b.size.toFixed(2), fill: '#111', 'font-weight': b.bold ? 'bold' : 'normal' }, b.t));
+    });
+    svg.dataset.fits = best.ok ? '1' : '0'; svg.dataset.k = best.k.toFixed(2);
+    return svg;
+  };
+  const curve = (a, b) => 'M' + a.x.toFixed(1) + ' ' + a.y.toFixed(1) + ' Q' + ((a.x + b.x) / 2).toFixed(1) + ' ' + a.y.toFixed(1) + ' ' + b.x.toFixed(1) + ' ' + b.y.toFixed(1);
+  const styleBox = (b, kind, col) => {
+    if (kind === 'topic') Object.assign(b, { fill: '#fff4e0', stroke: '#111', sw: 0.9, bold: true });
+    else if (kind === 'branch') Object.assign(b, { fill: col[1], stroke: col[0], sw: 0.9, bold: true });
+    else if (kind === 'sub') Object.assign(b, { fill: col[1], stroke: col[0], sw: 0.6, bold: true });
+    else if (kind === 'subsub') Object.assign(b, { fill: '#fff', stroke: col[0], sw: 0.7, bold: true, dash: '2 1' });
+    else if (b.t) Object.assign(b, { fill: '#fff', stroke: col[0], sw: 0.4 });
+    else Object.assign(b, { fill: '#fff', stroke: col[0], sw: 0.5, dash: '1.2 1.2' });
+    return b;
+  };
+  const layoutRadial = (tree, topic, o, WW, HH, k, D, seam) => {
+    const cx = WW / 2, cy = HH / 2, RX = WW / 2 - 10, RY = HH / 2 - 8, boxes = [], links = [];
+    const wsz = 3.3 * k, lsz = 3.7 * k, bsz = 4.8 * k, bh = wsz * 2.0, lh = lsz * 2.0, bhh = bsz * 1.9;
+    const topicSize = Math.min(7.5 * k, 110 * k / Math.max(8, topic.length) * 1.5), cen = { x: cx, y: cy, w: Math.max(34, boxW(topic, topicSize) + 8), h: topicSize * 2.4, fixed: true, t: topic, size: topicSize };
+    styleBox(cen, 'topic'); boxes.push(cen);
+    const rings = D === 1 ? [0.36] : D === 2 ? [0.30, 0.56] : [0.24, 0.43, 0.62];
+    const wt = n => Math.max(1.3, n.items.length + n.kids.reduce((s, c) => s + wt(c), 0));
+    const pos = (f, a) => ({ x: cx + f * RX * Math.cos(a), y: cy + f * RY * Math.sin(a) });
+    const place = (nodes, a0, a1, depth, parent, parentCol) => {
+      const total = nodes.reduce((s, n) => s + wt(n), 0); let a = a0;
+      nodes.forEach((n, i) => {
+        const span = (a1 - a0) * wt(n) / total, s0 = a, s1 = a + span; a = s1; const mid = (s0 + s1) / 2;
+        const col = depth === 0 ? COLORS[i % COLORS.length] : parentCol, kind = depth === 0 ? 'branch' : depth === 1 ? 'sub' : 'subsub';
+        const sz = depth === 0 ? bsz : lsz, hgt = depth === 0 ? bhh : lh, pp = pos(rings[Math.min(depth, rings.length - 1)], mid);
+        const lab = styleBox({ x: pp.x, y: pp.y, w: n.name ? boxW(n.name, sz) + 4 : 22 * k, h: hgt, t: n.name, size: sz }, kind, col); boxes.push(lab);
+        links.push({ d: curve(parent, lab), col: col[0] });
+        const kidsW = n.kids.reduce((s, c) => s + wt(c), 0), ownShare = n.items.length / Math.max(1e-9, n.items.length + kidsW);
+        const wHi = s0 + span * (n.kids.length ? ownShare : 1);
+        n.items.forEach((w, j) => {
+          const ang = s0 + (j + 0.5) / n.items.length * (wHi - s0), f = j % 2 ? 0.97 : 0.83, q = pos(f, ang);
+          const wb = styleBox({ x: q.x, y: q.y, w: w ? boxW(w, wsz) : 20 * k, h: bh, t: w, size: wsz }, 'word', col); boxes.push(wb); links.push({ d: curve(lab, wb), col: col[0], sw: 0.5 });
+        });
+        if (n.kids.length) place(n.kids, wHi, s1, depth + 1, lab, col);
+      });
+    };
+    place(tree, -Math.PI / 2, 1.5 * Math.PI, 0, cen, null);
+    relaxIn(boxes, WW, HH, seam);
+    // the links were drawn to the first positions: draw them again to the final ones
+    const idx = new Map(); let bi = 1;
+    links.length = 0;
+    const redo = (nodes, parentBox, depth) => nodes.forEach(n => {
+      const lab = boxes[bi++]; links.push({ d: curve(parentBox, lab), col: lab.stroke });
+      n.items.forEach(() => { const wb = boxes[bi++]; links.push({ d: curve(lab, wb), col: lab.stroke, sw: 0.5 }); });
+      redo(n.kids, lab, depth + 1);
+    });
+    // boxes were pushed in the order: label, its words, then its kids (recursive), the same order as redo walks
+    redo(tree, cen, 0);
+    return { boxes, links, k, ok: overlaps(boxes) === 0 };
+  };
+  const layoutTree = (tree, topic, o, WW, HH, k, D) => {
+    const boxes = [], links = [], wsz = 3.3 * k, lsz = 3.7 * k, bsz = 4.8 * k, bh = wsz * 2.0, lh = lsz * 2.0, bhh = bsz * 1.9, rowH = bh + 1.8 * k, gap = 1.6 * k;
+    const colW = []; const meas = (nodes, d) => nodes.forEach(n => { colW[d] = Math.max(colW[d] || 0, n.name ? boxW(n.name, d === 0 ? bsz : lsz) + 4 : 22 * k); meas(n.kids, d + 1); }); meas(tree, 0);
+    const topicSize = Math.min(7.5 * k, 110 * k / Math.max(8, topic.length) * 1.5), tw = Math.max(30, boxW(topic, topicSize) + 8);
+    const colX = []; let x = 6 + tw + 14 * k; for (let d = 0; d < colW.length; d++) { colX[d] = x; x += colW[d] + 10 * k; }
+    const wordsX = d => (colX[d + 1] === undefined ? colX[d] + colW[d] + 10 * k : colX[d + 1]);
+    let y = 5, ok = true;
+    const lay = (nodes, d, parent, parentCol) => nodes.map((n, i) => {
+      const col = d === 0 ? COLORS[i % COLORS.length] : parentCol, kind = d === 0 ? 'branch' : d === 1 ? 'sub' : 'subsub', y0 = y, own = [];
+      if (n.items.length) {
+        let wx = wordsX(d), rows = 1, cur = wx; const wlist = [];
+        n.items.forEach(w => { const wd = w ? boxW(w, wsz) : 20 * k; if (cur + wd > WW - 6 && cur > wx) { rows++; cur = wx; } wlist.push({ w, wd, row: rows - 1, x: cur }); cur += wd + gap; });
+        wlist.forEach(e => own.push(styleBox({ x: e.x + e.wd / 2, y: y + e.row * rowH + bh / 2, w: e.wd, h: bh, t: e.w, size: wsz }, 'word', col)));
+        y += rows * rowH + 1.4 * k;
+      }
+      const kidsInfo = lay(n.kids, d + 1, null, col);
+      if (!n.items.length && !n.kids.length) y += rowH;
+      const ly = kidsInfo.length && !own.length ? (kidsInfo[0].lab.y + kidsInfo[kidsInfo.length - 1].lab.y) / 2 : own.length || kidsInfo.length ? (y0 + y - 1.4 * k) / 2 : y0 + bh / 2;
+      const lab = styleBox({ x: colX[d] + colW[d] / 2, y: ly, w: colW[d], h: d === 0 ? bhh : lh, t: n.name, size: d === 0 ? bsz : lsz }, kind, col);      own.forEach(wb => { links.push({ d: curve({ x: lab.x + lab.w / 2, y: lab.y }, { x: wb.x - wb.w / 2, y: wb.y }), col: col[0], sw: 0.5 }); });
+      kidsInfo.forEach(ki => links.push({ d: curve({ x: lab.x + lab.w / 2, y: lab.y }, { x: ki.lab.x - ki.lab.w / 2, y: ki.lab.y }), col: col[0] }));
+      boxes.push(lab); own.forEach(b => boxes.push(b));
+      return { lab };
+    });
+    const tops = lay(tree, 0, null, null);
+    const cen = styleBox({ x: 6 + tw / 2, y: HH / 2, w: tw, h: topicSize * 2.4, t: topic, size: topicSize }, 'topic'); boxes.push(cen);
+    tops.forEach(tp => links.push({ d: curve({ x: cen.x + cen.w / 2, y: cen.y }, { x: tp.lab.x - tp.lab.w / 2, y: tp.lab.y }), col: tp.lab.stroke }));
+    ok = y <= HH - 4 && boxes.every(b => b.x + b.w / 2 <= WW - 3);
+    return { boxes, links, k, ok };
+  };
   const render = () => {
     const box = $('#sheets'); box.innerHTML = ''; $('#msg').textContent = '';
     const map = parse($('#txt').value);
     if (!map.branches.length) { $('#msg').textContent = 'Add at least one branch line (Branch name: word, word).'; return; }
     const o = { layout: $('#layout').value, mode: $('#mode').value, empties: Math.max(2, Math.min(8, Number($('#empties').value) || 5)) };
-    const deep = map.branches.some(b => b.kids && b.kids.length), s = el('div', 'sheet'), svgEl = deep ? drawDeep(map, o) : drawMap(map, o); s.append(svgEl);
-    if ($('#nameLine').checked && o.mode !== 'full') { const nl = sv('text', { x: 8, y: 186, 'font-size': 3.6, fill: '#111', 'font-family': 'Arial, sans-serif' }, 'Name: ______________________    Class: ________    Date: ______________'); s.firstChild.append(nl); }
-    box.append(s);
-    $('#msg').textContent = map.branches.length + ' branches' + (deep ? ' with branches inside branches (the Shape choice does not apply)' + (svgEl.dataset.fits === '0' ? ' - too much for one page even in small print: use fewer words' : svgEl.dataset.scale < 1 ? ' (printed smaller to fit)' : '') : '') + '. Print on A4 landscape (Save as PDF for a file).';
+    const deep = map.branches.some(b => b.kids && b.kids.length), P = paperOf(), paper = $('#paper').value;
+    let svgs, note = '', big = deep && o.layout !== 'panels';
+    if (big) { const sv0 = drawDeepBig(map, o, P); if (sv0.dataset.fits === '0') note = ' - it does not fit even in small print: use fewer words or a bigger paper'; svgs = [sv0]; if (P.pages === 2) { const half = P.WW / 2; sv0.setAttribute('viewBox', '0 0 ' + half + ' ' + P.HH); const s2 = sv0.cloneNode(true); s2.setAttribute('viewBox', half + ' 0 ' + half + ' ' + P.HH); svgs = [sv0, s2]; } }
+    else { const one = deep ? drawDeep(map, o) : drawMap(map, o); svgs = [one]; }
+    const pageW = paper === 'a4' ? 277 : 400, pageH = paper === 'a4' ? 190 : 277, vbW = P.pages === 2 ? P.WW / 2 : big ? P.WW : 277, vbH = big ? P.HH : 190;
+    svgs.forEach((svgEl, n) => {
+      const s = el('div', 'sheet');
+      const wmm = big ? pageW : pageW, hmm = big ? pageH : Math.round(pageW * 190 / 277);
+      svgEl.removeAttribute('width'); svgEl.removeAttribute('height'); svgEl.style.setProperty('--w', wmm + 'mm'); svgEl.style.setProperty('--h', hmm + 'mm');
+      s.append(svgEl);
+      if (n === 0 && $('#nameLine').checked && o.mode !== 'full') { const nl = sv('text', { x: 8, y: (big ? P.HH : 190) - 4, 'font-size': 3.6, fill: '#111', 'font-family': 'Arial, sans-serif' }, 'Name: ______________________    Class: ________    Date: ______________'); svgEl.append(nl); }
+      box.append(s);
+    });
+    let st = document.getElementById('pageStyle'); if (!st) { st = document.createElement('style'); st.id = 'pageStyle'; document.head.append(st); }
+    st.textContent = '@media print { @page { size: ' + (paper === 'a4' ? 'A4' : 'A3') + ' landscape; margin: 10mm; } }';
+    $('#msg').textContent = map.branches.length + ' branches' + (deep ? ' with branches inside branches' : '') + note + '. Print on ' + (paper === 'a4' ? 'A4' : 'A3') + ' landscape' + (P.pages === 2 ? ': 2 pages; cut off the white margin at the joining edges and tape the right page to the left one' : '') + ' (Save as PDF for a file).';
   };
-
   const load = async () => {
     if (!Track.token()) return;
     const j = await api('boardmarks').catch(() => null);          // a teacher-only action: only the teacher account gets an answer
@@ -333,7 +467,7 @@
     const s = $('#src'); ['maps'].concat(Object.keys(BOOKS).filter(k => k !== 'maps')).forEach(k => { const o = el('option', '', BOOKS[k]); o.value = k; s.append(o); });
     s.onchange = fillUnits; $('#lvl').onchange = fillUnits;
     $('#gen').onclick = generate; $('#upd').onclick = render; $('#print').onclick = () => window.print();
-    ['layout', 'mode', 'empties', 'nameLine'].forEach(id => { $('#' + id).onchange = () => { if ($('#txt').value.trim()) render(); }; });
+    ['layout', 'mode', 'empties', 'nameLine', 'paper'].forEach(id => { $('#' + id).onchange = () => { if ($('#txt').value.trim()) render(); }; });
     fillUnits().then(() => { generate(); });
   };
   window.__load = load; window.__mm = { parse, toText, byType, render };
