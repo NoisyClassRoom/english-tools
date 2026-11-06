@@ -205,7 +205,7 @@ td.has { font-weight: 700; }
       $('#' + id).innerHTML = `<option value="">${all}</option>` + opts.map(v => `<option value="${esc(v)}">${esc(label(v))}</option>`).join('');
       $('#' + id).value = opts.includes(cur) ? cur : '';
     });
-    $('#filters').style.display = D.mine.length > 3 ? '' : 'none';
+    $('#filters').style.display = D.mine.length ? '' : 'none';
   };
   const filtered = () => D.mine.filter(r => Object.keys(F).every(id => !$('#' + id).value || keyOf(r, F[id][0]) === $('#' + id).value));
   const drawMine = () => {
