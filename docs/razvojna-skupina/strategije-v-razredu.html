@@ -105,6 +105,7 @@ td:first-child { white-space: nowrap; font-weight: 700; }
 .tag { padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
 .ev { font-size: .8rem; font-weight: 700; padding: 2px 8px; border-radius: 999px; border: 1.5px solid currentColor; white-space: nowrap; }
 .ev.s { color: var(--strong); } .ev.m { color: var(--mid); } .ev.w { color: var(--weak); } .ev.n { color: var(--muted); }
+.src { font-size: .8rem; color: var(--muted); border-top: 1px dashed var(--line); padding-top: 6px; }
 .legend { display: flex; flex-wrap: wrap; gap: 8px 14px; font-size: var(--step--1); color: var(--muted); align-items: center; }
 
 .qgrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
@@ -141,6 +142,7 @@ footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid var(--line);
   .cards { grid-template-columns: 1fr 1fr; gap: 8px; }
   .card { padding: 10px; gap: 5px; font-size: 9pt; line-height: 1.45; }
   .card h3 { font-size: 10.5pt; }
+  .card .small, .src { font-size: 8pt; }
   .steps { gap: 8px; } .steps > li { padding: 10px 12px; grid-template-columns: 36px 1fr; }
   .steps > li::before { width: 32px; height: 32px; font-size: 1.1rem; }
   .tri > div { padding: 10px; font-size: 9.5pt; }
@@ -307,7 +309,7 @@ footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid var(--line);
 
   <section id="strategije" class="pagebreak">
     <h2>Strategije</h2>
-    <p class="read">Strategije iz vprašalnika in dve dodatni (ST13, ST14). Pri vsaki: kdaj pomaga, kako jo uvesti in kaj o njeni učinkovitosti kažejo raziskave. Oznaka učinkovitosti temelji na pregledu Dunlosky in sod. (2013) in sorodnih raziskavah; pomeni, kako dobro strategija podpira <i>dolgoročno pomnjenje in razumevanje</i>, ne, ali je dobra za uvod.</p>
+    <p class="read">Strategije iz vprašalnika in dve dodatni (ST13, ST14). Pri vsaki: kdaj pomaga, kako jo uvesti in kaj o njeni učinkovitosti kažejo raziskave. Oznaka učinkovitosti večinoma temelji na pregledu deset učnih tehnik: Dunlosky, Rawson, Marsh, Nathan in Willingham (2013), <i>Psychological Science in the Public Interest</i>, 14(1), 4–58. Avtorji vsaki tehniki dodelijo oceno uporabnosti (visoka, zmerna, nizka) glede na to, kako dobro podpira <i>dolgoročno pomnjenje in razumevanje</i> pri različnih učencih, snoveh in nalogah. Na vsaki kartici piše, na kateri tehniki ali raziskavi temelji oznaka; pri strategijah, ki jih pregled ne zajema, je naveden drug vir.</p>
     <div class="legend"><span class="ev s">močno podprta</span><span class="ev m">zmerno podprta</span><span class="ev w">šibko podprta – le kot prvi korak</span><span class="ev n">ni neposredno raziskana</span></div>
     <div class="filters noprint" role="group" aria-label="Pokaži strategije za triado">
       <span class="small">Pokaži:</span>
@@ -355,37 +357,37 @@ footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid var(--line);
 
 <script>
 const S = [
-  { c: "ST06", n: "Samopreverjanje brez zapiskov", t: [1,2,3], e: "s", w: "Ko se snov uči za dlje časa: priklic iz spomina je ena najmočnejših strategij.",
+  { c: "ST06", v: "Dunlosky in sod. (2013): tehnika <i>practice testing</i> (samopreverjanje), ocena uporabnosti <b>visoka</b>.", n: "Samopreverjanje brez zapiskov", t: [1,2,3], e: "s", w: "Ko se snov uči za dlje časa: priklic iz spomina je ena najmočnejših strategij.",
     k: ["Učitelj pokaže: zapre zvezek, zapiše vse, kar se spomni, nato preveri in dopolni z drugo barvo.", "Vodena vaja: tri vprašanja na koncu ure, odgovori brez zvezka.", "Samostojno: pred preverjanjem se učenec sam vpraša, nato šele pogleda v zvezek."], ex: "1. VIO: igra »jaz vprašam, ti odgovoriš«." },
-  { c: "ST24", n: "Kartice z vprašanji in odgovori", t: [2,3], e: "s", w: "Pojmi, izrazi, besedišče, letnice, formule.",
+  { c: "ST24", v: "Dunlosky in sod. (2013): tehnika <i>practice testing</i> (kartice so ena njenih oblik), ocena uporabnosti <b>visoka</b>.", n: "Kartice z vprašanji in odgovori", t: [2,3], e: "s", w: "Pojmi, izrazi, besedišče, letnice, formule.",
     k: ["Pokažem, kako naredim kartico: vprašanje spredaj, kratek odgovor zadaj.", "V paru: eden sprašuje, drugi odgovarja; kartice, ki jih ne zna, gredo na poseben kup.", "Kartice ponavlja v več dneh; ko jo zna trikrat zapored, jo odloži."], ex: "Deluje, če učenec res odgovori, preden obrne kartico." },
-  { c: "ST08", n: "Učenje v več krajših obdobjih", t: [2,3], e: "s", w: "Priprava na preverjanje, vsa snov, ki jo je treba znati dlje časa.",
+  { c: "ST08", v: "Dunlosky in sod. (2013): tehnika <i>distributed practice</i> (razpršeno učenje), ocena uporabnosti <b>visoka</b>.", n: "Učenje v več krajših obdobjih", t: [2,3], e: "s", w: "Priprava na preverjanje, vsa snov, ki jo je treba znati dlje časa.",
     k: ["Na koledarju pokažem dve pripravi: vse zadnji večer ali po 15 minut štiri dni.", "Skupaj naredimo načrt priprave za naslednje preverjanje.", "Po preverjanju učenec primerja svoj načrt z dejansko pripravo."], ex: "Povezano z načrtovanjem (N3, N7 v vprašalniku)." },
-  { c: "ST10", n: "Ponovno reševanje nalog, pri katerih sem se zmotil", t: [1,2,3], e: "m", w: "Postopki (matematika, slovnica, naravoslovni izračuni).",
+  { c: "ST10", v: "Ni ločeno ocenjena v Dunlosky in sod. (2013). Oznaka je sklep iz tehnike <i>practice testing</i> s povratno informacijo; zato le zmerno.", n: "Ponovno reševanje nalog, pri katerih sem se zmotil", t: [1,2,3], e: "m", w: "Postopki (matematika, slovnica, naravoslovni izračuni).",
     k: ["Pokažem svojo »napačno« rešitev in glasno iščem, kje je napaka.", "Učenec pri popravljenem testu označi tri napake in zapiše, zakaj so nastale.", "Reši podobno nalogo brez pomoči."], ex: "Podobno samopreverjanju s povratno informacijo." },
-  { c: "ST09", n: "Samostojno reševanje nalog", t: [1,2,3], e: "m", w: "Utrjevanje postopkov; učinkovitejše, če so naloge pomešane in razpršene v času.",
+  { c: "ST09", v: "Dunlosky in sod. (2013): tehnika <i>interleaved practice</i> (mešane naloge), ocena uporabnosti <b>zmerna</b>.", n: "Samostojno reševanje nalog", t: [1,2,3], e: "m", w: "Utrjevanje postopkov; učinkovitejše, če so naloge pomešane in razpršene v času.",
     k: ["Pokažem, kako pred reševanjem preberem navodilo in ocenim, kateri postopek potrebujem.", "Vaja z mešanimi nalogami (ne vse iste vrste zapored).", "Učenec sam izbere, katere naloge mora še vaditi."], ex: "1. VIO: vadim branje, pisanje, računanje." },
-  { c: "ST07", n: "Razlaga snovi drugi osebi", t: [1,2,3], e: "m", w: "Razumevanje, povezave, »zakaj« vprašanja.",
+  { c: "ST07", v: "Dunlosky in sod. (2013): tehnika <i>self-explanation</i> (samorazlaga), ocena <b>zmerna</b>; razlaga drugemu: Fiorella in Mayer (2016), <i>learning by teaching</i>.", n: "Razlaga snovi drugi osebi", t: [1,2,3], e: "m", w: "Razumevanje, povezave, »zakaj« vprašanja.",
     k: ["Pokažem razlago v treh stavkih in povem, kje sem se zataknil.", "V paru: vsak razloži pol snovi, drugi postavi eno vprašanje.", "Doma: razloži staršem ali bratu oziroma sestri."], ex: "Ko ne zna razložiti, ve, česa še ne razume." },
-  { c: "ST11", n: "Povezovanje s predznanjem in primeri", t: [2,3], e: "m", w: "Nova snov, ki gradi na prejšnji; uporaba v življenju.",
+  { c: "ST11", v: "Dunlosky in sod. (2013): tehnika <i>elaborative interrogation</i> (razlagalno spraševanje), ocena uporabnosti <b>zmerna</b>.", n: "Povezovanje s predznanjem in primeri", t: [2,3], e: "m", w: "Nova snov, ki gradi na prejšnji; uporaba v življenju.",
     k: ["Pokažem: »To me spominja na … ker …«.", "Učenci pri novi snovi zapišejo eno povezavo s prejšnjo snovjo in en primer iz življenja.", "Pri ponavljanju sami postavijo vprašanje »Zakaj je tako?«."], ex: "Raziskano kot razlagalno spraševanje (elaborative interrogation)." },
-  { c: "ST04", n: "Miselni vzorec", t: [2,3], e: "m", w: "Pregled večje enote, povezave med pojmi, ponavljanje pred preverjanjem.",
+  { c: "ST04", v: "Ni v Dunlosky in sod. (2013). Nesbit in Adesope (2006), metaanaliza učenja s pojmovnimi mapami: zmeren pozitiven učinek.", n: "Miselni vzorec", t: [2,3], e: "m", w: "Pregled večje enote, povezave med pojmi, ponavljanje pred preverjanjem.",
     k: ["Pokažem, kako iz osrednjega pojma rišem veje in na vsako napišem le ključno besedo.", "Skupaj dopolnimo vzorec za odstavek iz učbenika.", "Učenec nariše vzorec iz spomina in ga nato primerja z učbenikom."], ex: "Najbolj učinkovit, ko ga učenec nariše sam in iz spomina." },
-  { c: "ST05", n: "Skica, slika ali tabela", t: [1,2,3], e: "m", w: "Procesi, zaporedja, primerjave, prostorski odnosi.",
+  { c: "ST05", v: "Fiorella in Mayer (2016), <i>learning by drawing</i>: pozitiven učinek, ko učenec riše sam. Dunlosky in sod. (2013) tehniko <i>imagery for text</i> (le predstavljanje slik) ocenjuje z <b>nizko</b> uporabnostjo.", n: "Skica, slika ali tabela", t: [1,2,3], e: "m", w: "Procesi, zaporedja, primerjave, prostorski odnosi.",
     k: ["Pokažem, kako besedilo spremenim v skico ali tabelo.", "Učenci narišejo skico drugega primera; v paru primerjajo.", "Pred preverjanjem narišejo skico iz spomina."], ex: "1. VIO: narišem, kar se učim." },
-  { c: "ST03", n: "Povzetek s svojimi besedami", t: [2,3], e: "w", w: "Razumevanje daljšega besedila; deluje le, če je res s svojimi besedami.",
+  { c: "ST03", v: "Dunlosky in sod. (2013): tehnika <i>summarization</i> (povzemanje), ocena uporabnosti <b>nizka</b>.", n: "Povzetek s svojimi besedami", t: [2,3], e: "w", w: "Razumevanje daljšega besedila; deluje le, če je res s svojimi besedami.",
     k: ["Pokažem razliko med prepisom in povzetkom na istem odstavku.", "Učenci povzamejo odstavek v dveh povedih, brez gledanja v besedilo.", "Povzetek nato uporabijo za samopreverjanje."], ex: "Brez vaje učenci prepisujejo, zato najprej vodena vaja." },
-  { c: "ST02", n: "Podčrtovanje ključnih besed", t: [2,3], e: "w", w: "Prvi korak pri delu z besedilom, iskanje bistva.",
+  { c: "ST02", v: "Dunlosky in sod. (2013): tehnika <i>highlighting and underlining</i>, ocena uporabnosti <b>nizka</b>.", n: "Podčrtovanje ključnih besed", t: [2,3], e: "w", w: "Prvi korak pri delu z besedilom, iskanje bistva.",
     k: ["Pokažem: najprej preberem vse, šele nato podčrtam največ eno besedo ali besedno zvezo na poved.", "Učenci podčrtajo isti odstavek, primerjajo in utemeljijo izbiro.", "Podčrtano uporabijo za kartice ali povzetek."], ex: "Samo podčrtovanje malo pomaga; vedno nadaljuj s samopreverjanjem." },
-  { c: "ST22", n: "Zapisovanje ključnih besed", t: [2,3], e: "w", w: "Zapiski, priprava na ustno spraševanje.",
+  { c: "ST22", v: "Ni ločeno ocenjena. Najbližji sta tehniki <i>summarization</i> in <i>highlighting</i> v Dunlosky in sod. (2013), obe z <b>nizko</b> oceno.", n: "Zapisovanje ključnih besed", t: [2,3], e: "w", w: "Zapiski, priprava na ustno spraševanje.",
     k: ["Pokažem, kako iz odstavka izberem 3–5 ključnih besed.", "Učenci iz ključnih besed ustno povedo vsebino.", "Ključne besede zakrijejo in poskusijo snov povedati brez njih."], ex: "Uporabno kot opora za razlago (ST07)." },
-  { c: "ST21", n: "Ponavljanje na glas", t: [1,2], e: "w", w: "Pesmice, besedila, poštevanka v 1. VIO; kot opora pri samopreverjanju.",
+  { c: "ST21", v: "Dunlosky in sod. (2013): tehnika <i>rereading</i> (ponovno branje), ocena uporabnosti <b>nizka</b>. Priklic na glas brez gledanja je samopreverjanje (ST06).", n: "Ponavljanje na glas", t: [1,2], e: "w", w: "Pesmice, besedila, poštevanka v 1. VIO; kot opora pri samopreverjanju.",
     k: ["Pokažem razliko: berem na glas ali povem na glas brez gledanja.", "Učenci povedo na glas v paru, brez gledanja v zvezek.", "Ko znajo, povedo naslednji dan znova."], ex: "Večji učinek, ko učenec pove iz spomina, ne bere." },
-  { c: "ST18", n: "Pomnilni triki (rime, kratice, zgodbe)", t: [3], e: "w", w: "Seznami in zaporedja, ki jih je treba znati na pamet.",
+  { c: "ST18", v: "Dunlosky in sod. (2013): tehnika <i>keyword mnemonic</i> (pomnilni triki), ocena uporabnosti <b>nizka</b>.", n: "Pomnilni triki (rime, kratice, zgodbe)", t: [3], e: "w", w: "Seznami in zaporedja, ki jih je treba znati na pamet.",
     k: ["Pokažem znan trik in kako sem ga sestavil.", "Učenci sestavijo svoj trik za seznam iz snovi.", "Trik preverijo čez nekaj dni."], ex: "Koristno za posamezna dejstva, ne nadomesti razumevanja." },
-  { c: "ST14", n: "Prošnja za pomoč", t: [1,2,3], e: "n", w: "Ko učenec ne razume in sam ne najde poti naprej.",
+  { c: "ST14", v: "Ni v Dunlosky in sod. (2013). Iskanje pomoči je ena od strategij samouravnavanja (Zimmerman, 2002); njena učinkovitost tu ni posebej ocenjena.", n: "Prošnja za pomoč", t: [1,2,3], e: "n", w: "Ko učenec ne razume in sam ne najde poti naprej.",
     k: ["Pokažem, kako postavim dobro vprašanje: kaj že znam, kje se zatakne.", "Učenci vadijo vprašanje »Razumem do …, ne razumem …«.", "V razredu je jasno, koga in kdaj lahko vpraša (sošolec, učitelj, starši)."], ex: "Povezano z M3 in R4 v vprašalniku." },
-  { c: "ST13", n: "Postavim si cilj", t: [2,3], e: "n", w: "Začetek ure, tedna ali priprave na preverjanje.",
+  { c: "ST13", v: "Ni v Dunlosky in sod. (2013). Postavljanje ciljev je del faze načrtovanja (Zimmerman, 2002; EEF, 2021).", n: "Postavim si cilj", t: [2,3], e: "n", w: "Začetek ure, tedna ali priprave na preverjanje.",
     k: ["Pokažem cilj, ki je konkreten: »Znal bom razložiti …«, ne »Bom priden«.", "Učenci na začetku ure zapišejo cilj, na koncu ocenijo, ali so ga dosegli.", "Pri pripravi na preverjanje si postavijo cilj za vsak dan."], ex: "Podpira fazo načrtovanja (N2)." }
 ];
 const EV = { s: "močno podprta", m: "zmerno podprta", w: "šibko podprta", n: "ni neposredno raziskana" };
@@ -398,6 +400,7 @@ box.innerHTML = S.map(s => `
     <p><b>Kdaj pomaga:</b> ${esc(s.w)}</p>
     <ol>${s.k.map(x => `<li>${esc(x)}</li>`).join("")}</ol>
     <p class="small">${esc(s.ex)}</p>
+    <p class="src"><b>Vir oznake:</b> ${s.v}</p>
   </article>`).join("");
 const btns = [...document.querySelectorAll(".filters button")];
 function setF(f) {
