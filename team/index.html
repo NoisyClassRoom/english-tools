@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
-<title>Razvojna skupina</title>
+<title>Kako se učim</title>
 <style>
   :root {
     --bg: #141418; --card: #1f1f26; --ink: #f2efe9; --muted: #a39f95; --line: #34343e; --field: #14141a;
@@ -47,7 +47,7 @@
 <script src="../exercises/tracking.js"></script>
 <div class="wrap">
   <div class="top">
-    <h1>🌱 Razvojna skupina</h1><span class="sp"></span>
+    <h1>🌱 Kako se učim</h1><span class="sp"></span>
     <span class="muted" id="who"></span>
     <button class="btn" id="theme">Svetlo / temno</button>
   </div>
@@ -134,7 +134,7 @@
     let j = null; try { j = await api('rshome'); } catch (e) {}
     if (!j || !j.ok) {
       loaded = false;
-      $('#loginMsg').textContent = j && j.error === 'access' ? 'Ta račun nima dostopa do strani razvojne skupine. Če ste učitelj in bi jo radi videli, se obrnite na razvojno skupino.'
+      $('#loginMsg').textContent = j && j.error === 'access' ? 'Ta račun nima dostopa do strani Kako se učim. Če ste učitelj in bi jo radi videli, se obrnite na razvojno skupino.'
         : j && j.error === 'token' ? 'Prijava je potekla. Prijavite se znova.' : 'Strani trenutno ni mogoče naložiti. Poskusite znova čez nekaj minut.';
       if (!j || j.error === 'token') Track.button($('#slot'));
       return;

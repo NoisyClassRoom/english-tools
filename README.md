@@ -59,7 +59,7 @@ Slovenian translations and word lists were written from the year plans' topics a
   Bookmark: https://noisy.splet.arnes.si/wp-login.php?redirect_to=https%3A%2F%2Fnoisy.splet.arnes.si%2Fhome%2F
 - Header menu: only Students for visitors. Home / Classroom Tools / Teacher Links are plain custom links with the CSS class
   `teacher-only`, hidden by Additional CSS unless the visitor is logged in (private pages are hidden from block menus otherwise).
-- **Razvojna skupina** (6 Nov 2026): a public page /razvojna-skupina/ (template like the Results page, full width) with an iframe of `https://noisyclassroom.github.io/english-tools/team/` (`allow="identity-credentials-get"`, height 1400 px; page id 107, centred at max. 1100 px by the Additional CSS rule `/* razvojna-skupina */`), and a header menu link **Razvojna skupina** for everybody (no `teacher-only` class: the other teachers have no WordPress accounts). The page itself shows nothing without a sign-in on the access list.
+- **Kako se učim** (6 Nov 2026; named "Razvojna skupina" until the same day, renamed because the team works only for a limited time, the address stayed): a public page /razvojna-skupina/ (template like the Results page, full width) with an iframe of `https://noisyclassroom.github.io/english-tools/team/` (`allow="identity-credentials-get"`, height 1400 px; page id 107, centred at max. 1100 px by the Additional CSS rule `/* razvojna-skupina */`), and a header menu link **Razvojna skupina** for everybody (no `teacher-only` class: the other teachers have no WordPress accounts). The page itself shows nothing without a sign-in on the access list.
 - Adding a link for yourself: log in, open Teacher Links, press "Uredi" under the table.
 
 ## Student progress tracking (live)
