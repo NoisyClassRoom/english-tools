@@ -4,62 +4,113 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
-<title>Rezultati vprašalnika – primer</title>
+<title>Kako se učimo – primer rezultatov</title>
 <style>
-/* Questionnaire results: until the real data exists (after 21 Nov 2026) this page shows the views the team liked
-   (RAZVOJNA-SKUPINA-PLAN.md, "Views the team liked") with INVENTED numbers, generated in the browser and labelled
-   "PRIMER" everywhere. No pupil data. Behind the sign-in like the rest of team/. Ordinal colours: one blue ramp,
-   validated with the dataviz validator for both surfaces (light #fff, dark #1f1f26). */
+/* Questionnaire results, built after docs/razvojna-skupina/ANALIZA-PRIMER.md (the sample the team saw on 6 Nov 2026).
+   Until the real answers exist (after 21 Nov 2026) every number is INVENTED: 212 pupils, both rounds and grades,
+   generated in the browser with a fixed seed and labelled "PRIMER". Scales as in the merged questionnaire
+   (decision of the teacher, 6 Nov 2026): 2nd/3rd VIO 4 steps Nikoli | Redko | Pogosto | Vedno, top answers = 3–4;
+   1st VIO 3 steps Še ne | Včasih | Pogosto, top answer = 3. Colours checked with the dataviz validator for both
+   surfaces: rounds = blue (končno) / orange (začetno); ordinal and heat map = one blue ramp; change = blue / red. */
 body {
   --bg: #141418; --card: #1f1f26; --ink: #f2efe9; --muted: #a39f95; --line: #34343e; --field: #14141a; --accent: #ff8a1f; --warn: #f0b429;
-  --o1: #184f95; --o2: #2a78d6; --o3: #5598e7; --o4: #9ec5f4; --o-ink-dark: #0b0b0b;
+  --spring: #3987e5; --autumn: #d95926; --up: #0ca30c; --down: #d03b3b; --neg: #e66767;
+  --o1: #184f95; --o3: #5598e7; --o4: #9ec5f4;
+  --h0: #26262e; --h1: #104281; --h2: #1c5cab; --h3: #2a78d6; --h4: #5598e7; --h5: #9ec5f4;
 }
 body.light {
   --bg: #f6f4ef; --card: #ffffff; --ink: #1f2a37; --muted: #6b7280; --line: #e5e1d8; --field: #ffffff; --accent: #e8710a; --warn: #b7791f;
-  --o1: #86b6ef; --o2: #5598e7; --o3: #2a78d6; --o4: #184f95;
+  --spring: #2a78d6; --autumn: #eb6834; --up: #0a8a0a; --down: #d03b3b; --neg: #e34948;
+  --o1: #86b6ef; --o3: #2a78d6; --o4: #184f95;
+  --h0: #f3f2ee; --h1: #cde2fb; --h2: #9ec5f4; --h3: #6da7ec; --h4: #3987e5; --h5: #1c5cab;
 }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; padding: 0 16px 64px; }
-.wrap { max-width: 1000px; margin: 0 auto; }
-h1 { font-size: 1.5rem; margin: 18px 0 4px; }
-h2 { font-size: 1.05rem; color: var(--accent); margin: 0 0 4px; }
+.wrap { max-width: 1040px; margin: 0 auto; }
+h1 { font-size: 1.55rem; margin: 18px 0 4px; }
+h2 { font-size: 1.08rem; margin: 0 0 2px; }
+h3 { font-size: .95rem; margin: 10px 0 4px; color: var(--muted); }
 p { margin: 0; }
 .muted { color: var(--muted); } .small { font-size: .85rem; }
+.note { font-size: .85rem; color: var(--muted); margin-bottom: 10px; }
 .shellbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 14px 0 0; }
 .shellbar .sp { flex: 1; }
 .btn { background: var(--field); color: var(--ink); border: 1px solid var(--line); border-radius: 10px; padding: 6px 12px; font: inherit; cursor: pointer; text-decoration: none; display: inline-block; }
 .btn:hover { border-color: var(--accent); }
-.box { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px; margin-top: 14px; }
+.box { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px; margin-top: 14px; position: relative; }
+.stamp { position: absolute; right: 12px; top: 10px; font-size: .7rem; font-weight: 800; letter-spacing: .08em; color: var(--warn); border: 1.5px solid var(--warn); border-radius: 6px; padding: 0 6px; }
 #login { text-align: center; padding: 40px 14px; }
 #app { display: none; }
-.banner { border: 2px dashed var(--warn); color: var(--ink); }
+.banner { border: 2px dashed var(--warn); }
 .banner b { color: var(--warn); }
-.filters { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 14px; }
-.chip { font: inherit; font-size: .9rem; font-weight: 700; padding: 5px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--card); color: var(--ink); cursor: pointer; }
+.lead { font-size: 1.05rem; margin: 10px 0 0; }
+.filters { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 12px; }
+.chip { font: inherit; font-size: .88rem; font-weight: 700; padding: 5px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--card); color: var(--ink); cursor: pointer; }
 .chip[aria-pressed="true"] { background: var(--accent); color: #111; border-color: var(--accent); }
-.legend { display: flex; gap: 6px 14px; flex-wrap: wrap; font-size: .85rem; color: var(--muted); margin: 6px 0 10px; }
+label.tg { font-size: .88rem; display: inline-flex; gap: 6px; align-items: center; margin-left: auto; }
+.legend { display: flex; gap: 6px 16px; flex-wrap: wrap; font-size: .85rem; color: var(--muted); margin: 2px 0 10px; }
 .legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -1px; margin-right: 5px; }
-.rows { display: grid; gap: 8px; }
-.row { display: grid; grid-template-columns: 230px 1fr 52px; gap: 10px; align-items: center; }
-.row .lab { font-size: .9rem; }
-.row .val { text-align: right; font-variant-numeric: tabular-nums; font-size: .9rem; }
-.track { height: 22px; position: relative; }
-.bar { height: 22px; background: var(--o3); border-radius: 0 4px 4px 0; min-width: 2px; }
-.stack { display: flex; gap: 2px; height: 22px; }
-.stack span { display: flex; align-items: center; justify-content: center; font-size: .75rem; font-weight: 700; overflow: hidden; white-space: nowrap; }
+.legend i.dot { border-radius: 50%; }
+/* KPI tiles */
+.kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-top: 14px; }
+.kpi { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px; }
+.kpi .t { font-size: .85rem; color: var(--muted); min-height: 2.6em; }
+.kpi .v { font-size: 2rem; font-weight: 800; line-height: 1.1; margin: 4px 0; font-variant-numeric: tabular-nums; }
+.kpi .d { font-size: .85rem; color: var(--muted); }
+.up { color: var(--up); font-weight: 700; } .down { color: var(--down); font-weight: 700; }
+@media (max-width: 760px) { .kpis { grid-template-columns: 1fr 1fr; } }
+/* dumbbell */
+.db { display: grid; gap: 4px; }
+.dbr { display: grid; grid-template-columns: 230px 1fr 92px; gap: 10px; align-items: center; font-size: .88rem; }
+.dbr .lab .c { color: var(--muted); font-family: ui-monospace, Consolas, monospace; font-size: .8rem; margin-right: 6px; }
+.dbr .val { text-align: right; font-variant-numeric: tabular-nums; }
+.dtrack { position: relative; height: 22px; }
+.dtrack .grid { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--line); }
+.dtrack .ln { position: absolute; top: 10px; height: 2px; background: var(--muted); }
+.dtrack .pt { position: absolute; top: 5px; width: 12px; height: 12px; margin-left: -6px; border-radius: 50%; border: 2px solid var(--card); }
+.pt.a { background: var(--autumn); } .pt.s { background: var(--spring); }
+.axis { display: grid; grid-template-columns: 230px 1fr 92px; gap: 10px; font-size: .75rem; color: var(--muted); }
+.axis .ticks { position: relative; height: 16px; }
+.axis .ticks span { position: absolute; transform: translateX(-50%); }
+@media (max-width: 700px) { .dbr, .axis { grid-template-columns: 130px 1fr 70px; } }
+/* stacked strategy bars */
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 860px) { .two { grid-template-columns: 1fr; } }
+.srow { display: grid; grid-template-columns: 190px 1fr; gap: 8px; align-items: center; font-size: .85rem; margin-bottom: 4px; }
+.stack { display: flex; gap: 2px; height: 20px; }
+.stack span { display: flex; align-items: center; justify-content: center; font-size: .72rem; font-weight: 700; overflow: hidden; white-space: nowrap; }
 .stack span:first-child { border-radius: 4px 0 0 4px; } .stack span:last-child { border-radius: 0 4px 4px 0; }
-.s1 { background: var(--o1); color: #fff; } .s2 { background: var(--o2); color: #fff; } .s3 { background: var(--o3); color: #fff; } .s4 { background: var(--o4); color: var(--o-ink-dark); }
-body.light .s1 { color: var(--o-ink-dark); } body.light .s2 { color: var(--o-ink-dark); }
-.grid2 { display: grid; grid-template-columns: 1fr; gap: 0; }
-@media (max-width: 760px) { .grid2 { grid-template-columns: 1fr; } .row { grid-template-columns: 96px 1fr 44px; } }
-table { border-collapse: collapse; width: 100%; font-size: .9rem; }
-th, td { padding: 6px 8px; border-bottom: 1px solid var(--line); text-align: right; font-variant-numeric: tabular-nums; }
-th:first-child, td:first-child { text-align: left; }
+.k1 { background: var(--o1); color: #fff; } .k3 { background: var(--o3); color: #fff; } .k4 { background: var(--o4); color: #0b0b0b; }
+body.light .k1 { color: #0b0b0b; } body.light .k4 { color: #fff; }
+/* heat map */
+table { border-collapse: separate; border-spacing: 2px; width: 100%; font-size: .88rem; }
+th, td { padding: 7px 8px; text-align: center; font-variant-numeric: tabular-nums; border-radius: 4px; }
 th { color: var(--muted); font-weight: 600; }
+th:first-child, td:first-child { text-align: left; }
 .tablewrap { overflow-x: auto; }
-#tip { position: fixed; pointer-events: none; background: var(--card); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; font-size: .85rem; box-shadow: 0 4px 14px rgba(0,0,0,.3); display: none; z-index: 9; max-width: 260px; }
-.stamp { position: absolute; right: 10px; top: 8px; font-size: .7rem; font-weight: 800; letter-spacing: .08em; color: var(--warn); border: 1.5px solid var(--warn); border-radius: 6px; padding: 0 6px; }
-.box { position: relative; }
+td.hc { color: var(--ink); } td.hc.w { color: #fff; } td.hc.b { color: #0b0b0b; }
+td.na { color: var(--muted); background: var(--h0); }
+/* grouped bars (grades) */
+.gb { display: grid; gap: 10px; }
+.gbr { display: grid; grid-template-columns: 230px 1fr; gap: 10px; align-items: center; font-size: .88rem; }
+.pair { display: grid; gap: 2px; }
+.hb { display: flex; align-items: center; gap: 6px; height: 18px; font-size: .78rem; font-variant-numeric: tabular-nums; }
+.hb i { display: block; height: 18px; border-radius: 0 4px 4px 0; }
+.hb i.da, .legend i.da { background: var(--spring); } .hb i.ne, .legend i.ne { background: var(--autumn); }
+.chg { display: grid; grid-template-columns: 230px 1fr 1fr 120px; gap: 0; align-items: center; font-size: .88rem; margin-bottom: 6px; }
+.chg .neg { display: flex; justify-content: flex-end; border-right: 1px solid var(--muted); height: 20px; }
+.chg .pos { display: flex; height: 20px; }
+.chg i { display: block; height: 20px; }
+.chg .neg i { background: var(--neg); border-radius: 4px 0 0 4px; } .chg .pos i { background: var(--spring); border-radius: 0 4px 4px 0; }
+.chg .val { text-align: right; font-variant-numeric: tabular-nums; }
+@media (max-width: 700px) { .gbr { grid-template-columns: 120px 1fr; } .chg { grid-template-columns: 110px 1fr 1fr 96px; } }
+/* pupil */
+select { font: inherit; color: var(--ink); background: var(--field); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; max-width: 100%; }
+.pt-table td, .pt-table th { text-align: right; } .pt-table td:first-child, .pt-table th:first-child { text-align: left; }
+.pt-table tr td { border-bottom: 1px solid var(--line); border-radius: 0; }
+.method ul { margin: 6px 0 0; padding-left: 20px; display: grid; gap: 4px; }
+#tip { position: fixed; pointer-events: none; background: var(--card); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; font-size: .85rem; box-shadow: 0 4px 14px rgba(0,0,0,.3); display: none; z-index: 9; max-width: 280px; }
+.hide { display: none !important; }
 </style>
 </head>
 <body>
@@ -69,47 +120,82 @@ th { color: var(--muted); font-weight: 600; }
     <a class="btn" href="../">← Samouravnavanje učenja</a><span class="sp"></span>
     <button class="btn" id="theme">Svetlo / temno</button>
   </div>
-  <h1>📊 Rezultati vprašalnika »Kako se učim?«</h1>
+  <h1>📊 Kako se učimo – primer rezultatov</h1>
   <div id="login" class="box">
     <p id="loginMsg" class="muted">Stran je namenjena razvojni skupini. Prijavite se s šolskim Google računom.</p>
     <div id="slot" style="display:inline-block"></div>
   </div>
+
   <div id="app">
-    <div class="box banner"><b>PRIMER:</b> vse številke na tej strani so <b>izmišljene</b> in se ustvarijo v brskalniku. Stran kaže, kako bodo videti pogledi, ko bodo po 21. 11. 2026 na voljo pravi odgovori. Ne uporabljajte jih za sklepe.</div>
-    <div class="filters" id="vioF" role="group" aria-label="VIO"></div>
+    <div class="box banner"><b>PRIMER:</b> vse številke so <b>izmišljene</b> (212 učencev, jesen in pomlad, ocene po sklopih) in se ustvarijo v brskalniku. Tako bo stran videti s pravimi odgovori; pravi začetni podatki bodo po 21. 11. 2026. Lestvice so iz združenega vprašalnika: 2. in 3. VIO <i>nikoli · redko · pogosto · vedno</i>, 1. VIO <i>še ne · včasih · pogosto</i>.</div>
+    <p class="lead" id="lead"></p>
+    <div class="filters" id="triF" role="group" aria-label="Triada">
+      <label class="tg"><input type="checkbox" id="onlyA"> samo začetno merjenje (kot po 21. 11. 2026)</label>
+    </div>
 
+    <!-- 1. KPI -->
+    <div class="kpis" id="kpis"></div>
+    <p class="note" id="kpiNote" style="margin-top:6px"></p>
+
+    <!-- 2. dumbbell -->
     <div class="box"><span class="stamp">PRIMER</span>
-      <h2>Kazalniki po področjih</h2>
-      <p class="muted small">Delež učencev z odgovorom v zgornjih dveh stopnjah (»pogosto« ali »vedno«; v 1. VIO »da«). Lestvice med VIO so različne, zato primerjajte znotraj istega VIO.</p>
-      <div class="rows" id="areas" style="margin-top:10px"></div>
+      <h2>Začetno in končno merjenje po trditvah</h2>
+      <p class="note" id="dbNote"></p>
+      <div class="legend" id="dbLeg"></div>
+      <div class="db" id="db"></div>
     </div>
 
+    <!-- 3. strategies -->
+    <div class="box" id="stBox"><span class="stamp">PRIMER</span>
+      <h2>Katere strategije učenci poznajo in uporabljajo</h2>
+      <p class="note" id="stNote"></p>
+      <div class="legend"><span><i class="k4"></i>poznam in uporabljam</span><span><i class="k3"></i>poznam, ne uporabljam</span><span><i class="k1"></i>ne poznam</span></div>
+      <div class="two"><div><h3 id="stA">Začetno</h3><div id="stLeft"></div></div><div id="stRightW"><h3 id="stB">Končno</h3><div id="stRight"></div></div></div>
+    </div>
+
+    <!-- 4. classes -->
     <div class="box"><span class="stamp">PRIMER</span>
-      <h2>Trditve po razredih</h2>
-      <div class="filters" id="areaF" role="group" aria-label="Področje" style="margin-top:6px"></div>
-      <div class="legend" id="lg4"></div>
-      <div id="stmts"></div>
+      <h2>Primerjava razredov</h2>
+      <p class="note" id="clNote"></p>
+      <div class="tablewrap"><table id="cl"></table></div>
     </div>
 
-    <div class="grid2">
-      <div class="box"><span class="stamp">PRIMER</span>
-        <h2>Poznavanje strategij</h2>
-        <div class="legend" id="lg3"></div>
-        <div class="rows" id="strat"></div>
-      </div>
-      <div class="box"><span class="stamp">PRIMER</span>
-        <h2>»Najbolj mi pomaga«</h2>
-        <p class="muted small">Delež učencev, ki so strategijo izbrali kot najbolj koristno.</p>
-        <div class="rows" id="helps" style="margin-top:10px"></div>
-      </div>
+    <!-- 5. grades -->
+    <div class="box" id="grBox"><span class="stamp">PRIMER</span>
+      <h2>Učne navade in ocene</h2>
+      <p class="note">2. in 3. VIO. <b>Povezava, ne vzrok:</b> učenci z navado imajo lahko boljše ocene tudi iz drugih razlogov.</p>
+      <div class="filters" id="sgF" role="group" aria-label="Predmetni sklop" style="margin-top:0"></div>
+      <h3>Povprečna ocena ob koncu leta: z navado in brez nje</h3>
+      <p class="note" id="g5aNote"></p>
+      <div class="legend"><span><i class="da"></i>ima navado (da)</span><span><i class="ne"></i>nima navade (ne)</span></div>
+      <div class="gb" id="g5a"></div>
+      <div id="g5bW"><h3 style="margin-top:16px">Sprememba ocene glede na spremembo navad</h3>
+      <p class="note" id="g5bNote"></p>
+      <div id="g5b"></div></div>
+      <p class="note hide" id="grNone">Ocene so samo za 2. in 3. VIO (v 1. VIO so ocene večinoma opisne).</p>
     </div>
 
-    <div class="box"><span class="stamp">PRIMER</span>
-      <h2>Razredi drug ob drugem</h2>
-      <p class="muted small">Delež zgornjih dveh odgovorov po področjih. Ko bosta oba kroga, bo tu tudi primerjava jesen – pomlad.</p>
-      <div class="tablewrap"><table id="classes"></table></div>
+    <!-- 6. one pupil -->
+    <div class="box" id="puBox"><span class="stamp">PRIMER</span>
+      <h2>Napredek posameznega učenca</h2>
+      <p class="note">Vidita ga samo razvojna skupina in razrednik tega učenca. V primeru so učenci izmišljeni in označeni s številkami.</p>
+      <select id="pupil" aria-label="Učenec"></select>
+      <div class="tablewrap" style="margin-top:10px"><table class="pt-table" id="puT"></table></div>
+      <p class="note" id="puScale" style="margin-top:6px"></p>
+      <div id="puGW"><h3>Ocene istega učenca</h3><div class="tablewrap"><table class="pt-table" id="puG"></table></div></div>
     </div>
-    <p class="muted small" style="margin-top:14px">Pogled posameznega učenca in povezava z ocenami bosta samo za razvojno skupino in razrednika, ko bodo pravi podatki in soglasje pooblaščenca za varstvo podatkov.</p>
+
+    <!-- 7. method -->
+    <div class="box method">
+      <h2>Kako bomo delali analize</h2>
+      <ul>
+        <li>Odgovori se shranijo s kodami (N1, R1, S5.ST06 …), zato ničesar ne pretipkavamo.</li>
+        <li>Deleže računamo po triadah in razredih; lestvic 1. VIO in 2./3. VIO ne povprečimo skupaj, primerjamo deleže zgornjih odgovorov.</li>
+        <li>Isti vprašalnik ponovimo spomladi; spremembe so v odstotnih točkah (o. t.).</li>
+        <li>Odgovore povežemo z ocenami po predmetnih sklopih (2. in 3. VIO).</li>
+        <li>Razred z manj kot 5 odgovori ni prikazan. Rezultate najprej vidi razvojna skupina, nato svoj pogled dobijo razredniki, učitelji in ravnatelj.</li>
+      </ul>
+    </div>
   </div>
 </div>
 <div id="tip" role="tooltip"></div>
@@ -118,60 +204,188 @@ th { color: var(--muted); font-weight: 600; }
   'use strict';
   const $ = s => document.querySelector(s);
   const el = (t, c, x) => { const e = document.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e; };
-  const AREAS = [['N', 'Načrtovanje', 5], ['D', 'Doslednost', 3], ['M', 'Spremljanje', 3], ['R', 'Refleksija', 3], ['S', 'Strategije', 1]];
-  const SCALE = { 1: ['ne', 'včasih', 'da'], 2: ['nikoli', 'redko', 'pogosto', 'vedno'], 3: ['nikoli', 'redko', 'pogosto', 'vedno'] };
-  const CLASSES = { 1: ['1.A', '2.A', '3.A'], 2: ['4.A', '5.A', '6.A'], 3: ['7.A', '8.A', '9.A'] };
-  const KNOW = ['ne poznam', 'poznam, ne uporabljam', 'poznam in uporabljam'];
-  let vio = 2, area = 'N', strat = [], loaded = false;
-  try { vio = Number(localStorage.getItem('rez.vio')) || 2; } catch (e) {}
 
-  // invented numbers: a seeded generator, so the example is the same every time
-  const rnd = seed => { let h = 2166136261; for (const ch of seed) h = Math.imul(h ^ ch.charCodeAt(0), 16777619); return () => { h = Math.imul(h ^ (h >>> 15), 2246822507); h = Math.imul(h ^ (h >>> 13), 3266489909); h ^= h >>> 16; return (h >>> 0) / 4294967296; }; };
-  const dist = (seed, n) => { const r = rnd(seed), w = []; const lean = r(); for (let i = 0; i < n; i++) w.push(0.4 + r() + (i / (n - 1)) * lean * 1.6); const s = w.reduce((a, b) => a + b, 0); return w.map(x => x / s); };
-  const top = d => d.length === 3 ? d[2] : d[2] + d[3];
-  const pct = x => Math.round(x * 100) + ' %';
+  // ---- the merged questionnaire (codes, triads, short labels from ANALIZA-PRIMER.md) ----
+  const ST = [['N1', 'Ve, kaj mora znati', [1, 2, 3]], ['N2', 'Postavi si cilj', [2, 3]], ['N3', 'Načrtuje čas učenja', [2, 3]], ['N5', 'Stalen čas in prostor', [1, 2, 3]],
+    ['N6', 'Pripravi potrebne stvari', [1]], ['N9', 'Omeji motnje', [2, 3]], ['D1', 'Domače naloge redno', [1, 2, 3]], ['D2', 'Uči se sproti', [2, 3]],
+    ['D3', 'Izpelje, kar si zada', [2, 3]], ['D5', 'Vztraja pri zahtevnem', [3]], ['S0', 'Pozna različne načine učenja', [1, 2, 3]], ['S3', 'Strategijo izbere po predmetu', [3]],
+    ['M5', 'Izlušči bistvo besedila', [2]], ['M1', 'Preverja, ali razume', [1, 2, 3]], ['M3', 'Pravočasno prosi za pomoč', [1, 2, 3]], ['R3', 'Oceni, kaj mora ponoviti', [2, 3]],
+    ['R1', 'Pregleda napake', [1, 2, 3]], ['R2', 'Spremeni način učenja', [1, 2, 3]], ['R5', 'Ve, zakaj mu je šlo dobro ali slabo', [3]], ['P1', 'Starši pomagajo pri šolskem delu', [1, 2, 3]]];
+  const STRAT = [['ST02', 'Podčrtovanje ključnih besed'], ['ST22', 'Zapisovanje ključnih besed'], ['ST04', 'Miselni vzorec'], ['ST03', 'Povzetek s svojimi besedami'],
+    ['ST05', 'Skica, slika, tabela'], ['ST24', 'Kartice z vprašanji'], ['ST06', 'Samopreverjanje brez zapiskov'], ['ST21', 'Ponavljanje na glas'], ['ST07', 'Razlaga drugi osebi'],
+    ['ST09', 'Samostojno reševanje nalog'], ['ST10', 'Ponovno reševanje napak'], ['ST08', 'Učenje v krajših obdobjih'], ['ST11', 'Povezovanje s predznanjem'], ['ST18', 'Pomnilni triki']];
+  const SCALE = { 1: ['še ne', 'včasih', 'pogosto'], 2: ['nikoli', 'redko', 'pogosto', 'vedno'], 3: ['nikoli', 'redko', 'pogosto', 'vedno'] };
+  const TOP = v => v === 1 ? 3 : 3;                       // top answers: 1st VIO value 3; 2nd/3rd VIO values 3–4 (pogosto, vedno)
+  const SG = [['vsi', 'Vsi predmeti'], ['JEZ', 'Jezikovni sklop'], ['MAT', 'Matematika'], ['NAR', 'Naravoslovni sklop'], ['DRU', 'Družboslovni sklop'], ['TEH', 'Tehnični sklop'], ['UMS', 'Umetnostni in športni sklop']];
+  const CLASSES = [['1.A', 22], ['2.A', 24], ['3.A', 23], ['4.A', 25], ['5.A', 24], ['6.A', 23], ['7.A', 24], ['8.A', 22], ['9.A', 21], ['9.B', 4]];   // 212; 9.B shows the "fewer than 5" rule
 
+  // ---- invented data, fixed seed ----
+  let seed = 20261106;
+  const rnd = () => { seed = (seed + 0x6D2B79F5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  const nrm = () => Math.sqrt(-2 * Math.log(rnd() || 1e-9)) * Math.cos(2 * Math.PI * rnd());
+  const cut = (x, n) => n === 3 ? (x < -0.5 ? 1 : x < 0.6 ? 2 : 3) : (x < -0.9 ? 1 : x < 0 ? 2 : x < 0.9 ? 3 : 4);
+  const BASE = {}; ST.forEach(([c]) => { BASE[c] = nrm() * 0.4; }); BASE.N3 = -0.35; BASE.N9 = -0.2; BASE.P1 = 0.2;
+  const SBASE = {}; STRAT.forEach(([c], i) => { SBASE[c] = 0.6 - i * 0.09 + nrm() * 0.2; }); SBASE.ST02 = 0.9; SBASE.ST06 = -0.1; SBASE.ST24 = -0.3; SBASE.ST18 = -0.6;
+  const PUSH = { ST06: 0.25, ST24: 0.25, ST08: 0.2, ST10: 0.15 };          // strategies the team introduces: bigger spring change
+  const pupils = []; let id = 0;
+  CLASSES.forEach(([cls, n]) => {
+    const g = Number(cls[0]), vio = Math.ceil(g / 3), cb = nrm() * 0.25;
+    for (let i = 0; i < n; i++) {
+      const a = nrm(), imp = 0.22 + nrm() * 0.45, p = { id: ++id, name: 'Učenec ' + String(id).padStart(3, '0'), cls, vio, r: {}, gr: null };
+      ['zacetno', 'koncno'].forEach((k, ki) => {
+        if (rnd() < (ki ? 0.05 : 0.03)) return;                         // a few pupils missed a round
+        const ans = {}, L = SCALE[vio].length;
+        ST.forEach(([c, , t]) => { if (t.includes(vio)) ans[c] = cut(a * 0.7 + BASE[c] + cb + (c === 'P1' ? 0 : ki * imp) + nrm() * 0.6 - (vio === 3 ? 0.15 : 0), L); });
+        if (vio > 1) {
+          STRAT.forEach(([c]) => { const x = SBASE[c] + a * 0.3 + ki * (0.15 + (PUSH[c] || 0)) + (vio === 3 ? 0.2 : 0) + nrm() * 0.7; ans['S5_' + c] = x < -0.4 ? 1 : x < 0.5 ? 2 : 3; });
+          const pl = a * 0.6 + ki * imp + nrm() * 0.8; ans.N7 = pl > 1.2 ? 1 : pl > 0.4 ? 2 : pl > -0.4 ? 3 : pl > -1.2 ? 4 : 5;
+        }
+        p.r[k] = ans;
+      });
+      if (vio > 1) {
+        const p1 = {}, end = {}, h = p.r.zacetno && p.r.koncno ? ['N2', 'N3', 'M1', 'R1', 'R3', 'D2'].reduce((s, c) => s + (p.r.koncno[c] - p.r.zacetno[c]), 0) : 0;
+        SG.slice(1).forEach(([k]) => { const b = 3.4 + a * 0.55 + nrm() * 0.45 + (k === 'UMS' ? 0.6 : k === 'MAT' ? -0.2 : 0); p1[k] = Math.max(1, Math.min(5, b)); end[k] = Math.max(1, Math.min(5, b + h * 0.06 + nrm() * 0.18)); });
+        const avg = o => SG.slice(1).reduce((s, [k]) => s + o[k], 0) / 6; p1.vsi = avg(p1); end.vsi = avg(end);
+        p.gr = { p1, end };
+      }
+      pupils.push(p);
+    }
+  });
+
+  // ---- state and helpers ----
+  let tri = 'all', sg = 'vsi', onlyA = false, loaded = false;
+  try { tri = localStorage.getItem('rez.tri') || 'all'; sg = localStorage.getItem('rez.sg') || 'vsi'; } catch (e) {}
+  const pct = x => x == null || isNaN(x) ? '—' : Math.round(x * 100) + ' %';
+  const pp = (a, b) => { const d = Math.round(b * 100) - Math.round(a * 100); return (d > 0 ? '+' : d < 0 ? '−' : '±') + Math.abs(d) + ' o. t.'; };
+  const dcls = (a, b) => Math.round(b * 100) > Math.round(a * 100) ? 'up' : Math.round(b * 100) < Math.round(a * 100) ? 'down' : '';
+  const arrow = (a, b) => { const c = dcls(a, b); return c === 'up' ? '▲ ' : c === 'down' ? '▼ ' : ''; };
+  const inTri = p => tri === 'all' || p.vio === Number(tri);
+  const share = (list, k, test) => { const r = list.map(p => p.r[k]).filter(Boolean), ok = r.filter(test); return { v: ok.length / (r.length || 1), n: r.length, has: r.length }; };
+  const topOf = c => a => a[c] != null && a[c] >= TOP();
   const tip = $('#tip');
   const hover = (node, text) => {
-    node.addEventListener('mousemove', e => { tip.textContent = text; tip.style.display = 'block'; tip.style.left = Math.min(e.clientX + 12, innerWidth - 270) + 'px'; tip.style.top = (e.clientY + 14) + 'px'; });
+    node.addEventListener('mousemove', e => { tip.textContent = text; tip.style.display = 'block'; tip.style.left = Math.min(e.clientX + 12, innerWidth - 290) + 'px'; tip.style.top = (e.clientY + 14) + 'px'; });
     node.addEventListener('mouseleave', () => { tip.style.display = 'none'; });
   };
-  const legend = (box, labels) => { box.innerHTML = ''; labels.forEach((l, i) => { const s = el('span'); const k = el('i', 's' + (labels.length === 3 ? [1, 3, 4][i] : i + 1)); s.append(k, document.createTextNode(l)); box.append(s); }); };
-  const stack = (d, labels, what) => {
-    const st = el('div', 'stack'), cls = d.length === 3 ? [1, 3, 4] : [1, 2, 3, 4];
-    d.forEach((x, i) => { const s = el('span', 's' + cls[i], x >= 0.12 ? pct(x) : ''); s.style.width = (x * 100) + '%'; hover(s, what + ' · ' + labels[i] + ': ' + pct(x)); st.append(s); });
-    return st;
-  };
-  const row = (label, content, val) => { const r = el('div', 'row'); r.append(el('div', 'lab', label), content, el('div', 'val', val)); return r; };
-  const areaShare = (cls, a) => { const [k, , n] = a; let s = 0; for (let i = 1; i <= n; i++) s += top(dist(cls + k + (k === 'S' ? '0' : i), SCALE[vio].length)); return s / n; };
+  const HAB = [['N3', 'Načrtuje čas učenja', a => a.N3 >= 3], ['ST06', 'Uporablja samopreverjanje', a => a.S5_ST06 === 3], ['N7', 'Začne se učiti 2+ dni prej', a => a.N7 <= 3], ['R1', 'Pregleda napake', a => a.R1 >= 3]];
 
   const draw = () => {
-    try { localStorage.setItem('rez.vio', String(vio)); } catch (e) {}
-    $('#vioF').innerHTML = ''; [1, 2, 3].forEach(v => { const b = el('button', 'chip', v + '. VIO'); b.setAttribute('aria-pressed', String(v === vio)); b.onclick = () => { vio = v; draw(); }; $('#vioF').append(b); });
-    const cl = CLASSES[vio];
-    // 1. indicators by area (single series: the title names it, no legend)
-    const ab = $('#areas'); ab.innerHTML = '';
-    AREAS.forEach(a => { const v = cl.reduce((s, c) => s + areaShare(c, a), 0) / cl.length; const t = el('div', 'track'), b = el('div', 'bar'); b.style.width = (v * 100) + '%'; t.append(b); hover(t, a[1] + ', ' + vio + '. VIO: ' + pct(v) + ' (primer)'); ab.append(row(a[1] + ' (' + a[0] + ')', t, pct(v))); });
-    // 2. statements by class, stacked answers
-    $('#areaF').innerHTML = ''; AREAS.forEach(a => { const b = el('button', 'chip', a[1]); b.setAttribute('aria-pressed', String(a[0] === area)); b.onclick = () => { area = a[0]; draw(); }; $('#areaF').append(b); });
-    legend($('#lg4'), SCALE[vio]);
-    const A = AREAS.find(a => a[0] === area), sb = $('#stmts'); sb.innerHTML = '';
-    for (let i = 1; i <= A[2]; i++) {
-      const code = A[0] + (A[0] === 'S' ? '0' : i), g = el('div', 'rows'); g.style.marginBottom = '12px';
-      g.append(el('p', 'small', code + ' – trditev iz šifranta vprašalnika'));
-      cl.forEach(c => { const d = dist(c + code, SCALE[vio].length); g.append(row(c, stack(d, SCALE[vio], c + ' · ' + code), pct(top(d)))); });
-      sb.append(g);
+    try { localStorage.setItem('rez.tri', tri); localStorage.setItem('rez.sg', sg); } catch (e) {}
+    const P = pupils.filter(inTri), P23 = P.filter(p => p.vio > 1), late = !onlyA;
+    // filters
+    const tf = $('#triF'); tf.querySelectorAll('.chip').forEach(b => b.remove());
+    [['all', 'Vse triade'], ['1', '1. VIO (1.–3. razred)'], ['2', '2. VIO (4.–6. razred)'], ['3', '3. VIO (7.–9. razred)']].reverse().forEach(([k, l]) => { const b = el('button', 'chip', l); b.setAttribute('aria-pressed', String(k === tri)); b.onclick = () => { tri = k; draw(); }; tf.prepend(b); });
+
+    // 1. KPI tiles
+    const kb = $('#kpis'); kb.innerHTML = '';
+    const kpi = (title, a, s, fmt, na) => {
+      const t = el('div', 'kpi'); t.append(el('div', 't', title));
+      if (na) { t.append(el('div', 'v', '—'), el('div', 'd', 'v 1. VIO tega vprašanja ni')); kb.append(t); return; }
+      t.append(el('div', 'v', fmt(late ? s : a)));
+      const d = el('div', 'd');
+      if (late) { d.append(document.createTextNode('prej ' + fmt(a) + ' · ')); const c = el('span', dcls(a, s), arrow(a, s) + (fmt === String ? (s - a > 0 ? '+' : '') + (s - a) : pp(a, s))); d.append(c); }
+      else d.append(document.createTextNode('začetno merjenje'));
+      t.append(d); kb.append(t);
+    };
+    const cnt = k => P.filter(p => p.r[k]).length;
+    kpi('Sodelujoči učenci', cnt('zacetno'), cnt('koncno'), String);
+    const one = tri === '1';
+    const k2 = k => share(P23, k, a => a.N3 >= 3).v, k3 = k => share(P23, k, a => a.S5_ST06 === 3).v, k4 = k => share(P23, k, a => a.N7 <= 3).v;
+    kpi('Načrtujejo čas učenja (pogosto ali vedno)', k2('zacetno'), k2('koncno'), pct, one);
+    kpi('Uporabljajo samopreverjanje', k3('zacetno'), k3('koncno'), pct, one);
+    kpi('Za test se začnejo učiti vsaj 2 dni prej', k4('zacetno'), k4('koncno'), pct, one);
+    $('#kpiNote').textContent = (one ? 'Vprašanja o načrtovanju časa, strategijah in začetku učenja v 1. VIO niso zastavljena. ' : '') + 'Zadnje tri ploščice: 2. in 3. VIO (n = ' + P23.filter(p => p.r[late ? 'koncno' : 'zacetno']).length + ').';
+    // lead sentence: the two headline changes
+    const lead = $('#lead');
+    if (!late) lead.textContent = 'Začetno merjenje: ' + (one ? 'pregled napak (R1) navaja ' + pct(share(P, 'zacetno', topOf('R1')).v) + ' učencev.' : pct(k2('zacetno')) + ' učencev pogosto ali vedno načrtuje čas učenja, samopreverjanje uporablja ' + pct(k3('zacetno')) + '.');
+    else if (one) { const a = share(P, 'zacetno', topOf('R1')).v, b = share(P, 'koncno', topOf('R1')).v, c = share(P, 'zacetno', topOf('M1')).v, d = share(P, 'koncno', topOf('M1')).v; lead.textContent = 'Delež učencev, ki pogledajo, kje so se zmotili, se je spremenil z ' + pct(a) + ' na ' + pct(b) + ', delež tistih, ki preverijo, ali snov že znajo, pa z ' + pct(c) + ' na ' + pct(d) + '.'; }
+    else lead.textContent = 'Delež učencev, ki načrtujejo čas učenja, se je spremenil z ' + pct(k2('zacetno')) + ' na ' + pct(k2('koncno')) + ', samopreverjanje pa uporablja ' + pct(k3('koncno')) + ' učencev namesto ' + pct(k3('zacetno')) + '.';
+
+    // 2. dumbbell
+    $('#dbLeg').innerHTML = ''; [['a', 'začetno (jesen)'], ['s', 'končno (pomlad)']].forEach(([c, l]) => { if (c === 's' && !late) return; const s = el('span'); s.append(el('i', 'dot pt ' + c), document.createTextNode(l)); s.firstChild.style.cssText = 'position:static;margin-right:5px;border:0;width:12px;height:12px;display:inline-block;vertical-align:-1px'; $('#dbLeg').append(s); });
+    const rows = ST.map(([c, l]) => { const a = share(P, 'zacetno', x => x[c] != null && x[c] >= TOP()), s = share(P, 'koncno', x => x[c] != null && x[c] >= TOP());
+      const na = P.filter(p => p.r.zacetno && p.r.zacetno[c] != null).length, ns = P.filter(p => p.r.koncno && p.r.koncno[c] != null).length;
+      const av = P.filter(p => p.r.zacetno && p.r.zacetno[c] >= TOP()).length / (na || 1), sv = P.filter(p => p.r.koncno && p.r.koncno[c] >= TOP()).length / (ns || 1);
+      return { c, l, a: av, s: sv, na, ns }; }).filter(r => r.na && (onlyA || r.ns)).sort((x, y) => (late ? y.s - x.s : y.a - x.a));
+    const db = $('#db'); db.innerHTML = '';
+    const ax = el('div', 'axis'); ax.append(el('span'), (() => { const t = el('div', 'ticks'); [0, 25, 50, 75, 100].forEach(v => { const s = el('span', '', v + ' %'); s.style.left = v + '%'; if (v === 100) s.style.transform = 'translateX(-100%)'; if (v === 0) s.style.transform = 'none'; t.append(s); }); return t; })(), el('span', '', late ? 'pomlad' : 'jesen')); db.append(ax);
+    rows.forEach(r => {
+      const row = el('div', 'dbr'), lab = el('div', 'lab'); lab.append(el('span', 'c', r.c), document.createTextNode(r.l));
+      const tr = el('div', 'dtrack'); [25, 50, 75].forEach(v => { const g = el('i', 'grid'); g.style.left = v + '%'; tr.append(g); });
+      if (late) { const ln = el('i', 'ln'); ln.style.left = Math.min(r.a, r.s) * 100 + '%'; ln.style.width = Math.abs(r.s - r.a) * 100 + '%'; tr.append(ln); }
+      const pa = el('i', 'pt a'); pa.style.left = r.a * 100 + '%'; tr.append(pa);
+      if (late) { const ps = el('i', 'pt s'); ps.style.left = r.s * 100 + '%'; tr.append(ps); }
+      hover(tr, r.c + ' ' + r.l + ' · začetno ' + pct(r.a) + ' (n = ' + r.na + ')' + (late ? ' · končno ' + pct(r.s) + ' (n = ' + r.ns + ') · ' + pp(r.a, r.s) : ''));
+      const v = el('div', 'val'); if (late) { v.append(document.createTextNode(pct(r.s) + ' ')); v.append(el('span', dcls(r.a, r.s) + ' small', pp(r.a, r.s).replace(' o. t.', ''))); } else v.textContent = pct(r.a);
+      row.append(lab, tr, v); db.append(row);
+    });
+    $('#dbNote').textContent = 'Delež zgornjih odgovorov (2. in 3. VIO: pogosto ali vedno; 1. VIO: pogosto). Razvrščeno po ' + (late ? 'končnem' : 'začetnem') + ' deležu; vsaka trditev samo v triadah, kjer je zastavljena. n = ' + P.filter(p => p.r.zacetno).length + (late ? ' jeseni, ' + P.filter(p => p.r.koncno).length + ' spomladi' : '') + '.';
+
+    // 3. strategies (2nd/3rd VIO)
+    $('#stBox').classList.toggle('hide', one);
+    const sp = (k, c) => { const r = P23.map(p => p.r[k]).filter(Boolean), n = r.length || 1; return [3, 2, 1].map(v => r.filter(a => a['S5_' + c] === v).length / n).concat([r.length]); };
+    const order = STRAT.slice().sort((x, y) => sp(late ? 'koncno' : 'zacetno', y[0])[0] - sp(late ? 'koncno' : 'zacetno', x[0])[0]);
+    const panel = (box, k) => { box.innerHTML = ''; order.forEach(([c, l]) => { const d = sp(k, c), row = el('div', 'srow'), st = el('div', 'stack');
+      row.append(el('div', '', c + ' ' + l)); ['k4', 'k3', 'k1'].forEach((cl, i) => { const s = el('span', cl, d[i] >= 0.12 ? pct(d[i]) : ''); s.style.width = d[i] * 100 + '%'; hover(s, c + ' ' + l + ' · ' + ['poznam in uporabljam', 'poznam, ne uporabljam', 'ne poznam'][i] + ': ' + pct(d[i]) + ' (n = ' + d[3] + ')'); st.append(s); });
+      row.append(st); box.append(row); }); };
+    panel($('#stLeft'), 'zacetno'); $('#stRightW').classList.toggle('hide', !late); if (late) panel($('#stRight'), 'koncno');
+    $('#stNote').textContent = '2. in 3. VIO, tabela S5. Razvrščeno po deležu »poznam in uporabljam«' + (late ? ' spomladi' : '') + '. n = ' + P23.filter(p => p.r.zacetno).length + (late ? ' / ' + P23.filter(p => p.r.koncno).length : '') + '.';
+
+    // 4. classes (heat map)
+    const COLS = [['N3', 'N3 načrtuje', a => a.N3 >= 3], ['R1', 'R1 pregleda napake', a => a.R1 >= 3], ['ST06', 'ST06 samopreverjanje', a => a.S5_ST06 === 3], ['N7', 'N7 zgodnji začetek', a => a.N7 <= 3]];
+    const tb = $('#cl'); tb.innerHTML = '';
+    const hr = el('tr'); hr.append(el('th', '', 'Razred')); hr.append(el('th', '', 'n')); COLS.forEach(c => hr.append(el('th', '', c[1]))); tb.append(hr);
+    const heat = v => v < 0.2 ? 1 : v < 0.4 ? 2 : v < 0.6 ? 3 : v < 0.8 ? 4 : 5;
+    CLASSES.filter(([c]) => tri === 'all' || Math.ceil(Number(c[0]) / 3) === Number(tri)).forEach(([c]) => {
+      const L = pupils.filter(p => p.cls === c), k = late ? 'koncno' : 'zacetno', n = L.filter(p => p.r[k]).length, tr = el('tr');
+      tr.append(el('td', '', c), el('td', '', String(n)));
+      if (n < 5) { const td = el('td', 'na', 'premalo odgovorov'); td.colSpan = COLS.length; tr.append(td); tb.append(tr); return; }
+      COLS.forEach(([code, lab, f]) => {
+        const has = L.some(p => p.r[k] && (p.r[k][code] != null || p.r[k]['S5_' + code] != null));
+        if (!has) { tr.append(el('td', 'na', '—')); return; }
+        const s = share(L, k, f).v, a = share(L, 'zacetno', f).v, h = heat(s), lt = document.body.classList.contains('light'), td = el('td', 'hc' + (lt ? (h >= 4 ? ' w' : '') : (h === 5 ? ' b' : ' w')));
+        td.style.background = 'var(--h' + h + ')'; td.textContent = pct(s) + (late ? ' (' + pp(a, s).replace(' o. t.', '') + ')' : '');
+        hover(td, c + ' · ' + lab + ': ' + pct(s) + (late ? ' spomladi, ' + pct(a) + ' jeseni' : '') + ' · n = ' + n); tr.append(td);
+      });
+      tb.append(tr);
+    });
+    $('#clNote').textContent = (late ? 'Končni delež in v oklepaju sprememba od jeseni (o. t.). ' : 'Začetni delež. ') + 'Temnejša celica = večji delež. Razredi z manj kot 5 odgovori niso prikazani. »—« = vprašanja v tej triadi ni.';
+
+    // 5. grades and habits (2nd/3rd VIO)
+    $('#sgF').innerHTML = ''; SG.forEach(([k, l]) => { const b = el('button', 'chip', l); b.setAttribute('aria-pressed', String(k === sg)); b.onclick = () => { sg = k; draw(); }; $('#sgF').append(b); });
+    ['#sgF', '#g5a', '#g5aNote', '#g5bW'].forEach(s => $(s).classList.toggle('hide', one)); $('#grBox').querySelectorAll('h3, .legend').forEach(e => e.classList.toggle('hide', one)); $('#grNone').classList.toggle('hide', !one);
+    const G = P23.filter(p => p.gr), mean = a => a.length ? a.reduce((s, x) => s + x, 0) / a.length : NaN, f2 = x => isNaN(x) ? '—' : x.toFixed(2).replace('.', ',');
+    const kH = late ? 'koncno' : 'zacetno', g5a = $('#g5a'); g5a.innerHTML = '';
+    HAB.forEach(([c, l, f]) => {
+      const W = G.filter(p => p.r[kH]), yes = W.filter(p => f(p.r[kH])), no = W.filter(p => !f(p.r[kH])), row = el('div', 'gbr'), pair = el('div', 'pair');
+      [['da', yes], ['ne', no]].forEach(([cl, L]) => { const m = mean(L.map(p => p.gr.end[sg])), hb = el('div', 'hb'), bar = el('i', cl); bar.style.width = (isNaN(m) ? 0 : (m - 1) / 4 * 85) + '%'; hb.append(bar, document.createTextNode(f2(m) + ' (n = ' + L.length + ')')); hover(hb, l + ' · ' + cl + ': povprečna ocena ' + f2(m) + ', n = ' + L.length); pair.append(hb); });
+      row.append(el('div', '', l), pair); g5a.append(row);
+    });
+    $('#g5aNote').textContent = 'Navada iz ' + (late ? 'pomladnega' : 'jesenskega') + ' merjenja, ocena ob koncu leta (' + SG.find(s => s[0] === sg)[1].toLowerCase() + '). Dolžina stolpca: ocena od 1 do 5.';
+    const g5b = $('#g5b'); g5b.innerHTML = ''; $('#g5bW').classList.toggle('hide', one || !late);
+    const B = G.filter(p => p.r.zacetno && p.r.koncno).map(p => ({ p, h: ['N2', 'N3', 'M1', 'R1', 'R3', 'D2'].reduce((s, c) => s + (p.r.koncno[c] - p.r.zacetno[c]), 0), d: p.gr.end[sg] - p.gr.p1[sg] }));
+    [['Izboljšali navade (+3 ali več)', x => x.h >= 3], ['Malo ali brez spremembe (−1 do +2)', x => x.h >= -1 && x.h <= 2], ['Poslabšali navade (−2 ali več)', x => x.h <= -2]].forEach(([l, f]) => {
+      const L = B.filter(f), m = mean(L.map(x => x.d)), row = el('div', 'chg'), ng = el('div', 'neg'), ps = el('div', 'pos'), w = Math.min(100, Math.abs(m) / 0.4 * 100);
+      if (m < 0) { const i = el('i'); i.style.width = w + '%'; ng.append(i); } else { const i = el('i'); i.style.width = w + '%'; ps.append(i); }
+      row.append(el('div', '', l), ng, ps, el('div', 'val', (m > 0 ? '+' : '') + f2(m) + ' (n = ' + L.length + ')')); hover(row, l + ': povprečna sprememba ocene ' + f2(m) + ', n = ' + L.length); g5b.append(row);
+    });
+    $('#g5bNote').textContent = 'Učenci z obema merjenjema in obema ocenama. Sprememba navad = vsota (pomlad − jesen) pri N2, N3, M1, R1, R3, D2. Stolpec: povprečna sprememba ocene od 1. ocenjevalnega obdobja do konca leta (levo manj, desno več).';
+
+    // 6. one pupil
+    $('#puBox').classList.toggle('hide', !late);
+    const sel = $('#pupil'), keep = sel.value; sel.innerHTML = '';
+    P.filter(p => p.r.zacetno && p.r.koncno).forEach(p => { const o = el('option', '', p.name + ' · ' + p.cls); o.value = p.id; sel.append(o); });
+    if ([...sel.options].some(o => o.value === keep)) sel.value = keep;
+    const pu = pupils.find(p => String(p.id) === sel.value), T = $('#puT'), TG = $('#puG'); T.innerHTML = ''; TG.innerHTML = '';
+    if (pu) {
+      const h = el('tr'); ['Trditev', 'Jesen', 'Pomlad', 'Razlika'].forEach(x => h.append(el('th', '', x))); T.append(h);
+      ST.filter(([, , t]) => t.includes(pu.vio)).forEach(([c, l]) => { const a = pu.r.zacetno[c], s = pu.r.koncno[c], d = s - a, tr = el('tr');
+        tr.append(el('td', '', c + ' ' + l), el('td', '', a + ' ' + SCALE[pu.vio][a - 1]), el('td', '', s + ' ' + SCALE[pu.vio][s - 1]), el('td', d > 0 ? 'up' : d < 0 ? 'down' : '', d > 0 ? '▲ +' + d : d < 0 ? '▼ −' + -d : '0')); T.append(tr); });
+      $('#puScale').textContent = 'Lestvica (' + pu.vio + '. VIO): ' + SCALE[pu.vio].map((x, i) => (i + 1) + ' ' + x).join(' · ') + '.';
+      $('#puGW').classList.toggle('hide', !pu.gr);
+      if (pu.gr) { const g = el('tr'); ['Sklop', '1. obdobje', 'Konec leta', 'Sprememba'].forEach(x => g.append(el('th', '', x))); TG.append(g);
+        SG.forEach(([k, l]) => { const a = pu.gr.p1[k], b = pu.gr.end[k], d = b - a, tr = el('tr'); tr.append(el('td', '', l), el('td', '', f2(a)), el('td', '', f2(b)), el('td', d > 0.005 ? 'up' : d < -0.005 ? 'down' : '', (d > 0 ? '+' : '') + f2(d))); TG.append(tr); }); }
     }
-    // 3. strategies known / used and "helps most"
-    legend($('#lg3'), KNOW);
-    const list = strat.filter(s => (s.t || []).includes(vio)), kb = $('#strat'), hb = $('#helps'); kb.innerHTML = ''; hb.innerHTML = '';
-    list.forEach(s => { const d = dist('k' + vio + s.c, 3); kb.append(row(s.c + ' ' + s.n, stack(d, KNOW, s.c), pct(d[2]))); kb.lastChild.firstChild.title = s.n; });
-    const raw = list.map(s => [s, rnd('h' + vio + s.c)() ** 2]), tot = raw.reduce((a, x) => a + x[1], 0) || 1;
-    raw.map(([s, w]) => [s, w / tot]).sort((a, b) => b[1] - a[1]).slice(0, 6).forEach(([s, v]) => { const t = el('div', 'track'), b = el('div', 'bar'); b.style.width = (v * 100 / 0.5) + '%'; t.append(b); hover(t, s.c + ' ' + s.n + ': ' + pct(v) + ' (primer)'); hb.append(row(s.c + ' ' + s.n, t, pct(v))); });
-    // 4. classes side by side (also the table view of the indicators)
-    const tb = $('#classes'); tb.innerHTML = '';
-    const hr = el('tr'); hr.append(el('th', '', 'Razred')); AREAS.forEach(a => hr.append(el('th', '', a[1]))); tb.append(hr);
-    cl.forEach(c => { const tr = el('tr'); tr.append(el('td', '', c)); AREAS.forEach(a => tr.append(el('td', '', pct(areaShare(c, a))))); tb.append(tr); });
   };
 
   const api = async (action) => {
@@ -182,7 +396,7 @@ th { color: var(--muted); font-weight: 600; }
   const load = async () => {
     if (!Track.token() || loaded) return;
     loaded = true; $('#loginMsg').textContent = 'Nalagam …';
-    let h = null, p = null; try { [h, p] = await Promise.all([api('rshome'), api('rspick')]); } catch (e) {}
+    let h = null; try { h = await api('rshome'); } catch (e) {}
     if (!h || !h.ok || !h.roles.includes('skupina')) {
       loaded = false;
       $('#loginMsg').textContent = h && h.ok ? 'Primer rezultatov je zaenkrat samo za razvojno skupino.' : h && h.error === 'access' ? 'Ta račun nima dostopa. Obrnite se na razvojno skupino.'
@@ -190,11 +404,12 @@ th { color: var(--muted); font-weight: 600; }
       if (!h || h.error === 'token') Track.button($('#slot'));
       return;
     }
-    strat = (p && p.ok && p.strat) || [];
     $('#login').style.display = 'none'; $('#app').style.display = 'block';
     draw();
   };
-  $('#theme').onclick = () => { document.body.classList.toggle('light'); try { localStorage.setItem('board.light', document.body.classList.contains('light') ? '1' : ''); } catch (e) {} };
+  $('#onlyA').onchange = e => { onlyA = e.target.checked; draw(); };
+  $('#pupil').onchange = draw;
+  $('#theme').onclick = () => { document.body.classList.toggle('light'); try { localStorage.setItem('board.light', document.body.classList.contains('light') ? '1' : ''); } catch (e) {} if (loaded) draw(); };
   try { if (localStorage.getItem('board.light')) document.body.classList.add('light'); } catch (e) {}
   if (window.Track && Track.enabled) {
     Track.onChange(() => { if (Track.token()) load(); });
