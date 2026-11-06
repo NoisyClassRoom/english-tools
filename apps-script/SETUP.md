@@ -28,6 +28,11 @@ e-mail + score in a private Sheet is OK. Two things you need from the admin:
 2. Execute as: **Me**. Who has access: **Anyone**. (The script itself rejects anything without a valid school token.)
 3. Authorise when asked. Copy the `/exec` URL into `endpoint` in `exercises/tracking.js`.
 4. After any later change to `Code.gs`: Deploy > Manage deployments > edit > New version.
+   Or from the teacher's Mac with clasp (set up 6 Nov 2026): `../apps-script-clasp/deploy.sh "description"` next to this
+   repository copies `Code.gs` into the clone of the bound project, pushes it, creates a version, moves the existing
+   deployment to it (the `/exec` address stays) and checks that `ping` returns the new `CODE_VERSION`. That folder is
+   deliberately outside this public repository (it holds the script ID). Needs: `npm i -g @google/clasp`, `clasp login`
+   with the school account, and "Google Apps Script API" On at script.google.com/home/usersettings **for that account**.
 
 ## 4. Publish and test
 1. Commit `exercises/tracking.js` (with the two values). Wait ~10 minutes for GitHub Pages.
