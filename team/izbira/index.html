@@ -141,7 +141,7 @@ input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: 1p
     <div class="actions noprint" id="acts" style="display:none">
       <button class="btn main" id="print">🖨 Natisni pripravo</button>
       <button class="btn" id="printCard">🖨 Kartica za tablo</button>
-      <button class="btn" disabled title="Ko bo pripravljen opazovalni list (team/opazovanje/)">📝 Vpiši opazovanje (kmalu)</button>
+      <button class="btn" id="obs" title="Odpre opazovalni list z razredom, predmetom, strategijo, korakom in datumom te ure">📝 Vpiši opazovanje</button>
     </div>
     <div id="plan"></div>
   </div>
@@ -286,6 +286,11 @@ input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: 1p
     fill();
   };
 
+  $('#obs').onclick = () => {
+    const q = new URLSearchParams({ date: $('#date').value, subj: $('#subj').value, strat: chosen, phase: $('#step').value });
+    const cls = $('#cls').value.trim(), topic = $('#topic').value.trim(); if (cls) q.set('cls', cls); if (topic) q.set('topic', topic);
+    location.href = '../opazovanje/?' + q.toString();
+  };
   $('#print').onclick = () => { document.body.classList.remove('only-card'); window.print(); };
   $('#printCard').onclick = () => { document.body.classList.add('only-card'); window.print(); };
   window.addEventListener('afterprint', () => document.body.classList.remove('only-card'));

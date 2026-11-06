@@ -85,7 +85,7 @@ var UNITS = {
 
 // Change this text whenever the code of doPost changes: the health check compares it with what the published web app answers,
 // so it can tell you that the saved code has not been deployed as a new version yet.
-var CODE_VERSION = '2026-11-06.3';
+var CODE_VERSION = '2026-11-06.4';
 
 // ---------------------------------------------------------------- saving results
 
@@ -120,6 +120,9 @@ function doPost(e) {
     if (d.action === 'rsaccessset') return rsAccessSetReply_(d);       // teacher-only: saves the access list and settings
     if (d.action === 'rspick') return rsPickReply_(d);                 // strategy picker team/izbira/: the cards + the picker fields (accounts on the list)
     if (d.action === 'rspickseed') return rsPickSeedReply_(d);         // teacher-only: first filling of the picker fields (only while the tab is empty)
+    if (d.action === 'rsobs') return rsObsReply_(d);                   // observation sheet team/opazovanje/: lists + own observations (accounts on the list)
+    if (d.action === 'rsobssave') return rsObsSaveReply_(d);           // save a new or an own observation
+    if (d.action === 'rsobsdelete') return rsObsDeleteReply_(d);       // delete an own observation
     if (d.action === 'ping') return out_({ ok: true, v: CODE_VERSION });   // no data; used by "Check that everything works" in the Sheet menu
     var who = verify_(d.token);
     if (!who) return out_({ ok: false, error: 'token' });
@@ -2621,6 +2624,110 @@ function rsPickSeedReply_(d) {
   return out_({ ok: true, rows: out.length - 1 });
 }
 
+// Observation sheet team/opazovanje/ (OBSERVATION-PLAN.md steps 1-2; decisions of the teacher, 6 Nov 2026: everyone on the access list may
+// record, the data goes to a SEPARATE private Sheet "Samouravnavanje – opazovanja" whose ID is the script property OBS_SHEET_ID; it is created
+// in the owner's Drive the first time anyone saves). One row per lesson × class × strategy. No pupil data: class only, and the help text
+// asks for no names in Tema / Opombe. Everyone sees and edits only their own rows; the team analysis comes later (step 3).
+var OBS_HEADER = ['ID', 'Vpisano', 'Šolsko leto', 'Datum ure', 'Učitelj', 'Razred', 'Triada', 'Sklop', 'Predmet', 'Strategija', 'Faza', 'Tema',
+                  'Trajanje', 'Učinkovitost', 'Sodelovanje', 'Odziv', 'Samostojna uporaba', 'Opombe', 'Spremenjeno'];
+var OBS_SUBJECTS = { JEZ: ['SLJ', 'TJA', 'TJN'], MAT: ['MAT'], NAR: ['NIT', 'NAR', 'BIO', 'KEM', 'FIZ'], DRU: ['SPO', 'DRU', 'ZGO', 'GEO', 'DKE'],
+                     TEH: ['TIT', 'RAČ', 'izbirni predmet'], UMS: ['LUM', 'GUM', 'ŠPO'] };
+function obsBook_(create) {
+  var p = PropertiesService.getScriptProperties(), id = p.getProperty('OBS_SHEET_ID');
+  if (id) { try { return SpreadsheetApp.openById(id); } catch (e) { if (!create) return null; } }
+  if (!create) return null;
+  var lock = LockService.getScriptLock(); lock.waitLock(20000);
+  try {
+    id = p.getProperty('OBS_SHEET_ID');
+    if (id) { try { return SpreadsheetApp.openById(id); } catch (e) {} }
+    var ss = SpreadsheetApp.create('Samouravnavanje – opazovanja');
+    var sh = ss.getSheets()[0].setName('Opazovanja');
+    sh.appendRow(OBS_HEADER); sh.setFrozenRows(1); sh.getRange(1, 1, 1, OBS_HEADER.length).setFontWeight('bold'); sh.getRange('A:S').setNumberFormat('@');
+    var rz = ss.insertSheet('Razredi'); rz.appendRow(['Razred (vsak september posodobi)']); rz.getRange('A:A').setNumberFormat('@');
+    rz.getRange(2, 1, 9, 1).setValues([1, 2, 3, 4, 5, 6, 7, 8, 9].map(function (g) { return [g + '.A']; }));
+    p.setProperty('OBS_SHEET_ID', ss.getId());
+    return ss;
+  } finally { lock.releaseLock(); }
+}
+function obsClasses_(ss) {
+  var rz = ss && ss.getSheetByName('Razredi'), out = [];
+  if (rz && rz.getLastRow() > 1) rz.getRange(2, 1, rz.getLastRow() - 1, 1).getValues().forEach(function (r) {
+    var c = String(r[0]).replace(/\s+/g, '').toUpperCase().replace(/^(\d)\.?([A-Z])$/, '$1.$2'); if (/^[1-9]\.[A-Z]$/.test(c) && out.indexOf(c) < 0) out.push(c);
+  });
+  return out.length ? out : [1, 2, 3, 4, 5, 6, 7, 8, 9].map(function (g) { return g + '.A'; });
+}
+function obsStrategies_() {
+  var sh = SpreadsheetApp.getActive().getSheetByName(RS_GUIDE), out = [];
+  if (sh && sh.getLastRow() > 1) sh.getRange(2, 1, sh.getLastRow() - 1, 2).getValues().forEach(function (r) {
+    if (String(r[0]) === 'strategije') { try { JSON.parse(String(r[1])).forEach(function (x) { out.push({ c: x.c, n: x.n, t: x.t }); }); } catch (e) {} }
+  });
+  return out;
+}
+function obsRowOut_(r) {
+  return { id: String(r[0]), date: String(r[3]), cls: String(r[5]), sklop: String(r[7]), subj: String(r[8]), strat: String(r[9]), phase: Number(r[10]) || 0,
+           topic: String(r[11]), mins: Number(r[12]) || 0, eff: Number(r[13]) || 0, part: Number(r[14]) || 0, react: Number(r[15]) || 0, own: String(r[16]), note: String(r[17]) };
+}
+function rsObsReply_(d) {
+  var who = verify_(d.token);
+  if (!who) return out_({ ok: false, error: 'token' });
+  if (!rsWho_(who.email).roles.length) return out_({ ok: false, error: 'access' });
+  var ss = obsBook_(false), me = String(who.email).toLowerCase(), year = schoolYear_(new Date()), mine = [];
+  var sh = ss && ss.getSheetByName('Opazovanja');
+  if (sh && sh.getLastRow() > 1) sh.getRange(2, 1, sh.getLastRow() - 1, OBS_HEADER.length).getValues().forEach(function (r) {
+    if (String(r[4]).toLowerCase() === me && String(r[2]) === year) mine.push(obsRowOut_(r));
+  });
+  mine.sort(function (a, b) { return a.date < b.date ? 1 : a.date > b.date ? -1 : 0; });
+  return out_({ ok: true, year: year, classes: obsClasses_(ss), strat: obsStrategies_(), subjects: OBS_SUBJECTS, mine: mine });
+}
+// d.row = {id?, date 'yyyy-MM-dd', cls, sklop, subj, strat, phase 1-4, topic, mins 5-45, eff 1-5, part 1-4, react 1-5, own da|ne|še ne vem, note}
+function rsObsSaveReply_(d) {
+  var who = verify_(d.token);
+  if (!who) return out_({ ok: false, error: 'token' });
+  if (!rsWho_(who.email).roles.length) return out_({ ok: false, error: 'access' });
+  var r = d.row || {}, bad = [], int = function (v, a, b) { v = Number(v); return v === Math.round(v) && v >= a && v <= b ? v : null; };
+  var date = /^\d{4}-\d{2}-\d{2}$/.test(String(r.date)) ? new Date(String(r.date) + 'T12:00:00') : null;
+  if (!date || isNaN(date) || date > new Date(Date.now() + 864e5) || date < new Date(Date.now() - 400 * 864e5)) bad.push('datum');
+  var cls = String(r.cls || '').toUpperCase(); if (!/^[1-9]\.[A-Z]$/.test(cls)) bad.push('razred');
+  var sk = String(r.sklop || ''); if (!OBS_SUBJECTS[sk]) bad.push('sklop');
+  var subj = String(r.subj || ''); if (OBS_SUBJECTS[sk] && OBS_SUBJECTS[sk].indexOf(subj) < 0) bad.push('predmet');
+  var st = obsStrategies_().filter(function (x) { return x.c === r.strat; })[0]; if (!st) bad.push('strategija');
+  var tri = cls ? Math.ceil(Number(cls[0]) / 3) : 0; if (st && (st.t || []).indexOf(tri) < 0) bad.push('strategija ni za to triado');
+  var ph = int(r.phase, 1, 4), mins = int(r.mins, 5, 45), eff = int(r.eff, 1, 5), part = int(r.part, 1, 4), react = int(r.react, 1, 5);
+  if (!ph) bad.push('faza'); if (!mins) bad.push('trajanje'); if (!eff) bad.push('učinkovitost'); if (!part) bad.push('sodelovanje'); if (!react) bad.push('odziv');
+  var own = ['da', 'ne', 'še ne vem'].indexOf(String(r.own)) >= 0 ? String(r.own) : 'še ne vem';
+  if (bad.length) return out_({ ok: false, error: 'data', details: bad });
+  var ss = obsBook_(true), sh = ss.getSheetByName('Opazovanja'), me = String(who.email).toLowerCase();
+  var now = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd HH:mm'), ds = Utilities.formatDate(date, TZ, 'yyyy-MM-dd');
+  var lock = LockService.getScriptLock(); lock.waitLock(20000);
+  try {
+    var row = [null, now, schoolYear_(date), ds, me, cls, tri, sk, subj, st.c, ph, clip_(r.topic, 100), mins, eff, part, react, own, clip_(r.note, 300), now];
+    if (r.id) {
+      var n = sh.getLastRow() - 1, ids = n > 0 ? sh.getRange(2, 1, n, 5).getValues() : [], at = -1;
+      ids.forEach(function (x, i) { if (String(x[0]) === String(r.id)) at = i; });
+      if (at < 0 || String(ids[at][4]).toLowerCase() !== me) return out_({ ok: false, error: 'notfound' });
+      var old = sh.getRange(at + 2, 1, 1, OBS_HEADER.length).getValues()[0];
+      row[0] = String(r.id); row[1] = String(old[1]);
+      sh.getRange(at + 2, 1, 1, OBS_HEADER.length).setValues([row]);
+    } else {
+      row[0] = 'OBS-' + Utilities.formatDate(new Date(), TZ, 'yyyyMMddHHmmss') + '-' + Math.random().toString(36).slice(2, 6);
+      sh.appendRow(row);
+    }
+  } finally { lock.releaseLock(); }
+  return out_({ ok: true, id: row[0] });
+}
+function rsObsDeleteReply_(d) {
+  var who = verify_(d.token);
+  if (!who) return out_({ ok: false, error: 'token' });
+  var ss = obsBook_(false), sh = ss && ss.getSheetByName('Opazovanja'), me = String(who.email).toLowerCase();
+  if (!sh || sh.getLastRow() < 2) return out_({ ok: false, error: 'notfound' });
+  var lock = LockService.getScriptLock(); lock.waitLock(20000);
+  try {
+    var ids = sh.getRange(2, 1, sh.getLastRow() - 1, 5).getValues();
+    for (var i = 0; i < ids.length; i++) if (String(ids[i][0]) === String(d.id) && String(ids[i][4]).toLowerCase() === me) { sh.deleteRow(i + 2); return out_({ ok: true }); }
+  } finally { lock.releaseLock(); }
+  return out_({ ok: false, error: 'notfound' });
+}
+
 // health check part
 function hcTeam_(add) {
   var ss = SpreadsheetApp.getActive(), rows = rsAccessRows_(), by = {};
@@ -2634,7 +2741,11 @@ function hcTeam_(add) {
   var p = rsPickData_(), pc = Object.keys(p.rows).length, pr = Object.keys(p.rows).filter(function (k) { return p.rows[k].ok; }).length;
   add(pc && p.types.length ? (pr === pc ? 'ok' : 'warn') : 'warn', !pc ? 'The strategy picker (team/izbira/) has no data yet (tab ' + RS_PICK + ').'
     : 'Strategy picker: ' + pc + ' strategies, ' + p.types.length + ' types of content; reviewed by the team: ' + pr + ' of ' + pc + ' (column Pregledano = da).');
-  var pages = ['team/index.html', 'team/dostop/index.html', 'team/strategije/index.html', 'team/izbira/index.html', 'team/rezultati/index.html'];
+  var obsId = PropertiesService.getScriptProperties().getProperty('OBS_SHEET_ID'), ob = obsBook_(false), os = ob && ob.getSheetByName('Opazovanja');
+  add(!obsId ? 'ok' : os ? 'ok' : 'bad', !obsId ? 'Observation sheet: no observations yet (the Sheet "Samouravnavanje – opazovanja" is created with the first one).'
+    : os ? 'Observation sheet: ' + Math.max(0, os.getLastRow() - 1) + ' observations in "' + ob.getName() + '"; classes in its tab Razredi: ' + obsClasses_(ob).join(', ') + '.'
+    : 'Observation sheet: OBS_SHEET_ID is set but the Sheet (or its tab Opazovanja) cannot be opened.');
+  var pages = ['team/index.html', 'team/dostop/index.html', 'team/strategije/index.html', 'team/izbira/index.html', 'team/rezultati/index.html', 'team/opazovanje/index.html'];
   var res = UrlFetchApp.fetchAll(pages.map(function (p) { return { url: SITE_BASE + p + '?check=' + Date.now(), muteHttpExceptions: true }; }));
   var bad = pages.filter(function (p, i) { return res[i].getResponseCode() !== 200; });
   add(bad.length ? 'bad' : 'ok', bad.length ? 'Pages of the section not found on GitHub Pages: ' + bad.join(', ') + '.' : 'The section pages (team/) are on GitHub Pages.');
