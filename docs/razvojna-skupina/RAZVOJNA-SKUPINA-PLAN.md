@@ -63,7 +63,7 @@ A page where a teacher gets 1–3 suitable strategies for a concrete lesson and 
 
 **Data**
 
-Extend the strategy data from the guide (the `S` array in `strategije-v-razredu.html`) into one shared file, e.g. `team/strategies.js`, used by both the guide and this page. For every strategy add:
+Extend the strategy data from the guide (the `S` array in `strategije-v-razredu.html`) into one shared data set used by both the guide and this page (**not** a public file: see decision 9 below). For every strategy add:
 
 - suitable types of content;
 - suitable sklopi (take them from the guide's "Po predmetnih sklopih" table);
@@ -142,3 +142,22 @@ Results are first seen by the team only. Later, class teachers, teachers and the
 1. Should the menu link **Razvojna skupina** be visible to everybody (students too), or only when signed in? Other teachers do not have WordPress accounts, so a WordPress-private page would hide it from them. Suggestion: a visible link, a public home page and guide, and everything with data behind the app's sign-in.
 2. The list of team e-mails, observers and class teachers.
 3. Is the section's language Slovenian only? Suggestion: yes, as the team works in Slovenian.
+
+## Decisions of the teacher (6 Nov 2026) and what was built
+
+Answers to the open questions, and what they changed in this plan:
+
+1. **Teachers only.** The menu link **Razvojna skupina** is visible to everybody (WordPress cannot hide it from teachers without WordPress accounts), but **every page of the section, also the home page and the guide, shows its content only after the Google sign-in of an account on the access list.** A pupil sees "Stran je namenjena učiteljem". What a signed-in teacher sees depends on their role.
+2. **Access is managed on a page, not in script properties.** Roles change every school year and during the year, so `TEAM_EMAILS`, `CLASS_TEACHERS`, `OBSERVER_EMAILS`, `PRINCIPAL_EMAIL` and `RESULTS_OPEN_TO` are **not** used. Instead: the hidden tab `RS_Dostop` (e-mail, name, role `skupina` / `razrednik` / `ucitelj` / `ravnatelj`, class for a class teacher, note; one row per person and role), edited on `team/dostop/`. Only the accounts in `TEACHER_EMAILS` can open that page, and they also count as members of the team. Every change is logged in `RS_Dnevnik`. The switch "who sees the questionnaire results" is the setting `rezultati_odprti` in `RS_Nastavitve` (`skupina` → `skupina,razrednik` → … → `vsi`). Later steps (observation sheet, results, analysis) read the roles with `rsWho_(email)` in `Code.gs`.
+3. **Slovenian only.**
+4. The observation pages go in `team/opazovanje/` (not `observe/`), with no WordPress page of their own.
+5. The team is only the people with the role `skupina` (not everybody in `TEACHER_EMAILS` beyond the admin).
+6. The links (three forms, the printable questionnaire, the Drive folder, the Kazalo) and the dates are settings in `RS_Nastavitve`, typed on `team/dostop/`. They are not in a config file in this public repository.
+7. The spring round is shown as "spomladi 2027".
+8. **The guide is teachers only.** Its text was removed from the public pages (`docs/razvojna-skupina/strategije-v-razredu.html` is deleted; its last version is commit e1470c0 of 6 Nov 2026 in the git history). The menu item *English hub > Development team: import the guide* copies that version into the hidden tab `RS_Vodnik`; `team/strategije/` loads it after sign-in (action `rsguide`). The print / PDF look (A4, original fonts and colours) is unchanged; on screen the page uses the repo's colours. To change the text later, edit the cell in `RS_Vodnik` (or ask Claude to change it and re-import).
+
+9. **The strategy data for `team/izbira/` stays behind the sign-in, like the guide** (decision of the teacher, 6 Nov 2026, after the plan for the strategy picker was added). So there is **no public `team/strategies.js`**: the shared strategy data (the guide's cards plus the new fields: types of content, sklopi, the sentence for thinking aloud, the reflection question) lives in the hidden Sheet (`RS_Vodnik`, part `strategije`) and both pages get it from the script after sign-in. This replaces the sentence about `team/strategies.js` in the section "Strategy picker and lesson plan".
+
+Built on 6 Nov 2026 (`CODE_VERSION` 2026-11-06.1): `team/index.html`, `team/strategije/`, `team/dostop/`, actions `rshome`, `rsguide`, `rsaccess`, `rsaccessset`, the health check part "Development team section". Steps 1–3 of the order of work are done; next is step 4 (results, after 21 Nov 2026).
+
+Strategy picker built on 6 Nov 2026 (`CODE_VERSION` 2026-11-06.2): `team/izbira/`, actions `rspick` and `rspickseed`, hidden tab `RS_Izbira` (one row per strategy: types of content, sklopi, sentence for thinking aloud, reflection question, *Pregledano*; row `VRSTE` = the list of content types). The guide import does not touch this tab. The first draft of the new fields was written by Claude from the guide (the sklopi from the table "Po predmetnih sklopih"); the page shows "Osnutek" until the team has set *Pregledano* = da on every row. Not built yet: suggesting step 1 from the observation data, and the button "Vpiši opazovanje" (both wait for `team/opazovanje/`).
