@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="sl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Pregled Izbire</title>
+<style>
+/* Team review of the strategy picker fields (decision of the teacher, 7 Nov 2026). Members of the development team see what the picker
+   uses for each strategy (types of content, subject groups, sentence for thinking aloud, reflection question), say "v redu" or suggest a
+   change, and see each other's opinions. The admin edits a row here and marks it reviewed. Everything after sign-in (script actions
+   rspickreview, rspicknote, rspicknotedel, rspickedit); opinions are in the hidden tab RS_Pripombe. */
+body {
+  --bg: #141418; --paper: #1f1f26; --ink: #f2efe9; --muted: #a39f95; --line: #34343e; --field: #14141a;
+  --accent: #ff8a1f; --accent-ink: #111; --ok: #34c06d; --bad: #ff5a5a; --warn: #f0b429; --chip: #2a2a33;
+  --font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+body.light {
+  --bg: #f6f4ef; --paper: #ffffff; --ink: #1f2a37; --muted: #6b7280; --line: #e5e1d8; --field: #ffffff;
+  --accent: #e8710a; --accent-ink: #fff; --ok: #1f9d55; --bad: #d64545; --warn: #b7791f; --chip: #f1eee7;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 var(--font); padding: 0 16px 64px; }
+.wrap { max-width: 900px; margin: 0 auto; }
+h1, h2, h3 { line-height: 1.2; margin: 0; }
+h1 { font-size: 1.6rem; margin: 18px 0 4px; }
+h3 { font-size: 1.1rem; }
+p { margin: 0; }
+.muted, .small { color: var(--muted); }
+.small { font-size: .85rem; }
+.shellbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 14px 0 0; }
+.shellbar .sp { flex: 1; }
+.btn { background: var(--field); color: var(--ink); border: 1px solid var(--line); border-radius: 10px; padding: 6px 12px; font: inherit; cursor: pointer; text-decoration: none; display: inline-block; }
+.btn:hover { border-color: var(--accent); }
+.btn.main { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 700; }
+.btn.sm { padding: 2px 9px; font-size: .85rem; }
+.btn[disabled] { opacity: .5; cursor: default; }
+.btn[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.box { background: var(--paper); border: 1px solid var(--line); border-radius: 14px; padding: 16px; margin-top: 14px; }
+#login { text-align: center; padding: 40px 14px; }
+#login p { margin-bottom: 10px; }
+#app { display: none; }
+.bar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.progress { display: flex; gap: 18px; flex-wrap: wrap; margin-bottom: 10px; }
+.progress b { font-size: 1.3rem; }
+.card { background: var(--paper); border: 1px solid var(--line); border-radius: 14px; padding: 16px; margin-top: 14px; display: grid; gap: 10px; }
+.card.done { border-color: var(--ok); }
+.head { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+.head h3 { flex: 1; min-width: 200px; }
+.code { font-family: ui-monospace, Consolas, monospace; font-weight: 700; color: var(--accent); }
+.pill { font-size: .8rem; font-weight: 700; padding: 1px 9px; border-radius: 999px; border: 1.5px solid currentColor; white-space: nowrap; }
+.pill.ok { color: var(--ok); } .pill.draft { color: var(--warn); }
+.f { display: grid; grid-template-columns: 190px 1fr; gap: 4px 12px; font-size: .92rem; }
+.f dt { color: var(--muted); }
+.f dd { margin: 0; }
+@media (max-width: 560px) { .f { grid-template-columns: 1fr; } .f dd { margin-bottom: 6px; } }
+.chips { display: flex; gap: 5px; flex-wrap: wrap; }
+.chips span { background: var(--chip); border-radius: 999px; padding: 0 9px; font-size: .85rem; }
+.notes { display: grid; gap: 6px; border-top: 1px dashed var(--line); padding-top: 8px; }
+.note { font-size: .9rem; display: flex; gap: 8px; align-items: baseline; }
+.note .t { flex: 1; }
+.note .w { font-weight: 700; }
+textarea, select, input[type=text] { font: inherit; color: var(--ink); background: var(--field); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; width: 100%; }
+textarea { min-height: 60px; resize: vertical; }
+.form { display: grid; gap: 8px; border: 1px solid var(--line); border-radius: 10px; padding: 10px; }
+.form label { display: grid; gap: 4px; font-size: .85rem; color: var(--muted); }
+.checks { display: flex; gap: 6px 14px; flex-wrap: wrap; font-size: .9rem; color: var(--ink); }
+.checks label { display: inline-flex; gap: 5px; align-items: center; }
+.msg { font-size: .85rem; }
+.msg.ok { color: var(--ok); } .msg.bad { color: var(--bad); }
+</style>
+</head>
+<body>
+<script src="../../../exercises/tracking.js"></script>
+<div class="wrap">
+  <div class="shellbar">
+    <a class="btn" href="../../">← Samouravnavanje učenja</a>
+    <a class="btn" href="../">🎯 Izbira strategije</a><span class="sp"></span>
+    <button class="btn" id="theme">Svetlo / temno</button>
+  </div>
+  <h1>🔍 Pregled Izbire</h1>
+  <p class="muted">Za vsako strategijo poglejte, kaj Izbira uporablja pri predlogih in pripravi ure. Če je prav, kliknite »V redu«; če bi kaj spremenili, napišite predlog. Mnenja vidijo vsi člani razvojne skupine.</p>
+
+  <div id="login" class="box">
+    <p id="loginMsg" class="muted">Stran je namenjena razvojni skupini. Prijavite se s šolskim Google računom.</p>
+    <div id="slot" style="display:inline-block"></div>
+  </div>
+
+  <div id="app">
+    <div class="box">
+      <div class="progress" id="prog"></div>
+      <div class="bar" id="filters" role="group" aria-label="Prikaži"></div>
+    </div>
+    <div id="cards"></div>
+  </div>
+</div>
+<script>
+(() => {
+  'use strict';
+  const $ = s => document.querySelector(s);
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
+  const plain = s => String(s || '').replace(/^'(?=[=+\-@])/, '');
+  const PART = { vse: 'strategija na splošno', v: 'vrste snovi', s: 'sklopi', g: 'stavek za glasno razmišljanje', r: 'vprašanje za refleksijo' };
+  const SK = { JEZ: 'jezikovni', MAT: 'matematika', NAR: 'naravoslovni', DRU: 'družboslovni', TEH: 'tehnični', UMS: 'umetnostni in športni' };
+  const EV = { s: 'močno podprta', m: 'zmerno podprta', w: 'šibko podprta', n: 'ni neposredno raziskana' };
+  const FILTERS = [['all', 'vse'], ['todo', 'brez mojega mnenja'], ['change', 's predlogi sprememb'], ['draft', 'še ni pregledano']];
+  let D = null, loaded = false, filter = 'all', open = {};
+
+  const api = async (action, extra) => {
+    const token = Track.token(); if (!token) throw new Error('token');
+    const r = await fetch(Track.config.endpoint, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(Object.assign({ action, token }, extra || {})) });
+    return r.json();
+  };
+  const row = c => D.pick[c] || { v: [], s: [], g: '', r: '', ok: false };
+  const notesOf = c => D.notes.filter(n => n.c === c);
+  const hasMine = c => notesOf(c).some(n => n.mine);
+
+  const drawTop = () => {
+    const all = D.strat.length, ok = D.strat.filter(s => row(s.c).ok).length, mine = D.strat.filter(s => hasMine(s.c)).length;
+    const ch = D.strat.filter(s => notesOf(s.c).some(n => n.vote === 'change')).length;
+    $('#prog').innerHTML = `<div><b>${mine} / ${all}</b><div class="small">strategij z vašim mnenjem</div></div>
+      <div><b>${ch}</b><div class="small">s predlogi sprememb</div></div>
+      <div><b>${ok} / ${all}</b><div class="small">pregledanih (usklajenih)</div></div>`;
+    $('#filters').innerHTML = '<span class="small">Prikaži:</span>' + FILTERS.map(([k, l]) => `<button class="btn sm" type="button" data-f="${k}" aria-pressed="${filter === k}">${l}</button>`).join('');
+    $('#filters').querySelectorAll('[data-f]').forEach(b => b.onclick = () => { filter = b.dataset.f; draw(); });
+  };
+
+  const noteHtml = n => `<div class="note"><span>${n.vote === 'ok' ? '👍' : '✏️'}</span><span class="t"><span class="w">${esc(n.who)}</span>${n.vote === 'ok' ? ': v redu' : ' (' + esc(PART[n.part] || n.part) + '): ' + esc(plain(n.text))}<span class="small"> · ${esc(n.t.slice(8, 10).replace(/^0/, '') + '. ' + n.t.slice(5, 7).replace(/^0/, '') + '.')}</span></span>${n.mine ? `<button class="btn sm" data-del="${esc(n.id)}">Izbriši</button>` : ''}</div>`;
+
+  const card = s => {
+    const x = row(s.c), ns = notesOf(s.c), mineOk = ns.some(n => n.mine && n.vote === 'ok'), o = open[s.c] || '';
+    const el = document.createElement('article'); el.className = 'card' + (x.ok ? ' done' : ''); el.dataset.c = s.c;
+    el.innerHTML = `<div class="head"><span class="code">${esc(s.c)}</span><h3>${esc(s.n)}</h3><span class="pill ${x.ok ? 'ok' : 'draft'}">${x.ok ? '✓ pregledano' : 'osnutek'}</span></div>
+      <p class="small">${(s.t || []).map(t => t + '. VIO').join(', ')} · ${esc(EV[s.e] || '')}</p>
+      <dl class="f">
+        <dt>Vrste snovi</dt><dd class="chips">${x.v.length ? x.v.map(v => `<span>${esc(v)}</span>`).join('') : '<i class="muted">ni vpisano</i>'}</dd>
+        <dt>Sklopi</dt><dd class="chips">${x.s.length ? x.s.map(v => `<span>${esc(v)} ${esc(SK[v] || '')}</span>`).join('') : '<i class="muted">ni vpisano</i>'}</dd>
+        <dt>Glasno razmišljanje</dt><dd>${x.g ? '»' + esc(plain(x.g)) + '«' : '<i class="muted">ni vpisano</i>'}</dd>
+        <dt>Vprašanje za refleksijo</dt><dd>${x.r ? esc(plain(x.r)) : '<i class="muted">ni vpisano</i>'}</dd>
+      </dl>
+      <div class="bar">
+        <button class="btn sm" data-a="ok"${mineOk ? ' aria-pressed="true"' : ''}>👍 V redu</button>
+        <button class="btn sm" data-a="change"${o === 'change' ? ' aria-pressed="true"' : ''}>✏️ Predlagam spremembo</button>
+        ${D.admin ? `<button class="btn sm" data-a="edit"${o === 'edit' ? ' aria-pressed="true"' : ''}>🛠 Uredi (skrbnik)</button>` : ''}
+        <span class="msg" data-msg></span>
+      </div>
+      ${o === 'change' ? `<div class="form"><label>Kaj bi spremenili?<select data-part>${Object.keys(PART).map(k => `<option value="${k}">${PART[k]}</option>`).join('')}</select></label>
+        <label>Vaš predlog (največ 500 znakov)<textarea data-text maxlength="500" placeholder="npr. Stavek bi skrajšala: …"></textarea></label>
+        <div class="bar"><button class="btn main sm" data-a="send">Pošlji predlog</button><button class="btn sm" data-a="close">Prekliči</button></div></div>` : ''}
+      ${o === 'edit' ? `<div class="form">
+        <div class="small">Vrste snovi</div><div class="checks">${D.types.map(t => `<label><input type="checkbox" data-ev value="${esc(t)}"${x.v.includes(t) ? ' checked' : ''}>${esc(t)}</label>`).join('')}</div>
+        <div class="small">Sklopi</div><div class="checks">${D.sklopi.map(t => `<label><input type="checkbox" data-es value="${esc(t)}"${x.s.includes(t) ? ' checked' : ''}>${esc(t)} ${esc(SK[t] || '')}</label>`).join('')}</div>
+        <label>Glasno razmišljanje (največ 300 znakov)<textarea data-eg maxlength="300">${esc(plain(x.g))}</textarea></label>
+        <label>Vprašanje za refleksijo (največ 300 znakov)<textarea data-er maxlength="300">${esc(plain(x.r))}</textarea></label>
+        <div class="checks"><label><input type="checkbox" data-eok${x.ok ? ' checked' : ''}> Pregledano (usklajeno s skupino)</label></div>
+        <div class="bar"><button class="btn main sm" data-a="save">Shrani v Izbiro</button><button class="btn sm" data-a="close">Prekliči</button></div></div>` : ''}
+      ${ns.length ? `<div class="notes">${ns.map(noteHtml).join('')}</div>` : ''}`;
+    const msg = (t, ok) => { const m = el.querySelector('[data-msg]'); m.className = 'msg ' + (ok ? 'ok' : 'bad'); m.textContent = t; };
+    const busy = v => el.querySelectorAll('button').forEach(b => { b.disabled = v; });
+    el.querySelector('[data-a=ok]').onclick = async () => {
+      if (mineOk) return;
+      busy(true); let j = null; try { j = await api('rspicknote', { code: s.c, part: 'vse', vote: 'ok' }); } catch (e) {}
+      if (j && j.ok) { if (!j.same) D.notes.push({ id: j.id, t: today(), c: s.c, who: D.name || 'jaz', part: 'vse', vote: 'ok', text: '', mine: true }); draw(); } else { busy(false); msg('Ni shranjeno. Poskusite znova.'); }
+    };
+    el.querySelector('[data-a=change]').onclick = () => { open[s.c] = o === 'change' ? '' : 'change'; draw(); const t = $('[data-c="' + s.c + '"] [data-text]'); if (t) t.focus(); };
+    if (D.admin) el.querySelector('[data-a=edit]').onclick = () => { open[s.c] = o === 'edit' ? '' : 'edit'; draw(); };
+    el.querySelectorAll('[data-a=close]').forEach(b => b.onclick = () => { open[s.c] = ''; draw(); });
+    const send = el.querySelector('[data-a=send]');
+    if (send) send.onclick = async () => {
+      const part = el.querySelector('[data-part]').value, text = el.querySelector('[data-text]').value.trim();
+      if (!text) { msg('Napišite predlog.'); return; }
+      busy(true); let j = null; try { j = await api('rspicknote', { code: s.c, part, vote: 'change', text }); } catch (e) {}
+      if (j && j.ok) { D.notes.push({ id: j.id, t: today(), c: s.c, who: D.name || 'jaz', part, vote: 'change', text, mine: true }); open[s.c] = ''; draw(); } else { busy(false); msg('Ni shranjeno. Poskusite znova.'); }
+    };
+    const save = el.querySelector('[data-a=save]');
+    if (save) save.onclick = async () => {
+      const v = [...el.querySelectorAll('[data-ev]:checked')].map(i => i.value), sk = [...el.querySelectorAll('[data-es]:checked')].map(i => i.value);
+      busy(true); let j = null;
+      try { j = await api('rspickedit', { code: s.c, v, s: sk, g: el.querySelector('[data-eg]').value, r: el.querySelector('[data-er]').value, ok: el.querySelector('[data-eok]').checked }); } catch (e) {}
+      if (j && j.ok) { D.pick[s.c] = j.row; open[s.c] = ''; draw(); } else { busy(false); msg(j && j.error === 'token' ? 'Ni shranjeno: urejati sme samo skrbnik (ali je prijava potekla).' : 'Ni shranjeno. Poskusite znova.'); }
+    };
+    el.querySelectorAll('[data-del]').forEach(b => b.onclick = async () => {
+      if (!confirm('Izbrišem to mnenje?')) return;
+      let j = null; try { j = await api('rspicknotedel', { id: b.dataset.del }); } catch (e) {}
+      if (j && j.ok) { D.notes = D.notes.filter(n => n.id !== b.dataset.del); draw(); } else msg('Ni izbrisano. Poskusite znova.');
+    });
+    return el;
+  };
+  const today = () => { const t = new Date(); return t.getFullYear() + '-' + String(t.getMonth() + 1).padStart(2, '0') + '-' + String(t.getDate()).padStart(2, '0') + ' ' + String(t.getHours()).padStart(2, '0') + ':' + String(t.getMinutes()).padStart(2, '0'); };
+
+  const draw = () => {
+    drawTop();
+    const keep = new Set(Object.keys(open).filter(k => open[k]));
+    const list = D.strat.filter(s => keep.has(s.c) || filter === 'all' || (filter === 'todo' && !hasMine(s.c)) || (filter === 'change' && notesOf(s.c).some(n => n.vote === 'change')) || (filter === 'draft' && !row(s.c).ok));
+    const box = $('#cards'); box.innerHTML = '';
+    if (!list.length) box.innerHTML = '<div class="box muted">Ni strategij za ta prikaz. ' + (filter === 'todo' ? 'Pregledali ste vse – hvala!' : '') + '</div>';
+    list.forEach(s => box.append(card(s)));
+  };
+
+  const load = async () => {
+    if (!Track.token() || loaded) return;
+    loaded = true; $('#loginMsg').textContent = 'Nalagam …';
+    let j = null; try { j = await api('rspickreview'); } catch (e) {}
+    if (!j || !j.ok || !(j.strat || []).length) {
+      loaded = false;
+      $('#loginMsg').textContent = j && j.ok ? 'Strategije še niso vpisane (skriti zavihek RS_Vodnik).'
+        : j && j.error === 'access' ? 'Pregled je namenjen članom razvojne skupine.'
+        : j && j.error === 'token' ? 'Prijava je potekla. Prijavite se znova.' : 'Strani trenutno ni mogoče naložiti. Poskusite znova čez nekaj minut.';
+      if (!j || j.error === 'token') Track.button($('#slot'));
+      return;
+    }
+    D = j; D.pick = D.pick || {}; D.notes = D.notes || [];
+    $('#login').style.display = 'none'; $('#app').style.display = 'block';
+    draw();
+  };
+
+  $('#theme').onclick = () => { document.body.classList.toggle('light'); try { localStorage.setItem('board.light', document.body.classList.contains('light') ? '1' : ''); } catch (e) {} };
+  try { if (localStorage.getItem('board.light')) document.body.classList.add('light'); } catch (e) {}
+  if (window.Track && Track.enabled) {
+    Track.onChange(() => { if (Track.token()) load(); });
+    Track.init(() => { if (Track.token()) load(); else Track.button($('#slot')); });
+  } else $('#loginMsg').textContent = 'Prijava ni nastavljena.';
+})();
+</script>
+</body>
+</html>

@@ -85,7 +85,7 @@ var UNITS = {
 
 // Change this text whenever the code of doPost changes: the health check compares it with what the published web app answers,
 // so it can tell you that the saved code has not been deployed as a new version yet.
-var CODE_VERSION = '2026-11-06.5';
+var CODE_VERSION = '2026-11-07.1';
 
 // ---------------------------------------------------------------- saving results
 
@@ -120,6 +120,10 @@ function doPost(e) {
     if (d.action === 'rsaccessset') return rsAccessSetReply_(d);       // teacher-only: saves the access list and settings
     if (d.action === 'rspick') return rsPickReply_(d);                 // strategy picker team/izbira/: the cards + the picker fields (accounts on the list)
     if (d.action === 'rspickseed') return rsPickSeedReply_(d);         // teacher-only: first filling of the picker fields (only while the tab is empty)
+    if (d.action === 'rspickreview') return rsPickReviewReply_(d);     // team review of the picker fields team/izbira/pregled/ (role skupina)
+    if (d.action === 'rspicknote') return rsPickNoteReply_(d);         // add an opinion to one strategy
+    if (d.action === 'rspicknotedel') return rsPickNoteDelReply_(d);   // delete an own opinion
+    if (d.action === 'rspickedit') return rsPickEditReply_(d);         // admin: change one row of RS_Izbira and mark it reviewed
     if (d.action === 'rsobs') return rsObsReply_(d);                   // observation sheet team/opazovanje/: lists + own observations (accounts on the list)
     if (d.action === 'rsobssave') return rsObsSaveReply_(d);           // save a new or an own observation
     if (d.action === 'rsobsdelete') return rsObsDeleteReply_(d);       // delete an own observation
@@ -2606,7 +2610,7 @@ function rsPickReply_(d) {
   if (sh && sh.getLastRow() > 1) sh.getRange(2, 1, sh.getLastRow() - 1, 2).getValues().forEach(function (r) { if (String(r[0]) === 'strategije') { try { strat = JSON.parse(String(r[1])); } catch (e) {} } });
   var p = rsPickData_();
   var month = String(rsSettings_().strategija_meseca || '').toUpperCase();   // the page always shows it as an extra card when it fits the triad
-  return out_({ ok: true, admin: me.admin, strat: strat, types: p.types, pick: p.rows, sklopi: RS_SKLOPI, month: /^ST\d{2}$/.test(month) ? month : '' });
+  return out_({ ok: true, admin: me.admin, strat: strat, types: p.types, pick: p.rows, sklopi: RS_SKLOPI, month: /^ST\d{2}$/.test(month) ? month : '', roles: me.roles });
 }
 // admin only, once: d.types = [names], d.rows = [[code, types "a; b", sklopi "NAR; DRU", think-aloud, reflection]]; refused when the tab has data
 function rsPickSeedReply_(d) {
@@ -2623,6 +2627,75 @@ function rsPickSeedReply_(d) {
   sh.getRange(2, 1, out.length, RS_PICK_HEADER.length).setValues(out);
   var lg = rsLogSheet_(); lg.appendRow([Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd HH:mm'), String(who.email).toLowerCase(), 'izbira', (out.length - 1) + ' strategij vpisanih (za pregled)']);
   return out_({ ok: true, rows: out.length - 1 });
+}
+
+// Team review of the picker fields (team/izbira/pregled/; decision of the teacher, 7 Nov 2026): every member of the development team sees
+// each strategy's picker fields, says "v redu" or suggests a change, and sees the opinions of the others (names shown). The admin edits the
+// row on the same page and marks it reviewed (Pregledano = da in RS_Izbira). Opinions are in the hidden tab RS_Pripombe; no pupil data.
+var RS_NOTES = 'RS_Pripombe', RS_NOTES_HEADER = ['ID', 'Vpisano', 'Koda', 'E-naslov', 'Ime', 'Del', 'Mnenje', 'Besedilo'];
+var RS_NOTE_PARTS = ['vse', 'v', 's', 'g', 'r'];
+function rsTeam_(d) {
+  var who = verify_(d.token); if (!who) return { error: 'token' };
+  var me = rsWho_(who.email); if (me.roles.indexOf('skupina') < 0) return { error: 'access' };
+  me.email = String(who.email).toLowerCase(); return me;
+}
+function rsGuideStrat_() {
+  var sh = SpreadsheetApp.getActive().getSheetByName(RS_GUIDE), strat = [];
+  if (sh && sh.getLastRow() > 1) sh.getRange(2, 1, sh.getLastRow() - 1, 2).getValues().forEach(function (r) { if (String(r[0]) === 'strategije') { try { strat = JSON.parse(String(r[1])); } catch (e) {} } });
+  return strat;
+}
+function rsPickReviewReply_(d) {
+  var me = rsTeam_(d); if (me.error) return out_({ ok: false, error: me.error });
+  var p = rsPickData_(), notes = [], sh = SpreadsheetApp.getActive().getSheetByName(RS_NOTES);
+  if (sh && sh.getLastRow() > 1) sh.getRange(2, 1, sh.getLastRow() - 1, RS_NOTES_HEADER.length).getValues().forEach(function (r) {
+    if (!r[0]) return;
+    var em = String(r[3]).toLowerCase();
+    notes.push({ id: String(r[0]), t: String(r[1]), c: String(r[2]), who: String(r[4]) || em.split('@')[0], part: String(r[5]), vote: String(r[6]), text: String(r[7]), mine: em === me.email });
+  });
+  var strat = rsGuideStrat_().map(function (x) { return { c: x.c, n: x.n, t: x.t, e: x.e, k: x.k }; });
+  return out_({ ok: true, admin: me.admin, name: me.name, strat: strat, types: p.types, pick: p.rows, sklopi: RS_SKLOPI, notes: notes });
+}
+function rsPickNoteReply_(d) {
+  var me = rsTeam_(d); if (me.error) return out_({ ok: false, error: me.error });
+  var c = String(d.code || '').toUpperCase(), part = String(d.part || 'vse'), vote = String(d.vote || ''), text = String(d.text || '').trim();
+  if (!rsGuideStrat_().some(function (x) { return x.c === c; }) || RS_NOTE_PARTS.indexOf(part) < 0 || ['ok', 'change'].indexOf(vote) < 0 || (vote === 'change' && !text)) return out_({ ok: false, error: 'data' });
+  var sh = rsSheet_(RS_NOTES, RS_NOTES_HEADER), lock = LockService.getScriptLock(); lock.waitLock(20000);
+  var id = 'N-' + Utilities.formatDate(new Date(), TZ, 'yyyyMMddHHmmss') + '-' + Math.random().toString(36).slice(2, 6);
+  try {
+    if (vote === 'ok' && sh.getLastRow() > 1) {          // one "v redu" per person and strategy: a repeated click does not add rows
+      var ex = sh.getRange(2, 1, sh.getLastRow() - 1, 7).getValues();
+      for (var i = 0; i < ex.length; i++) if (String(ex[i][2]) === c && String(ex[i][3]).toLowerCase() === me.email && String(ex[i][6]) === 'ok') return out_({ ok: true, id: String(ex[i][0]), same: true });
+    }
+    sh.appendRow([id, Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd HH:mm'), c, me.email, me.name, part, vote, clip_(text, 500)]);
+  } finally { lock.releaseLock(); }
+  return out_({ ok: true, id: id });
+}
+function rsPickNoteDelReply_(d) {
+  var me = rsTeam_(d); if (me.error) return out_({ ok: false, error: me.error });
+  var sh = SpreadsheetApp.getActive().getSheetByName(RS_NOTES); if (!sh || sh.getLastRow() < 2) return out_({ ok: false, error: 'notfound' });
+  var lock = LockService.getScriptLock(); lock.waitLock(20000);
+  try {
+    var ids = sh.getRange(2, 1, sh.getLastRow() - 1, 4).getValues();
+    for (var i = 0; i < ids.length; i++) if (String(ids[i][0]) === String(d.id) && String(ids[i][3]).toLowerCase() === me.email) { sh.deleteRow(i + 2); return out_({ ok: true }); }
+  } finally { lock.releaseLock(); }
+  return out_({ ok: false, error: 'notfound' });
+}
+// admin only: d.code, d.v [types], d.s [sklopi], d.g, d.r, d.ok (true = Pregledano da)
+function rsPickEditReply_(d) {
+  var who = verify_(d.token);
+  if (!who || !isTeacher_(who.email)) return out_({ ok: false, error: 'token' });
+  var c = String(d.code || '').toUpperCase(), p = rsPickData_();
+  if (!rsGuideStrat_().some(function (x) { return x.c === c; }) || !(d.v instanceof Array) || !(d.s instanceof Array)) return out_({ ok: false, error: 'data' });
+  var v = d.v.map(String).filter(function (x) { return p.types.indexOf(x) >= 0; }), sk = d.s.map(function (x) { return String(x).toUpperCase(); }).filter(function (x) { return RS_SKLOPI.indexOf(x) >= 0; });
+  var row = [c, v.join('; '), sk.join('; '), clip_(String(d.g || '').trim(), 300), clip_(String(d.r || '').trim(), 300), d.ok ? 'da' : ''];
+  var sh = rsSheet_(RS_PICK, RS_PICK_HEADER), lock = LockService.getScriptLock(); lock.waitLock(20000);
+  try {
+    var n = sh.getLastRow() - 1, codes = n > 0 ? sh.getRange(2, 1, n, 1).getValues() : [], at = -1;
+    codes.forEach(function (x, i) { if (String(x[0]).trim().toUpperCase() === c) at = i; });
+    if (at < 0) sh.appendRow(row); else sh.getRange(at + 2, 1, 1, row.length).setValues([row]);
+    rsLogSheet_().appendRow([Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd HH:mm'), String(who.email).toLowerCase(), 'izbira', c + (d.ok ? ' urejeno, pregledano' : ' urejeno')]);
+  } finally { lock.releaseLock(); }
+  return out_({ ok: true, row: rsPickData_().rows[c] });
 }
 
 // Observation sheet team/opazovanje/ (OBSERVATION-PLAN.md steps 1-2; decisions of the teacher, 6 Nov 2026: everyone on the access list may
@@ -2746,7 +2819,7 @@ function hcTeam_(add) {
   add(!obsId ? 'ok' : os ? 'ok' : 'bad', !obsId ? 'Observation sheet: no observations yet (the Sheet "Samouravnavanje – opazovanja" is created with the first one).'
     : os ? 'Observation sheet: ' + Math.max(0, os.getLastRow() - 1) + ' observations in "' + ob.getName() + '"; classes in its tab Razredi: ' + obsClasses_(ob).join(', ') + '.'
     : 'Observation sheet: OBS_SHEET_ID is set but the Sheet (or its tab Opazovanja) cannot be opened.');
-  var pages = ['team/index.html', 'team/dostop/index.html', 'team/strategije/index.html', 'team/izbira/index.html', 'team/rezultati/index.html', 'team/opazovanje/index.html'];
+  var pages = ['team/index.html', 'team/dostop/index.html', 'team/strategije/index.html', 'team/izbira/index.html', 'team/izbira/pregled/index.html', 'team/rezultati/index.html', 'team/opazovanje/index.html'];
   var res = UrlFetchApp.fetchAll(pages.map(function (p) { return { url: SITE_BASE + p + '?check=' + Date.now(), muteHttpExceptions: true }; }));
   var bad = pages.filter(function (p, i) { return res[i].getResponseCode() !== 200; });
   add(bad.length ? 'bad' : 'ok', bad.length ? 'Pages of the section not found on GitHub Pages: ' + bad.join(', ') + '.' : 'The section pages (team/) are on GitHub Pages.');

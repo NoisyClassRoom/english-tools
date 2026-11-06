@@ -273,7 +273,8 @@ input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: 1p
     const codes = D.strat.map(s => s.c), done = codes.filter(c => D.pick[c] && D.pick[c].ok).length;
     if (done < codes.length) {
       $('#draft').style.display = 'block';
-      $('#draft').textContent = 'Osnutek: razvojna skupina še pregleduje vrste snovi, sklope, stavke za glasno razmišljanje in vprašanja za refleksijo (pregledano ' + done + ' od ' + codes.length + ').';
+      $('#draft').textContent = 'Osnutek: razvojna skupina še pregleduje vrste snovi, sklope, stavke za glasno razmišljanje in vprašanja za refleksijo (pregledano ' + done + ' od ' + codes.length + '). ';
+      if ((D.roles || []).includes('skupina') || D.admin) { const a = document.createElement('a'); a.href = 'pregled/'; a.textContent = '🔍 Pregled za skupino'; $('#draft').append(a); }
     }
     ['cls', 'vio', 'subj', 'type', 'step', 'date', 'topic'].forEach(k => $('#' + k).addEventListener('input', render));
     render();
