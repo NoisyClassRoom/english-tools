@@ -158,10 +158,12 @@
     const box = $('#settings'); box.innerHTML = '';
     Object.keys(data.labels).forEach(k => {
       const lab = el('label', '', data.labels[k]); lab.htmlFor = 's-' + k;
-      const x = el('input'); x.id = 's-' + k; x.value = settings[k] || '';
+      const x = el(k === 'obvestila' ? 'textarea' : 'input'); x.id = 's-' + k; x.value = settings[k] || '';
       if (k === 'rezultati_odprti') x.placeholder = 'skupina';
+      else if (k === 'obvestila') { x.rows = 4; x.placeholder = 'npr.\nTa mesec vadimo ST06 v vseh razredih.\nSestanek skupine: 20. 11. ob 13.00'; }
+      else if (k === 'strategija_meseca') x.placeholder = 'ST06';
       else if (!/^vprasalnik_/.test(k)) x.placeholder = 'https://docs.google.com/… ali https://drive.google.com/…';
-      x.oninput = () => { settings[k] = x.value.trim(); setDirty(true); };
+      x.oninput = () => { settings[k] = k === 'obvestila' ? x.value : x.value.trim(); setDirty(true); };
       box.append(lab, x);
     });
   };
@@ -218,7 +220,7 @@
     let k = null; try { k = await api('rsaccess'); } catch (e) {}
     if (k && k.ok) fill(k); else setDirty(false);
     $('#msg').className = 'msg ' + (j.skipped && j.skipped.length ? 'warn' : 'ok');
-    $('#msg').textContent = '✓ Shranjeno (' + j.changes + ' sprememb).' + (j.skipped && j.skipped.length ? ' Niso shranjene povezave, ki niso povezave Google (docs/drive.google.com): ' + j.skipped.map(k => data.labels[k] || k).join(', ') + '.' : '');
+    $('#msg').textContent = '✓ Shranjeno (' + j.changes + ' sprememb).' + (j.skipped && j.skipped.length ? ' Ni shranjeno (povezava mora biti docs/drive.google.com, strategija koda kot ST06): ' + j.skipped.map(k => data.labels[k] || k).join(', ') + '.' : '');
   };
   window.addEventListener('beforeunload', e => { if (dirty) { e.preventDefault(); e.returnValue = ''; } });
 

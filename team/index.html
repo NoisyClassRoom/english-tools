@@ -41,6 +41,15 @@
   li { margin: 3px 0; }
   .roles { display: flex; gap: 6px; flex-wrap: wrap; }
   .role { border: 1px solid var(--accent); color: var(--accent); border-radius: 999px; padding: 0 10px; font-size: 13px; }
+  .news { margin-top: 14px; }
+  .news ul { display: grid; gap: 4px; }
+  .month { margin-top: 14px; border-color: var(--accent); }
+  .month .head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+  .month .code { font-family: ui-monospace, Consolas, monospace; font-weight: 700; color: var(--accent); }
+  .month ol { margin: 6px 0; padding-left: 20px; }
+  .say { border-left: 4px solid var(--accent); padding: 4px 10px; font-style: italic; margin: 6px 0; }
+  .ev { font-size: 12px; font-weight: 700; border: 1.5px solid currentColor; border-radius: 999px; padding: 0 8px; }
+  .ev.s { color: var(--good); } .ev.m { color: var(--warn); } .ev.w { color: var(--bad); } .ev.n { color: var(--muted); }
 </style>
 </head>
 <body>
@@ -59,6 +68,10 @@
   </div>
 
   <div id="app">
+    <div class="grid">
+      <div class="card news" id="news" style="display:none"><h2>📣 Obvestila skupine</h2><ul id="newsList"></ul></div>
+      <div class="card month" id="month" style="display:none"></div>
+    </div>
     <div class="tiles" id="tiles"></div>
     <div class="grid">
       <div class="card">
@@ -105,12 +118,25 @@
     tile('📘', 'Učne strategije v razredu', 'Priročnik: štirje koraki uvajanja, strategije po triadah in sklopih, pasti, spremljanje.', 'strategije/');
     tile('🎯', 'Izbira strategije in priprava ure', 'Razred, predmet in vrsta snovi: do tri predlogi strategij in priprava na eno stran A4.', 'izbira/');
     tile('📝', 'Opazovalni list', 'Po uri v eni minuti zabeležite, katero strategijo ste uvajali in kako je delovala.', null, 'kmalu');
-    if (seesResults) tile('📊', 'Rezultati vprašalnika', team ? 'Kazalniki po področjih, trditve, strategije, razredi.' : 'Pogled za vašo vlogo.', null, 'po 21. 11. 2026');
+    if (seesResults) tile('📊', 'Rezultati vprašalnika', team ? 'Kazalniki po področjih, trditve, strategije, razredi. Zdaj: primer z izmišljenimi številkami.' : 'Pogled za vašo vlogo.', team ? 'rezultati/' : null, team ? 'primer · prave po 21. 11. 2026' : 'po 21. 11. 2026');
     if (team) tile('🔗', 'Analiza', 'Opazovanja in vprašalnik: kaj smo uvajali in kako so se spremenili odgovori.', null, 'kmalu');
     if (team) tile('🎤', 'Predstavitev za zbor', 'Izhodiščni rezultati za učiteljski zbor, samo skupne številke.', null, 'po 21. 11. 2026');
     if (j.admin) tile('🔐', 'Upravljanje dostopa', 'Kdo vidi kaj: člani skupine, razredniki, učitelji, ravnatelj. Povezave in datumi.', 'dostop/');
 
     const s = j.settings || {};
+    const notes = String(s.obvestila || '').split('\n').map(x => x.trim()).filter(Boolean);
+    $('#newsList').innerHTML = ''; notes.forEach(n => $('#newsList').append(el('li', '', n)));
+    $('#news').style.display = notes.length ? '' : 'none';
+    const m = j.month, mb = $('#month'); mb.innerHTML = '';
+    if (m) {
+      const EV = { s: 'močno podprta', m: 'zmerno podprta', w: 'šibko podprta', n: 'ni neposredno raziskana' };
+      const head = el('div', 'head'); head.append(el('h2', '', '⭐ Strategija meseca'), el('span', 'code', m.c));
+      const ol = el('ol'); (m.k || []).forEach(x => ol.append(el('li', '', x)));
+      mb.append(head, el('b', '', m.n), document.createTextNode(' '), el('span', 'ev ' + (EV[m.e] ? m.e : 'n'), EV[m.e] || ''), el('p', 'muted', m.w || ''), ol);
+      if (m.g) mb.append(el('p', 'say', m.g));
+      const a = el('a', 'btn', '🎯 Pripravi uro s to strategijo'); a.href = 'izbira/'; mb.append(a);
+    }
+    mb.style.display = m ? '' : 'none';
     const dates = $('#dates'); dates.innerHTML = '';
     dates.append(el('li', '', 'Začetni vprašalnik: ' + (s.vprasalnik_jesen || '11.–21. 11. 2026')));
     dates.append(el('li', '', 'Končni vprašalnik: ' + (s.vprasalnik_pomlad || 'spomladi 2027')));

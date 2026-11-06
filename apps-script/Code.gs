@@ -85,7 +85,7 @@ var UNITS = {
 
 // Change this text whenever the code of doPost changes: the health check compares it with what the published web app answers,
 // so it can tell you that the saved code has not been deployed as a new version yet.
-var CODE_VERSION = '2026-11-06.2';
+var CODE_VERSION = '2026-11-06.3';
 
 // ---------------------------------------------------------------- saving results
 
@@ -2402,8 +2402,11 @@ var RS_SETTING_KEYS = [
   ['kazalo', 'Kazalo – Samouravnavanje učenja (povezava)'],
   ['vprasalnik_jesen', 'Začetni vprašalnik (besedilo, npr. 11.–21. 11. 2026)'],
   ['vprasalnik_pomlad', 'Končni vprašalnik (besedilo, npr. spomladi 2027)'],
-  ['rezultati_odprti', 'Kdo vidi rezultate vprašalnika: skupina | skupina,razrednik | skupina,razrednik,ravnatelj | vsi']
+  ['rezultati_odprti', 'Kdo vidi rezultate vprašalnika: skupina | skupina,razrednik | skupina,razrednik,ravnatelj | vsi'],
+  ['obvestila', 'Obvestila skupine na domači strani (vsaka vrstica je ena alineja; prazno = brez)'],
+  ['strategija_meseca', 'Strategija meseca (koda, npr. ST06; prazno = brez)']
 ];
+var RS_OPTIONAL_SETTINGS = ['obvestila', 'strategija_meseca'];   // may stay empty (no health-check warning)
 var RS_GUIDE_SOURCE = 'https://raw.githubusercontent.com/noisyclassroom/english-tools/e1470c07cd909e14308d3fd9829dcbbb34daf948/docs/razvojna-skupina/strategije-v-razredu.html';
 
 function rsSheet_(name, header) {
@@ -2464,8 +2467,17 @@ function rsHomeReply_(d) {
   var me = rsWho_(who.email);
   if (!me.roles.length) return out_({ ok: false, error: 'access' });
   var s = rsSettings_(), open = s.rezultati_odprti.toLowerCase().split(/[\s,;]+/).filter(String);
+  var month = null, code = String(s.strategija_meseca || '').toUpperCase();
+  if (/^ST\d{2}$/.test(code)) {
+    var gs = SpreadsheetApp.getActive().getSheetByName(RS_GUIDE);
+    if (gs && gs.getLastRow() > 1) gs.getRange(2, 1, gs.getLastRow() - 1, 2).getValues().forEach(function (r) {
+      if (String(r[0]) !== 'strategije') return;
+      try { JSON.parse(String(r[1])).forEach(function (x) { if (x.c === code) month = x; }); } catch (e) {}
+    });
+    if (month) { var px = rsPickData_().rows[code]; if (px) { month.g = px.g; month.r = px.r; } }
+  }
   return out_({ ok: true, admin: me.admin, roles: me.roles, classes: me.classes, name: me.name || who.first,
-                settings: s, resultsOpen: open.indexOf('vsi') >= 0 ? RS_ROLES.slice() : open });
+                settings: s, resultsOpen: open.indexOf('vsi') >= 0 ? RS_ROLES.slice() : open, month: month });
 }
 
 // the guide text, for any account on the list
@@ -2535,8 +2547,11 @@ function rsAccessSetReply_(d) {
       var st = rsSettingsSheet_(), vals = st.getRange(2, 1, st.getLastRow() - 1, 2).getValues();
       vals.forEach(function (r, i) {
         var k = String(r[0]); if (!(k in d.settings)) return;
-        var v = clip_(d.settings[k], 300);
+        var v = k === 'obvestila' ? String(d.settings[k] == null ? '' : d.settings[k]).split(/\r?\n/).map(function (x) { return clip_(x, 200).replace(/^'/, ''); }).filter(String).slice(0, 8).join('\n')
+                                  : clip_(d.settings[k], 300);
+        if (k === 'obvestila') v = v.replace(/^[=+\-@]/, "'$&");
         if (/^(obrazec_|tisk_|mapa|kazalo)/.test(k) && v && !/^https:\/\/(docs|drive)\.google\.com\//.test(v)) { skipped.push(k); return; }   // only Google links
+        if (k === 'strategija_meseca') { v = v.toUpperCase(); if (v && !/^ST\d{2}$/.test(v)) { skipped.push(k); return; } }
         if (v !== String(r[1]).trim()) { st.getRange(i + 2, 2).setValue(v); logRows.push([now, by, 'nastavitev', k + ' = ' + (v || '(prazno)')]); }
       });
     }
@@ -2612,14 +2627,14 @@ function hcTeam_(add) {
   rows.forEach(function (r) { by[r.role] = (by[r.role] || 0) + 1; });
   if (!ss.getSheetByName(RS_ACCESS)) add('warn', 'No access list yet (tab ' + RS_ACCESS + '): open team/dostop/ with the teacher account and add the people.');
   else add(rows.length ? 'ok' : 'warn', 'Access list: ' + (rows.length ? RS_ROLES.map(function (k) { return k + ' ' + (by[k] || 0); }).join(', ') : 'empty') + ' (plus the account(s) in TEACHER_EMAILS as the team).');
-  var s = rsSettings_(), empty = RS_SETTING_KEYS.filter(function (k) { return !s[k[0]]; }).map(function (k) { return k[0]; });
+  var s = rsSettings_(), empty = RS_SETTING_KEYS.filter(function (k) { return !s[k[0]] && RS_OPTIONAL_SETTINGS.indexOf(k[0]) < 0; }).map(function (k) { return k[0]; });
   add(empty.length ? 'warn' : 'ok', empty.length ? 'Settings without a value (team/dostop/ > Povezave in datumi): ' + empty.join(', ') + '.' : 'All links and dates of the section are filled in.');
   var g = ss.getSheetByName(RS_GUIDE);
   add(g && g.getLastRow() > 2 ? 'ok' : 'warn', g && g.getLastRow() > 2 ? 'The guide text is in the tab ' + RS_GUIDE + '.' : 'The guide text is missing: menu English hub > Development team: import the guide.');
   var p = rsPickData_(), pc = Object.keys(p.rows).length, pr = Object.keys(p.rows).filter(function (k) { return p.rows[k].ok; }).length;
   add(pc && p.types.length ? (pr === pc ? 'ok' : 'warn') : 'warn', !pc ? 'The strategy picker (team/izbira/) has no data yet (tab ' + RS_PICK + ').'
     : 'Strategy picker: ' + pc + ' strategies, ' + p.types.length + ' types of content; reviewed by the team: ' + pr + ' of ' + pc + ' (column Pregledano = da).');
-  var pages = ['team/index.html', 'team/dostop/index.html', 'team/strategije/index.html', 'team/izbira/index.html'];
+  var pages = ['team/index.html', 'team/dostop/index.html', 'team/strategije/index.html', 'team/izbira/index.html', 'team/rezultati/index.html'];
   var res = UrlFetchApp.fetchAll(pages.map(function (p) { return { url: SITE_BASE + p + '?check=' + Date.now(), muteHttpExceptions: true }; }));
   var bad = pages.filter(function (p, i) { return res[i].getResponseCode() !== 200; });
   add(bad.length ? 'bad' : 'ok', bad.length ? 'Pages of the section not found on GitHub Pages: ' + bad.join(', ') + '.' : 'The section pages (team/) are on GitHub Pages.');

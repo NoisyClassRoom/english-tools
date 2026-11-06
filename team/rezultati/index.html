@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="sl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Rezultati vprašalnika – primer</title>
+<style>
+/* Questionnaire results: until the real data exists (after 21 Nov 2026) this page shows the views the team liked
+   (RAZVOJNA-SKUPINA-PLAN.md, "Views the team liked") with INVENTED numbers, generated in the browser and labelled
+   "PRIMER" everywhere. No pupil data. Behind the sign-in like the rest of team/. Ordinal colours: one blue ramp,
+   validated with the dataviz validator for both surfaces (light #fff, dark #1f1f26). */
+body {
+  --bg: #141418; --card: #1f1f26; --ink: #f2efe9; --muted: #a39f95; --line: #34343e; --field: #14141a; --accent: #ff8a1f; --warn: #f0b429;
+  --o1: #184f95; --o2: #2a78d6; --o3: #5598e7; --o4: #9ec5f4; --o-ink-dark: #0b0b0b;
+}
+body.light {
+  --bg: #f6f4ef; --card: #ffffff; --ink: #1f2a37; --muted: #6b7280; --line: #e5e1d8; --field: #ffffff; --accent: #e8710a; --warn: #b7791f;
+  --o1: #86b6ef; --o2: #5598e7; --o3: #2a78d6; --o4: #184f95;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; padding: 0 16px 64px; }
+.wrap { max-width: 1000px; margin: 0 auto; }
+h1 { font-size: 1.5rem; margin: 18px 0 4px; }
+h2 { font-size: 1.05rem; color: var(--accent); margin: 0 0 4px; }
+p { margin: 0; }
+.muted { color: var(--muted); } .small { font-size: .85rem; }
+.shellbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 14px 0 0; }
+.shellbar .sp { flex: 1; }
+.btn { background: var(--field); color: var(--ink); border: 1px solid var(--line); border-radius: 10px; padding: 6px 12px; font: inherit; cursor: pointer; text-decoration: none; display: inline-block; }
+.btn:hover { border-color: var(--accent); }
+.box { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px; margin-top: 14px; }
+#login { text-align: center; padding: 40px 14px; }
+#app { display: none; }
+.banner { border: 2px dashed var(--warn); color: var(--ink); }
+.banner b { color: var(--warn); }
+.filters { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 14px; }
+.chip { font: inherit; font-size: .9rem; font-weight: 700; padding: 5px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--card); color: var(--ink); cursor: pointer; }
+.chip[aria-pressed="true"] { background: var(--accent); color: #111; border-color: var(--accent); }
+.legend { display: flex; gap: 6px 14px; flex-wrap: wrap; font-size: .85rem; color: var(--muted); margin: 6px 0 10px; }
+.legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -1px; margin-right: 5px; }
+.rows { display: grid; gap: 8px; }
+.row { display: grid; grid-template-columns: 230px 1fr 52px; gap: 10px; align-items: center; }
+.row .lab { font-size: .9rem; }
+.row .val { text-align: right; font-variant-numeric: tabular-nums; font-size: .9rem; }
+.track { height: 22px; position: relative; }
+.bar { height: 22px; background: var(--o3); border-radius: 0 4px 4px 0; min-width: 2px; }
+.stack { display: flex; gap: 2px; height: 22px; }
+.stack span { display: flex; align-items: center; justify-content: center; font-size: .75rem; font-weight: 700; overflow: hidden; white-space: nowrap; }
+.stack span:first-child { border-radius: 4px 0 0 4px; } .stack span:last-child { border-radius: 0 4px 4px 0; }
+.s1 { background: var(--o1); color: #fff; } .s2 { background: var(--o2); color: #fff; } .s3 { background: var(--o3); color: #fff; } .s4 { background: var(--o4); color: var(--o-ink-dark); }
+body.light .s1 { color: var(--o-ink-dark); } body.light .s2 { color: var(--o-ink-dark); }
+.grid2 { display: grid; grid-template-columns: 1fr; gap: 0; }
+@media (max-width: 760px) { .grid2 { grid-template-columns: 1fr; } .row { grid-template-columns: 96px 1fr 44px; } }
+table { border-collapse: collapse; width: 100%; font-size: .9rem; }
+th, td { padding: 6px 8px; border-bottom: 1px solid var(--line); text-align: right; font-variant-numeric: tabular-nums; }
+th:first-child, td:first-child { text-align: left; }
+th { color: var(--muted); font-weight: 600; }
+.tablewrap { overflow-x: auto; }
+#tip { position: fixed; pointer-events: none; background: var(--card); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; font-size: .85rem; box-shadow: 0 4px 14px rgba(0,0,0,.3); display: none; z-index: 9; max-width: 260px; }
+.stamp { position: absolute; right: 10px; top: 8px; font-size: .7rem; font-weight: 800; letter-spacing: .08em; color: var(--warn); border: 1.5px solid var(--warn); border-radius: 6px; padding: 0 6px; }
+.box { position: relative; }
+</style>
+</head>
+<body>
+<script src="../../exercises/tracking.js"></script>
+<div class="wrap">
+  <div class="shellbar">
+    <a class="btn" href="../">← Samouravnavanje učenja</a><span class="sp"></span>
+    <button class="btn" id="theme">Svetlo / temno</button>
+  </div>
+  <h1>📊 Rezultati vprašalnika »Kako se učim?«</h1>
+  <div id="login" class="box">
+    <p id="loginMsg" class="muted">Stran je namenjena razvojni skupini. Prijavite se s šolskim Google računom.</p>
+    <div id="slot" style="display:inline-block"></div>
+  </div>
+  <div id="app">
+    <div class="box banner"><b>PRIMER:</b> vse številke na tej strani so <b>izmišljene</b> in se ustvarijo v brskalniku. Stran kaže, kako bodo videti pogledi, ko bodo po 21. 11. 2026 na voljo pravi odgovori. Ne uporabljajte jih za sklepe.</div>
+    <div class="filters" id="vioF" role="group" aria-label="VIO"></div>
+
+    <div class="box"><span class="stamp">PRIMER</span>
+      <h2>Kazalniki po področjih</h2>
+      <p class="muted small">Delež učencev z odgovorom v zgornjih dveh stopnjah (»pogosto« ali »vedno«; v 1. VIO »da«). Lestvice med VIO so različne, zato primerjajte znotraj istega VIO.</p>
+      <div class="rows" id="areas" style="margin-top:10px"></div>
+    </div>
+
+    <div class="box"><span class="stamp">PRIMER</span>
+      <h2>Trditve po razredih</h2>
+      <div class="filters" id="areaF" role="group" aria-label="Področje" style="margin-top:6px"></div>
+      <div class="legend" id="lg4"></div>
+      <div id="stmts"></div>
+    </div>
+
+    <div class="grid2">
+      <div class="box"><span class="stamp">PRIMER</span>
+        <h2>Poznavanje strategij</h2>
+        <div class="legend" id="lg3"></div>
+        <div class="rows" id="strat"></div>
+      </div>
+      <div class="box"><span class="stamp">PRIMER</span>
+        <h2>»Najbolj mi pomaga«</h2>
+        <p class="muted small">Delež učencev, ki so strategijo izbrali kot najbolj koristno.</p>
+        <div class="rows" id="helps" style="margin-top:10px"></div>
+      </div>
+    </div>
+
+    <div class="box"><span class="stamp">PRIMER</span>
+      <h2>Razredi drug ob drugem</h2>
+      <p class="muted small">Delež zgornjih dveh odgovorov po področjih. Ko bosta oba kroga, bo tu tudi primerjava jesen – pomlad.</p>
+      <div class="tablewrap"><table id="classes"></table></div>
+    </div>
+    <p class="muted small" style="margin-top:14px">Pogled posameznega učenca in povezava z ocenami bosta samo za razvojno skupino in razrednika, ko bodo pravi podatki in soglasje pooblaščenca za varstvo podatkov.</p>
+  </div>
+</div>
+<div id="tip" role="tooltip"></div>
+<script>
+(() => {
+  'use strict';
+  const $ = s => document.querySelector(s);
+  const el = (t, c, x) => { const e = document.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e; };
+  const AREAS = [['N', 'Načrtovanje', 5], ['D', 'Doslednost', 3], ['M', 'Spremljanje', 3], ['R', 'Refleksija', 3], ['S', 'Strategije', 1]];
+  const SCALE = { 1: ['ne', 'včasih', 'da'], 2: ['nikoli', 'redko', 'pogosto', 'vedno'], 3: ['nikoli', 'redko', 'pogosto', 'vedno'] };
+  const CLASSES = { 1: ['1.A', '2.A', '3.A'], 2: ['4.A', '5.A', '6.A'], 3: ['7.A', '8.A', '9.A'] };
+  const KNOW = ['ne poznam', 'poznam, ne uporabljam', 'poznam in uporabljam'];
+  let vio = 2, area = 'N', strat = [], loaded = false;
+  try { vio = Number(localStorage.getItem('rez.vio')) || 2; } catch (e) {}
+
+  // invented numbers: a seeded generator, so the example is the same every time
+  const rnd = seed => { let h = 2166136261; for (const ch of seed) h = Math.imul(h ^ ch.charCodeAt(0), 16777619); return () => { h = Math.imul(h ^ (h >>> 15), 2246822507); h = Math.imul(h ^ (h >>> 13), 3266489909); h ^= h >>> 16; return (h >>> 0) / 4294967296; }; };
+  const dist = (seed, n) => { const r = rnd(seed), w = []; const lean = r(); for (let i = 0; i < n; i++) w.push(0.4 + r() + (i / (n - 1)) * lean * 1.6); const s = w.reduce((a, b) => a + b, 0); return w.map(x => x / s); };
+  const top = d => d.length === 3 ? d[2] : d[2] + d[3];
+  const pct = x => Math.round(x * 100) + ' %';
+
+  const tip = $('#tip');
+  const hover = (node, text) => {
+    node.addEventListener('mousemove', e => { tip.textContent = text; tip.style.display = 'block'; tip.style.left = Math.min(e.clientX + 12, innerWidth - 270) + 'px'; tip.style.top = (e.clientY + 14) + 'px'; });
+    node.addEventListener('mouseleave', () => { tip.style.display = 'none'; });
+  };
+  const legend = (box, labels) => { box.innerHTML = ''; labels.forEach((l, i) => { const s = el('span'); const k = el('i', 's' + (labels.length === 3 ? [1, 3, 4][i] : i + 1)); s.append(k, document.createTextNode(l)); box.append(s); }); };
+  const stack = (d, labels, what) => {
+    const st = el('div', 'stack'), cls = d.length === 3 ? [1, 3, 4] : [1, 2, 3, 4];
+    d.forEach((x, i) => { const s = el('span', 's' + cls[i], x >= 0.12 ? pct(x) : ''); s.style.width = (x * 100) + '%'; hover(s, what + ' · ' + labels[i] + ': ' + pct(x)); st.append(s); });
+    return st;
+  };
+  const row = (label, content, val) => { const r = el('div', 'row'); r.append(el('div', 'lab', label), content, el('div', 'val', val)); return r; };
+  const areaShare = (cls, a) => { const [k, , n] = a; let s = 0; for (let i = 1; i <= n; i++) s += top(dist(cls + k + (k === 'S' ? '0' : i), SCALE[vio].length)); return s / n; };
+
+  const draw = () => {
+    try { localStorage.setItem('rez.vio', String(vio)); } catch (e) {}
+    $('#vioF').innerHTML = ''; [1, 2, 3].forEach(v => { const b = el('button', 'chip', v + '. VIO'); b.setAttribute('aria-pressed', String(v === vio)); b.onclick = () => { vio = v; draw(); }; $('#vioF').append(b); });
+    const cl = CLASSES[vio];
+    // 1. indicators by area (single series: the title names it, no legend)
+    const ab = $('#areas'); ab.innerHTML = '';
+    AREAS.forEach(a => { const v = cl.reduce((s, c) => s + areaShare(c, a), 0) / cl.length; const t = el('div', 'track'), b = el('div', 'bar'); b.style.width = (v * 100) + '%'; t.append(b); hover(t, a[1] + ', ' + vio + '. VIO: ' + pct(v) + ' (primer)'); ab.append(row(a[1] + ' (' + a[0] + ')', t, pct(v))); });
+    // 2. statements by class, stacked answers
+    $('#areaF').innerHTML = ''; AREAS.forEach(a => { const b = el('button', 'chip', a[1]); b.setAttribute('aria-pressed', String(a[0] === area)); b.onclick = () => { area = a[0]; draw(); }; $('#areaF').append(b); });
+    legend($('#lg4'), SCALE[vio]);
+    const A = AREAS.find(a => a[0] === area), sb = $('#stmts'); sb.innerHTML = '';
+    for (let i = 1; i <= A[2]; i++) {
+      const code = A[0] + (A[0] === 'S' ? '0' : i), g = el('div', 'rows'); g.style.marginBottom = '12px';
+      g.append(el('p', 'small', code + ' – trditev iz šifranta vprašalnika'));
+      cl.forEach(c => { const d = dist(c + code, SCALE[vio].length); g.append(row(c, stack(d, SCALE[vio], c + ' · ' + code), pct(top(d)))); });
+      sb.append(g);
+    }
+    // 3. strategies known / used and "helps most"
+    legend($('#lg3'), KNOW);
+    const list = strat.filter(s => (s.t || []).includes(vio)), kb = $('#strat'), hb = $('#helps'); kb.innerHTML = ''; hb.innerHTML = '';
+    list.forEach(s => { const d = dist('k' + vio + s.c, 3); kb.append(row(s.c + ' ' + s.n, stack(d, KNOW, s.c), pct(d[2]))); kb.lastChild.firstChild.title = s.n; });
+    const raw = list.map(s => [s, rnd('h' + vio + s.c)() ** 2]), tot = raw.reduce((a, x) => a + x[1], 0) || 1;
+    raw.map(([s, w]) => [s, w / tot]).sort((a, b) => b[1] - a[1]).slice(0, 6).forEach(([s, v]) => { const t = el('div', 'track'), b = el('div', 'bar'); b.style.width = (v * 100 / 0.5) + '%'; t.append(b); hover(t, s.c + ' ' + s.n + ': ' + pct(v) + ' (primer)'); hb.append(row(s.c + ' ' + s.n, t, pct(v))); });
+    // 4. classes side by side (also the table view of the indicators)
+    const tb = $('#classes'); tb.innerHTML = '';
+    const hr = el('tr'); hr.append(el('th', '', 'Razred')); AREAS.forEach(a => hr.append(el('th', '', a[1]))); tb.append(hr);
+    cl.forEach(c => { const tr = el('tr'); tr.append(el('td', '', c)); AREAS.forEach(a => tr.append(el('td', '', pct(areaShare(c, a))))); tb.append(tr); });
+  };
+
+  const api = async (action) => {
+    const token = Track.token(); if (!token) throw new Error('token');
+    const r = await fetch(Track.config.endpoint, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action, token }) });
+    return r.json();
+  };
+  const load = async () => {
+    if (!Track.token() || loaded) return;
+    loaded = true; $('#loginMsg').textContent = 'Nalagam …';
+    let h = null, p = null; try { [h, p] = await Promise.all([api('rshome'), api('rspick')]); } catch (e) {}
+    if (!h || !h.ok || !h.roles.includes('skupina')) {
+      loaded = false;
+      $('#loginMsg').textContent = h && h.ok ? 'Primer rezultatov je zaenkrat samo za razvojno skupino.' : h && h.error === 'access' ? 'Ta račun nima dostopa. Obrnite se na razvojno skupino.'
+        : h && h.error === 'token' ? 'Prijava je potekla. Prijavite se znova.' : 'Strani trenutno ni mogoče naložiti.';
+      if (!h || h.error === 'token') Track.button($('#slot'));
+      return;
+    }
+    strat = (p && p.ok && p.strat) || [];
+    $('#login').style.display = 'none'; $('#app').style.display = 'block';
+    draw();
+  };
+  $('#theme').onclick = () => { document.body.classList.toggle('light'); try { localStorage.setItem('board.light', document.body.classList.contains('light') ? '1' : ''); } catch (e) {} };
+  try { if (localStorage.getItem('board.light')) document.body.classList.add('light'); } catch (e) {}
+  if (window.Track && Track.enabled) {
+    Track.onChange(() => { if (Track.token()) load(); });
+    Track.init(() => { if (Track.token()) load(); else Track.button($('#slot')); });
+  } else $('#loginMsg').textContent = 'Prijava ni nastavljena.';
+})();
+</script>
+</body>
+</html>
