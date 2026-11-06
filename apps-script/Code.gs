@@ -85,7 +85,7 @@ var UNITS = {
 
 // Change this text whenever the code of doPost changes: the health check compares it with what the published web app answers,
 // so it can tell you that the saved code has not been deployed as a new version yet.
-var CODE_VERSION = '2026-11-06.1';
+var CODE_VERSION = '2026-11-06.2';
 
 // ---------------------------------------------------------------- saving results
 
@@ -118,6 +118,8 @@ function doPost(e) {
     if (d.action === 'rsguide') return rsGuideReply_(d);               // the guide text (accounts on the access list)
     if (d.action === 'rsaccess') return rsAccessReply_(d);             // teacher-only: the access list, settings, change log
     if (d.action === 'rsaccessset') return rsAccessSetReply_(d);       // teacher-only: saves the access list and settings
+    if (d.action === 'rspick') return rsPickReply_(d);                 // strategy picker team/izbira/: the cards + the picker fields (accounts on the list)
+    if (d.action === 'rspickseed') return rsPickSeedReply_(d);         // teacher-only: first filling of the picker fields (only while the tab is empty)
     if (d.action === 'ping') return out_({ ok: true, v: CODE_VERSION });   // no data; used by "Check that everything works" in the Sheet menu
     var who = verify_(d.token);
     if (!who) return out_({ ok: false, error: 'token' });
@@ -2560,6 +2562,50 @@ function rsGuideImport() {
   ui.alert('The guide is in the hidden tab ' + RS_GUIDE + ' (' + strat.length + ' strategies). Teachers on the access list see it on team/strategije/.');
 }
 
+// Strategy picker team/izbira/ (plan section "Strategy picker and lesson plan", decision 9). The cards come from RS_Vodnik (part "strategije");
+// the extra fields live in the hidden tab RS_Izbira, which the guide import never touches: one row per strategy code with the types of
+// content and the subject groups (separated by ";"), one sentence for thinking aloud, one reflection question and "Pregledano" (da = the team
+// has reviewed the row). The row with the code VRSTE holds the list of content types in column B (the team may change it there).
+// The text is not in this public repository: it was filled once with rspickseed and is edited in the Sheet.
+var RS_PICK = 'RS_Izbira', RS_PICK_HEADER = ['Koda', 'Vrste vsebine', 'Sklopi', 'Glasno razmišljanje', 'Vprašanje za refleksijo', 'Pregledano'];
+var RS_SKLOPI = ['JEZ', 'MAT', 'NAR', 'DRU', 'TEH', 'UMS'];
+function rsPickData_() {
+  var sh = SpreadsheetApp.getActive().getSheetByName(RS_PICK), types = [], rows = {};
+  var list = function (v) { return String(v).split(';').map(function (x) { return x.trim(); }).filter(String); };
+  if (sh && sh.getLastRow() > 1) sh.getRange(2, 1, sh.getLastRow() - 1, RS_PICK_HEADER.length).getValues().forEach(function (r) {
+    var c = String(r[0]).trim().toUpperCase(); if (!c) return;
+    if (c === 'VRSTE') { types = list(r[1]); return; }
+    rows[c] = { v: list(r[1]), s: list(r[2]).map(function (x) { return x.toUpperCase(); }), g: String(r[3]).trim(), r: String(r[4]).trim(), ok: /^da$/i.test(String(r[5]).trim()) };
+  });
+  return { types: types, rows: rows };
+}
+function rsPickReply_(d) {
+  var who = verify_(d.token);
+  if (!who) return out_({ ok: false, error: 'token' });
+  var me = rsWho_(who.email);
+  if (!me.roles.length) return out_({ ok: false, error: 'access' });
+  var sh = SpreadsheetApp.getActive().getSheetByName(RS_GUIDE), strat = [];
+  if (sh && sh.getLastRow() > 1) sh.getRange(2, 1, sh.getLastRow() - 1, 2).getValues().forEach(function (r) { if (String(r[0]) === 'strategije') { try { strat = JSON.parse(String(r[1])); } catch (e) {} } });
+  var p = rsPickData_();
+  return out_({ ok: true, admin: me.admin, strat: strat, types: p.types, pick: p.rows, sklopi: RS_SKLOPI });
+}
+// admin only, once: d.types = [names], d.rows = [[code, types "a; b", sklopi "NAR; DRU", think-aloud, reflection]]; refused when the tab has data
+function rsPickSeedReply_(d) {
+  var who = verify_(d.token);
+  if (!who || !isTeacher_(who.email)) return out_({ ok: false, error: 'token' });
+  if (!(d.rows instanceof Array) || !(d.types instanceof Array) || !d.rows.length || d.rows.length > 60 || !d.types.length || d.types.length > 12) return out_({ ok: false, error: 'data' });
+  var sh = rsSheet_(RS_PICK, RS_PICK_HEADER);
+  if (sh.getLastRow() > 1) return out_({ ok: false, error: 'exists' });
+  var out = [['VRSTE', d.types.map(function (t) { return clip_(t, 40); }).join('; '), '', '', '', '']];
+  d.rows.forEach(function (r) {
+    if (!(r instanceof Array) || !/^ST\d{2}$/.test(String(r[0]))) return;
+    out.push([String(r[0]), clip_(r[1], 300), clip_(r[2], 60), clip_(r[3], 300), clip_(r[4], 300), 'ne']);
+  });
+  sh.getRange(2, 1, out.length, RS_PICK_HEADER.length).setValues(out);
+  var lg = rsLogSheet_(); lg.appendRow([Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd HH:mm'), String(who.email).toLowerCase(), 'izbira', (out.length - 1) + ' strategij vpisanih (za pregled)']);
+  return out_({ ok: true, rows: out.length - 1 });
+}
+
 // health check part
 function hcTeam_(add) {
   var ss = SpreadsheetApp.getActive(), rows = rsAccessRows_(), by = {};
@@ -2570,7 +2616,10 @@ function hcTeam_(add) {
   add(empty.length ? 'warn' : 'ok', empty.length ? 'Settings without a value (team/dostop/ > Povezave in datumi): ' + empty.join(', ') + '.' : 'All links and dates of the section are filled in.');
   var g = ss.getSheetByName(RS_GUIDE);
   add(g && g.getLastRow() > 2 ? 'ok' : 'warn', g && g.getLastRow() > 2 ? 'The guide text is in the tab ' + RS_GUIDE + '.' : 'The guide text is missing: menu English hub > Development team: import the guide.');
-  var pages = ['team/index.html', 'team/dostop/index.html', 'team/strategije/index.html'];
+  var p = rsPickData_(), pc = Object.keys(p.rows).length, pr = Object.keys(p.rows).filter(function (k) { return p.rows[k].ok; }).length;
+  add(pc && p.types.length ? (pr === pc ? 'ok' : 'warn') : 'warn', !pc ? 'The strategy picker (team/izbira/) has no data yet (tab ' + RS_PICK + ').'
+    : 'Strategy picker: ' + pc + ' strategies, ' + p.types.length + ' types of content; reviewed by the team: ' + pr + ' of ' + pc + ' (column Pregledano = da).');
+  var pages = ['team/index.html', 'team/dostop/index.html', 'team/strategije/index.html', 'team/izbira/index.html'];
   var res = UrlFetchApp.fetchAll(pages.map(function (p) { return { url: SITE_BASE + p + '?check=' + Date.now(), muteHttpExceptions: true }; }));
   var bad = pages.filter(function (p, i) { return res[i].getResponseCode() !== 200; });
   add(bad.length ? 'bad' : 'ok', bad.length ? 'Pages of the section not found on GitHub Pages: ' + bad.join(', ') + '.' : 'The section pages (team/) are on GitHub Pages.');
