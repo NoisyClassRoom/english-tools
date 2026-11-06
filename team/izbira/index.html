@@ -59,6 +59,8 @@ input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: 1p
 .card.on { border: 2px solid var(--accent); }
 .card .head { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
 .card ol { margin: 0; padding-left: 1.2em; display: grid; gap: 3px; }
+.monthtag { justify-self: start; font-size: .8rem; font-weight: 700; padding: 1px 9px; border-radius: 999px; background: var(--accent); color: var(--accent-ink); }
+.card.month { border-style: dashed; }
 .why { font-size: .85rem; font-weight: 700; color: var(--accent); }
 .ev { font-size: .8rem; font-weight: 700; padding: 1px 8px; border-radius: 999px; border: 1.5px solid currentColor; white-space: nowrap; }
 .ev.s { color: var(--strong); } .ev.m { color: var(--mid); } .ev.w { color: var(--weak); } .ev.n { color: var(--muted); }
@@ -197,11 +199,18 @@ input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: 1p
     $('#vio').disabled = !!g;
     const vio = Number($('#vio').value), subj = $('#subj').value, sklop = sklopOf(subj), type = $('#type').value;
     const list = choose(vio, sklop, type);
+    // the team's strategy of the month (setting strategija_meseca) is always offered when it fits the triad, as a 4th card if needed
+    const mc = D.month && D.strat.find(s => s.c === D.month && (s.t || []).includes(vio));
+    if (mc && !list.some(r => r.s.c === mc.c)) {
+      const x = extra(mc.c);
+      list.push({ s: mc, x, tm: !!type && x.v.includes(type), sm: !!sklop && x.s.includes(sklop), extraMonth: true });
+    }
     if (!list.some(r => r.s.c === chosen)) chosen = list.length ? list[0].s.c : '';
     const selfName = (list.find(r => SELF_TEST.includes(r.s.c)) || {}).s;
     $('#result').innerHTML = !list.length ? '<div class="box muted">Za to izbiro ni strategije.</div>' : '<div class="cards">' + list.map(r => {
       const s = r.s, why = [r.tm ? type : '', r.sm ? sklop : '', EV[s.e]].filter(String).join(' · ');
-      return `<article class="card${s.c === chosen ? ' on' : ''}" data-c="${esc(s.c)}">
+      return `<article class="card${s.c === chosen ? ' on' : ''}${r.extraMonth ? ' month' : ''}" data-c="${esc(s.c)}">
+        ${s.c === D.month ? `<span class="monthtag">🎯 Strategija meseca${r.extraMonth ? ' · dodatni predlog' : ''}</span>` : ''}
         <div class="head"><h3>${esc(s.n)}</h3><span class="code">${esc(s.c)}</span></div>
         <p class="why">${esc(why.slice(0, -EV[s.e].length))}<span class="ev ${esc(s.e)}">${esc(EV[s.e] || '')}</span></p>
         <ol>${(s.k || []).map(x => `<li>${esc(x)}</li>`).join('')}</ol>

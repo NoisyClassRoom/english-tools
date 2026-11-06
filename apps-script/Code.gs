@@ -85,7 +85,7 @@ var UNITS = {
 
 // Change this text whenever the code of doPost changes: the health check compares it with what the published web app answers,
 // so it can tell you that the saved code has not been deployed as a new version yet.
-var CODE_VERSION = '2026-11-06.4';
+var CODE_VERSION = '2026-11-06.5';
 
 // ---------------------------------------------------------------- saving results
 
@@ -2605,7 +2605,8 @@ function rsPickReply_(d) {
   var sh = SpreadsheetApp.getActive().getSheetByName(RS_GUIDE), strat = [];
   if (sh && sh.getLastRow() > 1) sh.getRange(2, 1, sh.getLastRow() - 1, 2).getValues().forEach(function (r) { if (String(r[0]) === 'strategije') { try { strat = JSON.parse(String(r[1])); } catch (e) {} } });
   var p = rsPickData_();
-  return out_({ ok: true, admin: me.admin, strat: strat, types: p.types, pick: p.rows, sklopi: RS_SKLOPI });
+  var month = String(rsSettings_().strategija_meseca || '').toUpperCase();   // the page always shows it as an extra card when it fits the triad
+  return out_({ ok: true, admin: me.admin, strat: strat, types: p.types, pick: p.rows, sklopi: RS_SKLOPI, month: /^ST\d{2}$/.test(month) ? month : '' });
 }
 // admin only, once: d.types = [names], d.rows = [[code, types "a; b", sklopi "NAR; DRU", think-aloud, reflection]]; refused when the tab has data
 function rsPickSeedReply_(d) {
