@@ -207,7 +207,9 @@ input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: 1p
     }
     if (!list.some(r => r.s.c === chosen)) chosen = list.length ? list[0].s.c : '';
     const selfName = (list.find(r => SELF_TEST.includes(r.s.c)) || {}).s;
-    $('#result').innerHTML = !list.length ? '<div class="box muted">Za to izbiro ni strategije.</div>' : '<div class="cards">' + list.map(r => {
+    const mAny = D.month && D.strat.find(s => s.c === D.month);
+    const mNote = mAny && !mc ? `<p class="small muted" style="margin-top:10px">🎯 Strategija meseca ${esc(mAny.c)} ${esc(mAny.n)} ni namenjena ${vio}. VIO (samo ${esc((mAny.t || []).join('. in '))}. VIO), zato je tu ni.</p>` : '';
+    $('#result').innerHTML = mNote + (!list.length ? '<div class="box muted">Za to izbiro ni strategije.</div>' : '<div class="cards">' + list.map(r => {
       const s = r.s, why = [r.tm ? type : '', r.sm ? sklop : '', EV[s.e]].filter(String).join(' · ');
       return `<article class="card${s.c === chosen ? ' on' : ''}${r.extraMonth ? ' month' : ''}" data-c="${esc(s.c)}">
         ${s.c === D.month ? `<span class="monthtag">🎯 Strategija meseca${r.extraMonth ? ' · dodatni predlog' : ''}</span>` : ''}
@@ -220,7 +222,7 @@ input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: 1p
         ${s.v ? `<p class="src"><b>Vir oznake:</b> ${rich(s.v)}</p>` : ''}
         <button class="btn${s.c === chosen ? ' main' : ''}" data-pick="${esc(s.c)}">${s.c === chosen ? '✓ Izbrana za pripravo' : 'Izberi za pripravo'}</button>
       </article>`;
-    }).join('') + '</div>';
+    }).join('') + '</div>');
     $('#result').querySelectorAll('[data-pick]').forEach(b => b.onclick = () => { chosen = b.dataset.pick; render(); });
     plan(list.find(r => r.s.c === chosen), c, vio, subj, selfName);
     save();
