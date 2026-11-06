@@ -61,6 +61,9 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); ou
 .row .top b { flex: 1; min-width: 180px; }
 .row .own { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; font-size: .85rem; color: var(--muted); }
 .row .own select { width: auto; padding: 2px 6px; }
+.filters { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 10px; }
+.filters select { width: auto; flex: 1 1 140px; }
+.more { margin-top: 8px; }
 .code { font-family: ui-monospace, Consolas, monospace; font-weight: 700; color: var(--accent); }
 .tbl { overflow-x: auto; }
 table { border-collapse: collapse; font-size: .85rem; }
@@ -112,7 +115,16 @@ td.has { font-weight: 700; }
 
     <div class="box">
       <h2>Moja opazovanja <span class="small" id="year"></span></h2>
+      <div class="filters" id="filters">
+        <select id="fCls" aria-label="Razred"></select>
+        <select id="fSubj" aria-label="Predmet"></select>
+        <select id="fStrat" aria-label="Strategija"></select>
+        <select id="fMonth" aria-label="Mesec"></select>
+        <button class="btn sm" id="fReset" type="button">Počisti</button>
+        <span class="small" id="fCount"></span>
+      </div>
       <div class="list" id="mine"></div>
+      <button class="btn more" id="more" type="button" style="display:none"></button>
     </div>
 
     <div class="box">
@@ -132,7 +144,9 @@ td.has { font-weight: 700; }
   const PART = [[1, 'nekaj'], [2, 'približno polovica'], [3, 'večina'], [4, 'skoraj vsi']];
   const OWN = [['da', 'da'], ['ne', 'ne'], ['še ne vem', 'še ne vem']];
   const SEG = { phase: PHASE, eff: SCALE, part: PART, react: SCALE, own: OWN };
-  let D = null, loaded = false, editId = '', val = {};
+  const MONTHS = ['januar', 'februar', 'marec', 'april', 'maj', 'junij', 'julij', 'avgust', 'september', 'oktober', 'november', 'december'];
+  const PAGE = 10;
+  let D = null, loaded = false, editId = '', val = {}, shown = PAGE;
 
   const api = async (action, extra) => {
     const token = Track.token(); if (!token) throw new Error('token');
@@ -178,10 +192,32 @@ td.has { font-weight: 700; }
   };
   const stopEdit = () => { editId = ''; $('#formTitle').textContent = 'Novo opazovanje'; $('#formBox').classList.remove('editing'); $('#cancel').style.display = 'none'; };
 
+  // filters of "Moja opazovanja": the options come from the teacher's own rows; a choice that no longer exists falls back to "vsi"
+  const F = { fCls: ['cls', 'vsi razredi'], fSubj: ['subj', 'vsi predmeti'], fStrat: ['strat', 'vse strategije'], fMonth: ['month', 'vsi meseci'] };
+  const month = r => String(r.date).slice(0, 7);
+  const keyOf = (r, k) => k === 'month' ? month(r) : r[k];
+  const drawFilters = () => {
+    Object.keys(F).forEach(id => {
+      const [k, all] = F[id], cur = $('#' + id).value;
+      let opts = [...new Set(D.mine.map(r => keyOf(r, k)))];
+      opts = k === 'month' ? opts.sort().reverse() : opts.sort((a, b) => String(a).localeCompare(String(b), 'sl', { numeric: true }));
+      const label = v => k === 'month' ? MONTHS[Number(v.slice(5, 7)) - 1] + ' ' + v.slice(0, 4) : k === 'strat' ? v + ' ' + sname(v) : v;
+      $('#' + id).innerHTML = `<option value="">${all}</option>` + opts.map(v => `<option value="${esc(v)}">${esc(label(v))}</option>`).join('');
+      $('#' + id).value = opts.includes(cur) ? cur : '';
+    });
+    $('#filters').style.display = D.mine.length > 3 ? '' : 'none';
+  };
+  const filtered = () => D.mine.filter(r => Object.keys(F).every(id => !$('#' + id).value || keyOf(r, F[id][0]) === $('#' + id).value));
   const drawMine = () => {
+    drawFilters();
     const box = $('#mine'); box.innerHTML = '';
+    const list = filtered(), on = Object.keys(F).some(id => $('#' + id).value);
+    $('#fCount').textContent = on ? list.length + ' od ' + D.mine.length : D.mine.length + ' opazovanj';
     if (!D.mine.length) { box.innerHTML = '<p class="muted">V tem šolskem letu še ni vpisanih opazovanj.</p>'; }
-    D.mine.forEach(r => {
+    else if (!list.length) { box.innerHTML = '<p class="muted">Nobeno opazovanje ne ustreza izbiri.</p>'; }
+    $('#more').style.display = list.length > shown ? '' : 'none';
+    $('#more').textContent = 'Pokaži še ' + Math.min(PAGE, list.length - shown) + ' (skupaj ' + list.length + ')';
+    list.slice(0, shown).forEach(r => {
       const d = document.createElement('div'); d.className = 'row';
       d.innerHTML = `<div class="top"><b><span class="code">${esc(r.strat)}</span> ${esc(sname(r.strat))}</b><span class="small">${esc(fmtDate(r.date))} · ${esc(r.cls)} · ${esc(r.subj)}</span></div>
         <div class="small">Korak ${esc(r.phase)} · ${esc(r.mins)} min · deloval ${esc(r.eff)}/5 · uporabilo: ${esc((PART.find(p => p[0] === r.part) || [0, '–'])[1])} · odziv ${esc(r.react)}/5${r.topic ? ' · ' + esc(r.topic) : ''}</div>
@@ -238,6 +274,9 @@ td.has { font-weight: 700; }
   $('#again').onclick = () => { $('#strat').value = ''; resetRatings(); $('#again').style.display = 'none'; $('#msg').textContent = ''; $('#strat').focus(); };
   $('#cancel').onclick = () => { stopEdit(); setForm({ date: today(), cls: $('#cls').value, subj: $('#subj').value }); $('#msg').textContent = ''; };
   $('#cls').addEventListener('change', () => drawStrat());
+  Object.keys(F).forEach(id => $('#' + id).addEventListener('change', () => { shown = PAGE; drawMine(); }));
+  $('#fReset').onclick = () => { Object.keys(F).forEach(id => { $('#' + id).value = ''; }); shown = PAGE; drawMine(); };
+  $('#more').onclick = () => { shown += PAGE; drawMine(); };
 
   const fill = () => {
     $('#year').textContent = '(šolsko leto ' + D.year.replace('-', '/') + ')';
