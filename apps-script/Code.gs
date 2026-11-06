@@ -2402,7 +2402,7 @@ var RS_SETTING_KEYS = [
   ['vprasalnik_pomlad', 'Končni vprašalnik (besedilo, npr. spomladi 2027)'],
   ['rezultati_odprti', 'Kdo vidi rezultate vprašalnika: skupina | skupina,razrednik | skupina,razrednik,ravnatelj | vsi']
 ];
-var RS_GUIDE_SOURCE = 'https://raw.githubusercontent.com/noisyclassroom/english-tools/5786ac77729c5e3d867ad22ee6dbd4e03a5458a4/docs/razvojna-skupina/strategije-v-razredu.html';
+var RS_GUIDE_SOURCE = 'https://raw.githubusercontent.com/noisyclassroom/english-tools/e1470c07cd909e14308d3fd9829dcbbb34daf948/docs/razvojna-skupina/strategije-v-razredu.html';
 
 function rsSheet_(name, header) {
   var ss = SpreadsheetApp.getActive(), sh = ss.getSheetByName(name);
@@ -2543,7 +2543,7 @@ function rsAccessSetReply_(d) {
   return out_({ ok: true, changes: logRows.length, skipped: skipped });
 }
 
-// Menu: copies the guide "Učne strategije v razredu" into the hidden tab RS_Vodnik. The source is the version of 6 Nov 2026 in the
+// Menu: copies the guide "Učne strategije v razredu" into the hidden tab RS_Vodnik. The source is the last version (6 Nov 2026, commit e1470c0) in the
 // repository's history (the file itself was removed from the public pages); run it again only to restore that version.
 function rsGuideImport() {
   var ui = SpreadsheetApp.getUi();

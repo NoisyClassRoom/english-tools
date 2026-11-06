@@ -93,6 +93,7 @@ td:first-child { white-space: nowrap; font-weight: 700; }
 .tag { padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
 .ev { font-size: .8rem; font-weight: 700; padding: 2px 8px; border-radius: 999px; border: 1.5px solid currentColor; white-space: nowrap; }
 .ev.s { color: var(--strong); } .ev.m { color: var(--mid); } .ev.w { color: var(--weak); } .ev.n { color: var(--muted); }
+.src { font-size: .8rem; color: var(--muted); border-top: 1px dashed var(--line); padding-top: 6px; }
 .legend { display: flex; flex-wrap: wrap; gap: 8px 14px; font-size: var(--step--1); color: var(--muted); align-items: center; }
 
 .qgrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
@@ -141,6 +142,7 @@ footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid var(--line);
   .cards { grid-template-columns: 1fr 1fr; gap: 8px; }
   .card { padding: 10px; gap: 5px; font-size: 9pt; line-height: 1.45; }
   .card h3 { font-size: 10.5pt; }
+  .card .small, .src { font-size: 8pt; }
   .steps { gap: 8px; } .steps > li { padding: 10px 12px; grid-template-columns: 36px 1fr; }
   .steps > li::before { width: 32px; height: 32px; font-size: 1.1rem; }
   .tri > div { padding: 10px; font-size: 9.5pt; }
@@ -173,6 +175,7 @@ footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid var(--line);
   const $ = s => document.querySelector(s);
   const EV = { s: 'močno podprta', m: 'zmerno podprta', w: 'šibko podprta', n: 'ni neposredno raziskana' };
   const esc = s => String(s).replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
+  const rich = s => esc(s).replace(/&lt;(\/?)(i|b)&gt;/g, '<$1$2>');   // the source line may use <i> and <b>, nothing else
   let loaded = false;
 
   const api = async (action, extra) => {
@@ -190,7 +193,8 @@ footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid var(--line);
     <div class="tags"><span class="ev ${esc(s.e)}">${EV[s.e] || ''}</span>${s.t.map(t => `<span class="tag">${Number(t)}. VIO</span>`).join('')}</div>
     <p><b>Kdaj pomaga:</b> ${esc(s.w)}</p>
     <ol>${s.k.map(x => `<li>${esc(x)}</li>`).join('')}</ol>
-    <p class="small">${esc(s.ex)}</p>
+    <p class="small">${esc(s.ex)}</p>${s.v ? `
+    <p class="src"><b>Vir oznake:</b> ${rich(s.v)}</p>` : ''}
   </article>`).join('');
     const btns = [...document.querySelectorAll('.filters button')];
     const setF = f => {
