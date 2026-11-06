@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="sl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Učne strategije v razredu</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&display=swap">
+<style>
+/* Page shell of the guide "Učne strategije v razredu" (RAZVOJNA-SKUPINA-PLAN.md, step 2). The TEXT is not in this public file:
+   it is loaded after sign-in (script action rsguide, hidden Sheet tab RS_Vodnik). Screen colours follow the other pages of the
+   repo (dark by default, Light / dark button); the print / PDF version (A4) keeps the original look and fonts. */
+body {
+  --bg: #141418; --paper: #1f1f26; --ink: #f2efe9; --muted: #a39f95; --line: #34343e; --field: #14141a;
+  --accent: #ff8a1f; --accent-ink: #111; --mark: #ff8a1f; --mark-soft: #5a3a18;
+  --strong: #34c06d; --mid: #f0b429; --weak: #ff5a5a;
+  --font-display: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-body: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --step--1: 0.875rem; --step-0: 1rem; --step-1: 1.25rem; --step-2: 1.6rem; --step-3: 2.2rem;
+}
+body.light {
+  --bg: #f6f4ef; --paper: #ffffff; --ink: #1f2a37; --muted: #6b7280; --line: #e5e1d8; --field: #ffffff;
+  --accent: #e8710a; --accent-ink: #fff; --mark: #e8710a; --mark-soft: #fdeedd;
+  --strong: #1f9d55; --mid: #b7791f; --weak: #d64545;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--ink);
+  font-family: var(--font-body); font-size: var(--step-0); line-height: 1.6;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 0 64px;
+}
+.wrap { max-width: 860px; margin: 0 auto; }
+.read { max-width: 68ch; }
+h1, h2, h3 { font-family: var(--font-display); line-height: 1.15; text-wrap: balance; margin: 0; }
+h1 { font-size: var(--step-3); font-weight: 800; letter-spacing: -0.01em; }
+h2 { font-size: var(--step-2); font-weight: 700; }
+h3 { font-size: var(--step-1); font-weight: 700; }
+p { margin: 0; }
+a { color: var(--accent); }
+a:focus-visible, summary:focus-visible { outline: 3px solid var(--mark); outline-offset: 2px; }
+.mk { background: linear-gradient(transparent 55%, var(--mark-soft) 55%); padding: 0 .1em; }
+.eyebrow { font-family: var(--font-display); font-size: var(--step--1); font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.code { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: .85em; font-weight: 700; color: var(--accent); white-space: nowrap; }
+
+header.top { padding-block: 48px 28px; display: grid; gap: 14px; border-bottom: 2px solid var(--ink); }
+header.top .lead { font-size: var(--step-1); color: var(--muted); max-width: 52ch; }
+header.top .meta { font-size: var(--step--1); color: var(--muted); }
+nav.toc { padding-block: 18px; border-bottom: 1px solid var(--line); }
+nav.toc ol { margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: var(--step--1); }
+nav.toc a { text-decoration: none; font-weight: 700; }
+nav.toc a:hover { text-decoration: underline; }
+
+section { padding-block: 44px 8px; display: grid; gap: 18px; }
+section > h2 { position: relative; padding-bottom: 6px; }
+section > h2::after { content: ""; position: absolute; left: 0; bottom: 0; width: 64px; height: 6px; background: var(--mark); border-radius: 3px; transform: rotate(-1deg); }
+
+.rules { margin: 0; padding: 0; list-style: none; display: grid; gap: 10px; }
+.rules li { display: grid; grid-template-columns: 28px 1fr; gap: 10px; align-items: start; }
+.rules li::before { content: "✓"; font-weight: 700; color: var(--accent); font-size: 1.1em; line-height: 1.5; }
+
+.steps { counter-reset: s; display: grid; gap: 14px; margin: 0; padding: 0; list-style: none; }
+.steps > li { counter-increment: s; display: grid; grid-template-columns: 48px 1fr; gap: 14px; padding: 18px; background: var(--paper); border: 1px solid var(--line); border-radius: 10px; }
+.steps > li::before { content: counter(s); font-family: var(--font-display); font-weight: 800; font-size: 1.6rem; width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; background: var(--accent); color: var(--accent-ink); }
+.steps .body { display: grid; gap: 8px; min-width: 0; }
+.say { border-left: 4px solid var(--mark); padding: 6px 12px; font-style: italic; color: var(--ink); background: var(--bg); border-radius: 0 6px 6px 0; }
+.small { font-size: var(--step--1); color: var(--muted); }
+
+.tri { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.tri > div { background: var(--paper); border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: grid; gap: 8px; align-content: start; }
+.tri ul, .read ul { margin: 0; padding-left: 1.1em; display: grid; gap: 4px; }
+
+.tablewrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--paper); }
+table { border-collapse: collapse; width: 100%; font-size: var(--step--1); }
+th, td { text-align: left; vertical-align: top; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+th { font-family: var(--font-display); font-weight: 700; background: var(--bg); }
+tr:last-child td { border-bottom: 0; }
+td:first-child { white-space: nowrap; font-weight: 700; }
+
+.filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.filters button { font: inherit; font-size: var(--step--1); font-weight: 700; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--paper); color: var(--ink); cursor: pointer; }
+.filters button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 380px), 1fr)); gap: 14px; }
+.card { background: var(--paper); border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: grid; gap: 8px; align-content: start; break-inside: avoid; }
+.card .head { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+.card h3 { font-size: 1.15rem; }
+.card ol { margin: 0; padding-left: 1.2em; display: grid; gap: 3px; }
+.tags { display: flex; flex-wrap: wrap; gap: 6px; font-size: .8rem; }
+.tag { padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
+.ev { font-size: .8rem; font-weight: 700; padding: 2px 8px; border-radius: 999px; border: 1.5px solid currentColor; white-space: nowrap; }
+.ev.s { color: var(--strong); } .ev.m { color: var(--mid); } .ev.w { color: var(--weak); } .ev.n { color: var(--muted); }
+.legend { display: flex; flex-wrap: wrap; gap: 8px 14px; font-size: var(--step--1); color: var(--muted); align-items: center; }
+
+.qgrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.qgrid > div { border-top: 4px solid var(--mark); padding-top: 10px; display: grid; gap: 6px; align-content: start; }
+.qgrid ul { margin: 0; padding-left: 1.1em; display: grid; gap: 4px; }
+
+.log { border: 2px dashed var(--line); border-radius: 10px; padding: 14px; background: var(--paper); }
+.log table td, .log table th { border: 1px solid var(--line); height: 30px; }
+.log table td:first-child { font-weight: 400; }
+
+.pitfalls { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 20px; }
+.pitfalls div { display: grid; gap: 4px; }
+.pitfalls b { font-family: var(--font-display); }
+.sources { font-size: var(--step--1); color: var(--muted); display: grid; gap: 6px; padding-left: 1.2em; margin: 0; }
+footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid var(--line); font-size: var(--step--1); color: var(--muted); }
+
+@media (max-width: 720px) {
+  .tri, .qgrid, .pitfalls { grid-template-columns: 1fr; }
+  h1 { font-size: 2rem; }
+  .steps > li { grid-template-columns: 1fr; }
+}
+
+.shellbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 14px 0 0; }
+.shellbar .sp { flex: 1; }
+.btn { background: var(--field); color: var(--ink); border: 1px solid var(--line); border-radius: 10px; padding: 6px 12px; font: inherit; font-size: 15px; cursor: pointer; text-decoration: none; display: inline-block; }
+.btn:hover { border-color: var(--accent); }
+#login { text-align: center; padding: 40px 14px; margin-top: 14px; background: var(--paper); border: 1px solid var(--line); border-radius: 14px; }
+#login p { margin-bottom: 10px; color: var(--muted); }
+#guide { display: none; }
+@media print {
+  @page { size: A4; margin: 16mm 14mm; }
+  body, body.light {
+    --font-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif; --font-body: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+    --strong: #2e6b5e; --mid: #9a7a12; --weak: #a2493a; color: var(--ink);
+  --bg: #ffffff; --paper: #ffffff; --ink: #111; --muted: #444; --line: #bbb; --accent: #1f5a4e; --accent-ink: #fff; --mark: #e8c63a; --mark-soft: #f7e7a1; color-scheme: light; }
+  .shellbar, #login { display: none !important; }
+  body { font-size: 10.5pt; padding: 0; }
+  nav.toc, .filters, .noprint { display: none !important; }
+  header.top { padding-top: 0; }
+  section { padding-block: 18px 0; break-inside: auto; }
+  section > h2, h3 { break-after: avoid; page-break-after: avoid; }
+  #spremljanje, #pasti { break-inside: avoid; }
+  .card, .steps > li, .tri > div, tr { break-inside: avoid; }
+  .card[hidden] { display: grid !important; }
+  .pagebreak { break-before: page; }
+  .cards { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .card { padding: 10px; gap: 5px; font-size: 9pt; line-height: 1.45; }
+  .card h3 { font-size: 10.5pt; }
+  .steps { gap: 8px; } .steps > li { padding: 10px 12px; grid-template-columns: 36px 1fr; }
+  .steps > li::before { width: 32px; height: 32px; font-size: 1.1rem; }
+  .tri > div { padding: 10px; font-size: 9.5pt; }
+  header.top { padding-bottom: 14px; }
+  #sklopi > h2, #sklopi > p { break-after: avoid; }
+  a { color: inherit; text-decoration: none; }
+  .steps > li::before { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .mk, section > h2::after, .say { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
+@media (prefers-reduced-motion: no-preference) { .filters button { transition: background .15s; } }
+</style>
+</head>
+<body>
+<script src="../../exercises/tracking.js"></script>
+<div class="wrap">
+  <div class="shellbar">
+    <a class="btn" href="../">← Razvojna skupina</a><span class="sp"></span>
+    <button class="btn" id="print" style="display:none">🖨 Natisni / PDF</button>
+    <button class="btn" id="theme">Svetlo / temno</button>
+  </div>
+  <div id="login">
+    <p id="loginMsg">Priročnik je namenjen učiteljem. Prijavite se s šolskim Google računom.</p>
+    <div id="slot" style="display:inline-block"></div>
+  </div>
+  <div id="guide"></div>
+</div>
+<script>
+(() => {
+  'use strict';
+  const $ = s => document.querySelector(s);
+  const EV = { s: 'močno podprta', m: 'zmerno podprta', w: 'šibko podprta', n: 'ni neposredno raziskana' };
+  const esc = s => String(s).replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
+  let loaded = false;
+
+  const api = async (action, extra) => {
+    const token = Track.token(); if (!token) throw new Error('token');
+    const r = await fetch(Track.config.endpoint, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(Object.assign({ action, token }, extra || {})) });
+    return r.json();
+  };
+
+  // the strategy cards and the triad filter (same as the original guide)
+  const cards = strat => {
+    const box = document.getElementById('cards'); if (!box) return;
+    box.innerHTML = strat.map(s => `
+  <article class="card" data-t="${s.t.join(' ')}">
+    <div class="head"><h3>${esc(s.n)}</h3><span class="code">${esc(s.c)}</span></div>
+    <div class="tags"><span class="ev ${esc(s.e)}">${EV[s.e] || ''}</span>${s.t.map(t => `<span class="tag">${Number(t)}. VIO</span>`).join('')}</div>
+    <p><b>Kdaj pomaga:</b> ${esc(s.w)}</p>
+    <ol>${s.k.map(x => `<li>${esc(x)}</li>`).join('')}</ol>
+    <p class="small">${esc(s.ex)}</p>
+  </article>`).join('');
+    const btns = [...document.querySelectorAll('.filters button')];
+    const setF = f => {
+      btns.forEach(b => b.setAttribute('aria-pressed', String(b.dataset.f === f)));
+      box.querySelectorAll('.card').forEach(c => { c.hidden = f !== 'all' && !c.dataset.t.split(' ').includes(f); });
+      try { localStorage.setItem('strat-f', f); } catch (e) {}
+    };
+    btns.forEach(b => b.addEventListener('click', () => setF(b.dataset.f)));
+    let saved = 'all'; try { saved = localStorage.getItem('strat-f') || 'all'; } catch (e) {}
+    setF(saved);
+  };
+
+  const load = async () => {
+    if (!Track.token() || loaded) return;
+    loaded = true; $('#loginMsg').textContent = 'Nalagam priročnik …';
+    let j = null; try { j = await api('rsguide'); } catch (e) {}
+    if (!j || !j.ok || j.empty) {
+      loaded = false;
+      $('#loginMsg').textContent = j && j.empty ? 'Besedilo priročnika še ni uvoženo (meni English hub > Development team: import the guide).'
+        : j && j.error === 'access' ? 'Ta račun nima dostopa do priročnika. Obrnite se na razvojno skupino.'
+        : j && j.error === 'token' ? 'Prijava je potekla. Prijavite se znova.' : 'Priročnika trenutno ni mogoče naložiti.';
+      if (!j || j.error === 'token') Track.button($('#slot'));
+      return;
+    }
+    $('#guide').innerHTML = j.html;     // the team's own text from the private Sheet
+    cards(j.strat || []);
+    $('#login').style.display = 'none'; $('#guide').style.display = 'block'; $('#print').style.display = '';
+    if (location.hash) { const t = document.getElementById(location.hash.slice(1)); if (t) t.scrollIntoView(); }
+  };
+
+  $('#print').onclick = () => window.print();
+  $('#theme').onclick = () => { document.body.classList.toggle('light'); try { localStorage.setItem('board.light', document.body.classList.contains('light') ? '1' : ''); } catch (e) {} };
+  try { if (localStorage.getItem('board.light')) document.body.classList.add('light'); } catch (e) {}
+  if (window.Track && Track.enabled) {
+    Track.onChange(() => { if (Track.token()) load(); });
+    Track.init(() => { if (Track.token()) load(); else Track.button($('#slot')); });
+  } else $('#loginMsg').textContent = 'Prijava ni nastavljena.';
+})();
+</script>
+</body>
+</html>

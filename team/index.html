@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="sl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Razvojna skupina</title>
+<style>
+  :root {
+    --bg: #141418; --card: #1f1f26; --ink: #f2efe9; --muted: #a39f95; --line: #34343e; --field: #14141a;
+    --accent: #ff8a1f; --accent-soft: #3a2a18; --good: #34c06d; --bad: #ff5a5a; --warn: #f0b429; --radius: 14px;
+  }
+  body.light {
+    --bg: #f6f4ef; --card: #ffffff; --ink: #1f2a37; --muted: #6b7280; --line: #e5e1d8; --field: #ffffff;
+    --accent: #e8710a; --accent-soft: #fdeedd; --good: #1f9d55; --bad: #d64545; --warn: #b7791f;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .wrap { max-width: 1000px; margin: 0 auto; padding: 16px; }
+  .top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+  .top .sp { flex: 1; }
+  h1 { margin: 0; font-size: 22px; }
+  h2 { margin: 0 0 8px; font-size: 16px; color: var(--accent); }
+  .btn { background: var(--field); color: var(--ink); border: 1px solid var(--line); border-radius: 10px; padding: 6px 12px; font: inherit; cursor: pointer; text-decoration: none; display: inline-block; }
+  .btn:hover { border-color: var(--accent); }
+  .muted { color: var(--muted); }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; }
+  #login { text-align: center; padding: 40px 14px; margin-top: 14px; }
+  #app { display: none; }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; margin: 14px 0; }
+  .tile { display: block; text-decoration: none; color: var(--ink); background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; }
+  a.tile:hover { border-color: var(--accent); background: var(--accent-soft); }
+  .tile i { font-style: normal; font-size: 32px; display: block; line-height: 1.2; }
+  .tile b { display: block; font-size: 17px; margin: 4px 0 2px; }
+  .tile span { color: var(--muted); font-size: 14px; }
+  .tile.soon { opacity: .6; border-style: dashed; }
+  .tile .when { display: table; margin-top: 8px; font-size: 12px; border: 1px solid var(--line); border-radius: 999px; padding: 0 8px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 760px) { .grid { grid-template-columns: 1fr; } }
+  ul { margin: 0; padding-left: 18px; }
+  li { margin: 3px 0; }
+  .roles { display: flex; gap: 6px; flex-wrap: wrap; }
+  .role { border: 1px solid var(--accent); color: var(--accent); border-radius: 999px; padding: 0 10px; font-size: 13px; }
+</style>
+</head>
+<body>
+<script src="../exercises/tracking.js"></script>
+<div class="wrap">
+  <div class="top">
+    <h1>🌱 Razvojna skupina</h1><span class="sp"></span>
+    <span class="muted" id="who"></span>
+    <button class="btn" id="theme">Svetlo / temno</button>
+  </div>
+  <p class="muted" style="margin:0">Samouravnavanje učenja na OŠ Veržej: gradiva, opazovanja in rezultati vprašalnika na enem mestu.</p>
+
+  <div id="login" class="card">
+    <p id="loginMsg" class="muted">Stran je namenjena učiteljem. Prijavite se s šolskim Google računom.</p>
+    <div id="slot" style="display:inline-block"></div>
+  </div>
+
+  <div id="app">
+    <div class="tiles" id="tiles"></div>
+    <div class="grid">
+      <div class="card">
+        <h2>O projektu</h2>
+        <p style="margin-top:0">Šola v letu 2026/27 razvija <b>samouravnavanje učenja</b>: učenci se učijo načrtovati, biti dosledni, spremljati svoje razumevanje in razmisliti, kaj jim pomaga. Učitelji pri pouku uvajamo učne strategije v štirih korakih in jih beležimo na opazovalnem listu. Vprašalnik »Kako se učim?« pokaže izhodišče jeseni in napredek spomladi.</p>
+        <p class="muted" style="margin-bottom:0">Rezultati vprašalnika so najprej samo za razvojno skupino; razredniki, učitelji in ravnatelj dobijo svoj pogled pozneje.</p>
+      </div>
+      <div class="card">
+        <h2>Pomembni datumi</h2>
+        <ul id="dates"></ul>
+        <h2 style="margin-top:14px">Gradiva</h2>
+        <ul id="links"></ul>
+        <p class="muted" id="roleLine" style="margin:12px 0 0"></p>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+(() => {
+  'use strict';
+  const $ = s => document.querySelector(s);
+  const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+  const ROLE = { skupina: 'razvojna skupina', razrednik: 'razrednik', ucitelj: 'učitelj', ravnatelj: 'ravnatelj' };
+  let loaded = false;
+
+  const api = async (action, extra) => {
+    const token = Track.token(); if (!token) throw new Error('token');
+    const r = await fetch(Track.config.endpoint, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(Object.assign({ action, token }, extra || {})) });
+    return r.json();
+  };
+
+  // tiles: which pages a role may open (pages that are not built yet are shown dashed with "kmalu")
+  const show = j => {
+    const has = r => j.roles.includes(r), team = has('skupina');
+    const seesResults = j.roles.some(r => j.resultsOpen.includes(r));
+    const box = $('#tiles'); box.innerHTML = '';
+    const tile = (icon, title, text, href, when) => {
+      const t = el(href ? 'a' : 'div', 'tile' + (href ? '' : ' soon'));
+      if (href) t.href = href;
+      t.append(el('i', '', icon), el('b', '', title), el('span', '', text));
+      if (when) t.append(el('div', 'when', when));
+      box.append(t);
+    };
+    tile('📘', 'Učne strategije v razredu', 'Priročnik: štirje koraki uvajanja, strategije po triadah in sklopih, pasti, spremljanje.', 'strategije/');
+    tile('📝', 'Opazovalni list', 'Po uri v eni minuti zabeležite, katero strategijo ste uvajali in kako je delovala.', null, 'kmalu');
+    if (seesResults) tile('📊', 'Rezultati vprašalnika', team ? 'Kazalniki po področjih, trditve, strategije, razredi.' : 'Pogled za vašo vlogo.', null, 'po 21. 11. 2026');
+    if (team) tile('🔗', 'Analiza', 'Opazovanja in vprašalnik: kaj smo uvajali in kako so se spremenili odgovori.', null, 'kmalu');
+    if (team) tile('🎤', 'Predstavitev za zbor', 'Izhodiščni rezultati za učiteljski zbor, samo skupne številke.', null, 'po 21. 11. 2026');
+    if (j.admin) tile('🔐', 'Upravljanje dostopa', 'Kdo vidi kaj: člani skupine, razredniki, učitelji, ravnatelj. Povezave in datumi.', 'dostop/');
+
+    const s = j.settings || {};
+    const dates = $('#dates'); dates.innerHTML = '';
+    dates.append(el('li', '', 'Začetni vprašalnik: ' + (s.vprasalnik_jesen || '11.–21. 11. 2026')));
+    dates.append(el('li', '', 'Končni vprašalnik: ' + (s.vprasalnik_pomlad || 'spomladi 2027')));
+    const links = $('#links'); links.innerHTML = '';
+    [['obrazec_1vio', 'Obrazec »Kako se učim?« – 1. VIO'], ['obrazec_2vio', 'Obrazec »Kako se učim?« – 2. VIO'], ['obrazec_3vio', 'Obrazec »Kako se učim?« – 3. VIO'],
+     ['tisk_1vio', 'Vprašalnik za tisk (1. in 2. razred)'], ['kazalo', 'Kazalo – Samouravnavanje učenja'], ['mapa', 'Mapa razvojne skupine na Drivu']].forEach(([k, label]) => {
+      const li = el('li');
+      if (/^https:\/\/(docs|drive)\.google\.com\//.test(s[k] || '')) { const a = el('a', '', label); a.href = s[k]; a.target = '_blank'; a.rel = 'noopener'; a.style.color = 'var(--accent)'; li.append(a); }
+      else li.append(el('span', 'muted', label + ' (povezava še ni vpisana)'));
+      links.append(li);
+    });
+    const rl = $('#roleLine'); rl.innerHTML = '';
+    rl.append(document.createTextNode('Vaša vloga: '));
+    j.roles.forEach(r => rl.append(el('span', 'role', ROLE[r] + (r === 'razrednik' && j.classes.length ? ' ' + j.classes.join(', ') : '')), document.createTextNode(' ')));
+  };
+
+  const load = async () => {
+    if (!Track.token() || loaded) return;
+    loaded = true; $('#who').textContent = Track.email || '';
+    $('#loginMsg').textContent = 'Nalagam …';
+    let j = null; try { j = await api('rshome'); } catch (e) {}
+    if (!j || !j.ok) {
+      loaded = false;
+      $('#loginMsg').textContent = j && j.error === 'access' ? 'Ta račun nima dostopa do strani razvojne skupine. Če ste učitelj in bi jo radi videli, se obrnite na razvojno skupino.'
+        : j && j.error === 'token' ? 'Prijava je potekla. Prijavite se znova.' : 'Strani trenutno ni mogoče naložiti. Poskusite znova čez nekaj minut.';
+      if (!j || j.error === 'token') Track.button($('#slot'));
+      return;
+    }
+    $('#login').style.display = 'none'; $('#app').style.display = 'block';
+    show(j);
+  };
+
+  $('#theme').onclick = () => { document.body.classList.toggle('light'); try { localStorage.setItem('board.light', document.body.classList.contains('light') ? '1' : ''); } catch (e) {} };
+  try { if (localStorage.getItem('board.light')) document.body.classList.add('light'); } catch (e) {}
+  if (window.Track && Track.enabled) {
+    Track.onChange(() => { if (Track.token()) load(); });
+    Track.init(() => { if (Track.token()) load(); else Track.button($('#slot')); });
+  } else $('#loginMsg').textContent = 'Prijava ni nastavljena.';
+})();
+</script>
+</body>
+</html>

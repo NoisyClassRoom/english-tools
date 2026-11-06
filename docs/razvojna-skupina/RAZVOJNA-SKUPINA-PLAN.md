@@ -76,3 +76,18 @@ Results are first seen by the team only. Later, class teachers, teachers and the
 1. Should the menu link **Razvojna skupina** be visible to everybody (students too), or only when signed in? Other teachers do not have WordPress accounts, so a WordPress-private page would hide it from them. Suggestion: a visible link, a public home page and guide, and everything with data behind the app's sign-in.
 2. The list of team e-mails, observers and class teachers.
 3. Is the section's language Slovenian only? Suggestion: yes, as the team works in Slovenian.
+
+## Decisions of the teacher (6 Nov 2026) and what was built
+
+Answers to the open questions, and what they changed in this plan:
+
+1. **Teachers only.** The menu link **Razvojna skupina** is visible to everybody (WordPress cannot hide it from teachers without WordPress accounts), but **every page of the section, also the home page and the guide, shows its content only after the Google sign-in of an account on the access list.** A pupil sees "Stran je namenjena učiteljem". What a signed-in teacher sees depends on their role.
+2. **Access is managed on a page, not in script properties.** Roles change every school year and during the year, so `TEAM_EMAILS`, `CLASS_TEACHERS`, `OBSERVER_EMAILS`, `PRINCIPAL_EMAIL` and `RESULTS_OPEN_TO` are **not** used. Instead: the hidden tab `RS_Dostop` (e-mail, name, role `skupina` / `razrednik` / `ucitelj` / `ravnatelj`, class for a class teacher, note; one row per person and role), edited on `team/dostop/`. Only the accounts in `TEACHER_EMAILS` can open that page, and they also count as members of the team. Every change is logged in `RS_Dnevnik`. The switch "who sees the questionnaire results" is the setting `rezultati_odprti` in `RS_Nastavitve` (`skupina` → `skupina,razrednik` → … → `vsi`). Later steps (observation sheet, results, analysis) read the roles with `rsWho_(email)` in `Code.gs`.
+3. **Slovenian only.**
+4. The observation pages go in `team/opazovanje/` (not `observe/`), with no WordPress page of their own.
+5. The team is only the people with the role `skupina` (not everybody in `TEACHER_EMAILS` beyond the admin).
+6. The links (three forms, the printable questionnaire, the Drive folder, the Kazalo) and the dates are settings in `RS_Nastavitve`, typed on `team/dostop/`. They are not in a config file in this public repository.
+7. The spring round is shown as "spomladi 2027".
+8. **The guide is teachers only.** Its text was removed from the public pages (`docs/razvojna-skupina/strategije-v-razredu.html` is deleted; it stays in the git history of 6 Nov 2026). The menu item *English hub > Development team: import the guide* copies that version into the hidden tab `RS_Vodnik`; `team/strategije/` loads it after sign-in (action `rsguide`). The print / PDF look (A4, original fonts and colours) is unchanged; on screen the page uses the repo's colours. To change the text later, edit the cell in `RS_Vodnik` (or ask Claude to change it and re-import).
+
+Built on 6 Nov 2026 (`CODE_VERSION` 2026-11-06.1): `team/index.html`, `team/strategije/`, `team/dostop/`, actions `rshome`, `rsguide`, `rsaccess`, `rsaccessset`, the health check part "Development team section". Steps 1–3 of the order of work are done; next is step 4 (results, after 21 Nov 2026).

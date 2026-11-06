@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="sl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Upravljanje dostopa</title>
+<style>
+  :root {
+    --bg: #141418; --card: #1f1f26; --ink: #f2efe9; --muted: #a39f95; --line: #34343e; --field: #14141a;
+    --accent: #ff8a1f; --accent-soft: #3a2a18; --good: #34c06d; --bad: #ff5a5a; --warn: #f0b429; --radius: 14px;
+  }
+  body.light {
+    --bg: #f6f4ef; --card: #ffffff; --ink: #1f2a37; --muted: #6b7280; --line: #e5e1d8; --field: #ffffff;
+    --accent: #e8710a; --accent-soft: #fdeedd; --good: #1f9d55; --bad: #d64545; --warn: #b7791f;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 16px; }
+  .top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+  .top .sp { flex: 1; }
+  h1 { margin: 0; font-size: 22px; }
+  h2 { margin: 0 0 8px; font-size: 16px; color: var(--accent); }
+  .btn { background: var(--field); color: var(--ink); border: 1px solid var(--line); border-radius: 10px; padding: 6px 12px; font: inherit; cursor: pointer; text-decoration: none; display: inline-block; }
+  .btn:hover { border-color: var(--accent); }
+  .btn.main { background: var(--accent); color: #111; border-color: var(--accent); font-weight: 600; }
+  .btn:disabled { opacity: .5; cursor: default; }
+  .muted { color: var(--muted); }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; margin-top: 14px; }
+  #login { text-align: center; padding: 40px 14px; }
+  #app { display: none; }
+  table { border-collapse: collapse; width: 100%; }
+  #people { min-width: 760px; }
+  th, td { text-align: left; padding: 4px 6px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+  th { color: var(--muted); font-weight: 600; font-size: 13px; }
+  input, select, textarea { background: var(--field); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 5px 8px; font: inherit; width: 100%; }
+  input.cls { width: 70px; }
+  input:disabled { opacity: .35; }
+  .tablewrap { overflow-x: auto; }
+  .bar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 10px; }
+  .msg { font-weight: 600; } .msg.ok { color: var(--good); } .msg.bad { color: var(--bad); } .msg.warn { color: var(--warn); }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+  .chip { border: 1px solid var(--line); border-radius: 999px; padding: 2px 10px; cursor: pointer; background: transparent; color: var(--ink); font: inherit; font-size: 14px; }
+  .chip[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+  .set { display: grid; grid-template-columns: minmax(180px, 320px) 1fr; gap: 6px 12px; align-items: center; }
+  @media (max-width: 700px) { .set { grid-template-columns: 1fr; } }
+  .log { max-height: 280px; overflow: auto; font-size: 13px; }
+  .x { color: var(--bad); }
+  .help { font-size: 14px; }
+  .help ul { margin: 4px 0 0; padding-left: 18px; }
+</style>
+</head>
+<body>
+<script src="../../exercises/tracking.js"></script>
+<div class="wrap">
+  <div class="top">
+    <h1>🔐 Upravljanje dostopa</h1><span class="sp"></span>
+    <a class="btn" href="../">← Razvojna skupina</a>
+    <button class="btn" id="theme">Svetlo / temno</button>
+  </div>
+  <p class="muted" style="margin:0">Kdo vidi strani razvojne skupine in kaj. Stran lahko odpre in ureja samo račun skrbnika (TEACHER_EMAILS).</p>
+
+  <div id="login" class="card">
+    <p id="loginMsg" class="muted">Prijavite se s šolskim Google računom skrbnika.</p>
+    <div id="slot" style="display:inline-block"></div>
+  </div>
+
+  <div id="app">
+    <div class="card help">
+      <b>Vloge</b>
+      <ul>
+        <li><b>razvojna skupina</b>: vse, tudi rezultate po učencih (ko bodo strani narejene).</li>
+        <li><b>razrednik</b> (z razredom, npr. 5.A): svoj razred; ena oseba ima lahko več vrstic.</li>
+        <li><b>učitelj</b>: priročnik, opazovalni list, skupni rezultati šole in triad.</li>
+        <li><b>ravnatelj</b>: skupni rezultati šole, triad in razredov.</li>
+      </ul>
+      <p class="muted" style="margin:6px 0 0">Dostop nikoli ne velja za celo domeno (učenci imajo isto domeno), samo za e-naslove na seznamu. Kdo vidi rezultate vprašalnika, določa nastavitev »rezultati_odprti« spodaj. Vsaka sprememba se zapiše v dnevnik.</p>
+    </div>
+
+    <div class="card">
+      <h2>Osebe</h2>
+      <div class="chips" id="filter"></div>
+      <div class="tablewrap"><table id="people"><thead><tr><th>E-naslov</th><th>Ime in priimek</th><th>Vloga</th><th>Razred</th><th>Opomba</th><th></th></tr></thead><tbody id="rows"></tbody></table></div>
+      <div class="bar">
+        <button class="btn" id="add">+ Dodaj osebo</button>
+        <button class="btn" id="bulkBtn">Dodaj več naenkrat …</button>
+        <span class="muted" id="count"></span>
+      </div>
+      <div id="bulk" style="display:none;margin-top:10px">
+        <p class="muted" style="margin:0 0 6px">Ena oseba v vrstici: <code>e-naslov; ime; vloga; razred</code> (vloga: skupina, razrednik, ucitelj ali ravnatelj; razred samo pri razredniku). Primer: <code>ana.novak@os-verzej.si; Ana Novak; razrednik; 5.A</code></p>
+        <textarea id="bulkText" rows="6"></textarea>
+        <div class="bar"><button class="btn" id="bulkAdd">Dodaj v tabelo</button><span class="msg" id="bulkMsg"></span></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Povezave in datumi</h2>
+      <div class="set" id="settings"></div>
+    </div>
+
+    <div class="bar" style="position:sticky;bottom:0;background:var(--bg);padding:10px 0">
+      <button class="btn main" id="save" disabled>Shrani spremembe</button>
+      <button class="btn" id="undo" disabled>Prekliči</button>
+      <span class="msg" id="msg"></span>
+    </div>
+
+    <div class="card">
+      <h2>Dnevnik sprememb</h2>
+      <div class="log" id="log"></div>
+    </div>
+  </div>
+</div>
+<script>
+(() => {
+  'use strict';
+  const $ = s => document.querySelector(s);
+  const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+  const ROLE = { skupina: 'razvojna skupina', razrednik: 'razrednik', ucitelj: 'učitelj', ravnatelj: 'ravnatelj' };
+  let data = null, rows = [], settings = {}, dirty = false, filter = 'vse', loaded = false;
+
+  const api = async (action, extra) => {
+    const token = Track.token(); if (!token) throw new Error('token');
+    const r = await fetch(Track.config.endpoint, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(Object.assign({ action, token }, extra || {})) });
+    return r.json();
+  };
+  const setDirty = v => { dirty = v; $('#save').disabled = !v; $('#undo').disabled = !v; if (v) { $('#msg').className = 'msg warn'; $('#msg').textContent = 'Spremembe še niso shranjene.'; } };
+  const normCls = v => String(v || '').replace(/\s+/g, '').toUpperCase().replace(/^(\d)\.?([A-Z])$/, '$1.$2');
+  const sortRows = () => rows.sort((a, b) => (a.role + a.cls + a.name + a.email).localeCompare(b.role + b.cls + b.name + b.email, 'sl', { numeric: true }));
+
+  const drawFilter = () => {
+    const box = $('#filter'); box.innerHTML = '';
+    ['vse'].concat(data.roles).forEach(r => {
+      const n = r === 'vse' ? rows.length : rows.filter(x => x.role === r).length;
+      const b = el('button', 'chip', (r === 'vse' ? 'vsi' : ROLE[r]) + ' (' + n + ')'); b.type = 'button';
+      b.setAttribute('aria-pressed', String(filter === r)); b.onclick = () => { filter = r; drawFilter(); drawRows(); };
+      box.append(b);
+    });
+  };
+  const drawRows = () => {
+    const tb = $('#rows'); tb.innerHTML = '';
+    rows.forEach((r, i) => {
+      if (filter !== 'vse' && r.role !== filter && !r._new) return;
+      const tr = el('tr');
+      const inp = (key, ph, cls) => { const x = el('input', cls); x.value = r[key] || ''; x.placeholder = ph; x.oninput = () => { r[key] = x.value; setDirty(true); };
+        if (key === 'cls') x.onchange = () => { r.cls = x.value = normCls(x.value); }; return x; };
+      const email = inp('email', 'ime.priimek@' + data.domain); email.type = 'email';
+      const sel = el('select'); data.roles.forEach(k => { const o = el('option', '', ROLE[k]); o.value = k; sel.append(o); }); sel.value = r.role;
+      const cls = inp('cls', '5.A', 'cls'); cls.disabled = r.role !== 'razrednik';
+      sel.onchange = () => { r.role = sel.value; cls.disabled = r.role !== 'razrednik'; if (cls.disabled) { r.cls = ''; cls.value = ''; } setDirty(true); drawFilter(); };
+      const del = el('button', 'btn x', '✕'); del.type = 'button'; del.title = 'Odstrani'; del.onclick = () => { rows.splice(i, 1); setDirty(true); drawFilter(); drawRows(); };
+      [email, inp('name', 'Ime Priimek'), sel, cls, inp('note', 'npr. aktiv JEZ')].forEach(x => { const td = el('td'); td.append(x); tr.append(td); });
+      const td = el('td'); td.append(del); tr.append(td);
+      tb.append(tr);
+    });
+    $('#count').textContent = rows.length + ' vrstic, ' + new Set(rows.map(r => r.email.toLowerCase()).filter(Boolean)).size + ' oseb';
+  };
+  const drawSettings = () => {
+    const box = $('#settings'); box.innerHTML = '';
+    Object.keys(data.labels).forEach(k => {
+      const lab = el('label', '', data.labels[k]); lab.htmlFor = 's-' + k;
+      const x = el('input'); x.id = 's-' + k; x.value = settings[k] || '';
+      if (k === 'rezultati_odprti') x.placeholder = 'skupina';
+      else if (!/^vprasalnik_/.test(k)) x.placeholder = 'https://docs.google.com/… ali https://drive.google.com/…';
+      x.oninput = () => { settings[k] = x.value.trim(); setDirty(true); };
+      box.append(lab, x);
+    });
+  };
+  const drawLog = () => {
+    const box = $('#log'); box.innerHTML = '';
+    if (!data.log.length) { box.append(el('p', 'muted', 'Še ni sprememb.')); return; }
+    const t = el('table'); data.log.forEach(r => { const tr = el('tr'); r.forEach(c => tr.append(el('td', '', c))); t.append(tr); }); box.append(t);
+  };
+  const fill = j => {
+    data = j; rows = j.rows.map(r => ({ email: r.email, name: r.name, role: r.role, cls: r.cls, note: r.note })); settings = Object.assign({}, j.settings);
+    sortRows(); drawFilter(); drawRows(); drawSettings(); drawLog(); setDirty(false);
+  };
+
+  const load = async () => {
+    if (!Track.token() || loaded) return;
+    loaded = true; $('#who') && ($('#who').textContent = Track.email || '');
+    $('#loginMsg').textContent = 'Nalagam …';
+    let j = null; try { j = await api('rsaccess'); } catch (e) {}
+    if (!j || !j.ok) {
+      loaded = false;
+      $('#loginMsg').textContent = j && j.error === 'token' ? 'Ta račun ne sme urejati dostopa (samo skrbnik), ali pa je prijava potekla.' : 'Strani trenutno ni mogoče naložiti.';
+      Track.button($('#slot'));
+      return;
+    }
+    $('#login').style.display = 'none'; $('#app').style.display = 'block';
+    fill(j);
+  };
+
+  $('#add').onclick = () => { rows.unshift({ email: '', name: '', role: filter !== 'vse' ? filter : 'ucitelj', cls: '', note: '', _new: true }); setDirty(true); drawFilter(); drawRows(); const f = $('#rows input'); if (f) f.focus(); };
+  $('#bulkBtn').onclick = () => { const b = $('#bulk'); b.style.display = b.style.display === 'none' ? '' : 'none'; };
+  $('#bulkAdd').onclick = () => {
+    const bad = [], add = [];
+    $('#bulkText').value.split(/\n/).map(s => s.trim()).filter(Boolean).forEach((line, i) => {
+      const p = line.split(/[;\t]/).map(s => s.trim());
+      const role = (p[2] || '').toLowerCase().replace('č', 'c').replace(/^razvojna skupina$/, 'skupina');
+      if (!/@/.test(p[0] || '') || !data.roles.includes(role)) { bad.push(i + 1); return; }
+      add.push({ email: p[0].toLowerCase(), name: p[1] || '', role, cls: role === 'razrednik' ? normCls(p[3]) : '', note: '' });
+    });
+    rows = rows.concat(add); sortRows(); if (add.length) setDirty(true); drawFilter(); drawRows();
+    $('#bulkMsg').className = 'msg ' + (bad.length ? 'bad' : 'ok');
+    $('#bulkMsg').textContent = 'Dodanih ' + add.length + (bad.length ? '; ni bilo mogoče prebrati vrstic: ' + bad.join(', ') : '') + '. Ne pozabite shraniti.';
+    if (!bad.length) $('#bulkText').value = '';
+  };
+  $('#undo').onclick = () => { if (data) fill(data); $('#msg').textContent = ''; };
+  $('#save').onclick = async () => {
+    $('#save').disabled = true; $('#msg').className = 'msg'; $('#msg').textContent = 'Shranjujem …';
+    let j = null;
+    try { j = await api('rsaccessset', { rows: rows.map(r => ({ email: r.email.trim(), name: r.name, role: r.role, cls: r.cls, note: r.note })), settings }); } catch (e) {}
+    if (!j || !j.ok) {
+      $('#save').disabled = false; $('#msg').className = 'msg bad';
+      $('#msg').textContent = j && j.error === 'rows' ? 'Ni shranjeno: ' + j.details.join('; ') : j && j.error === 'token' ? 'Ni shranjeno: prijava je potekla. Osvežite stran.' : 'Ni shranjeno: napaka na strežniku.';
+      return;
+    }
+    let k = null; try { k = await api('rsaccess'); } catch (e) {}
+    if (k && k.ok) fill(k); else setDirty(false);
+    $('#msg').className = 'msg ' + (j.skipped && j.skipped.length ? 'warn' : 'ok');
+    $('#msg').textContent = '✓ Shranjeno (' + j.changes + ' sprememb).' + (j.skipped && j.skipped.length ? ' Niso shranjene povezave, ki niso povezave Google (docs/drive.google.com): ' + j.skipped.map(k => data.labels[k] || k).join(', ') + '.' : '');
+  };
+  window.addEventListener('beforeunload', e => { if (dirty) { e.preventDefault(); e.returnValue = ''; } });
+
+  $('#theme').onclick = () => { document.body.classList.toggle('light'); try { localStorage.setItem('board.light', document.body.classList.contains('light') ? '1' : ''); } catch (e) {} };
+  try { if (localStorage.getItem('board.light')) document.body.classList.add('light'); } catch (e) {}
+  if (window.Track && Track.enabled) {
+    Track.onChange(() => { if (Track.token()) load(); });
+    Track.init(() => { if (Track.token()) load(); else Track.button($('#slot')); });
+  } else $('#loginMsg').textContent = 'Prijava ni nastavljena.';
+})();
+</script>
+</body>
+</html>

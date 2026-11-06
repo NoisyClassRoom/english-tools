@@ -85,7 +85,7 @@ var UNITS = {
 
 // Change this text whenever the code of doPost changes: the health check compares it with what the published web app answers,
 // so it can tell you that the saved code has not been deployed as a new version yet.
-var CODE_VERSION = '2026-10-22.1';
+var CODE_VERSION = '2026-11-06.1';
 
 // ---------------------------------------------------------------- saving results
 
@@ -114,6 +114,10 @@ function doPost(e) {
     if (d.action === 'goalmistakes') return goalMistakesReply_(d);   // a pupil: the units where they have open mistakes (for the goal picker)
     if (d.action === 'pupilhome') return pupilHomeReply_(d);         // a pupil: homework + "My progress" in ONE request (faster than two)
     if (d.action === 'puzzlestats') return puzzleStatsReply_(d);       // teacher-only: results of the online puzzles (separate tab "Puzzles")
+    if (d.action === 'rshome') return rsHomeReply_(d);                 // development team section: any account on the access list
+    if (d.action === 'rsguide') return rsGuideReply_(d);               // the guide text (accounts on the access list)
+    if (d.action === 'rsaccess') return rsAccessReply_(d);             // teacher-only: the access list, settings, change log
+    if (d.action === 'rsaccessset') return rsAccessSetReply_(d);       // teacher-only: saves the access list and settings
     if (d.action === 'ping') return out_({ ok: true, v: CODE_VERSION });   // no data; used by "Check that everything works" in the Sheet menu
     var who = verify_(d.token);
     if (!who) return out_({ ok: false, error: 'token' });
@@ -1046,7 +1050,7 @@ var CLASS_IDS = ['6b', '7a', '7bc', '8a', '8b', '9a', '9b'];
 function healthRun_() {
   var rep = [], add = function (lvl, text) { rep.push([lvl, text]); };
   var steps = [['The published web app', hcWebApp_], ['The Sheet', hcSheet_], ['The Board text', hcBoard_], ['Pupils and the Roster', hcPupils_],
-               ['The backup', hcBackup_], ['The exercise files on GitHub', hcFiles_], ['The website', hcSite_]];
+               ['The backup', hcBackup_], ['The exercise files on GitHub', hcFiles_], ['The website', hcSite_], ['Development team section (team/)', hcTeam_]];
   steps.forEach(function (s) {
     add('head', s[0]);
     try { s[1](add); } catch (e) { add('bad', 'This check itself failed: ' + e); }
@@ -1738,6 +1742,8 @@ function onOpen() {
     .addSeparator()
     .addItem('Self-regulation prompts for pupils: on / off...', 'srlSwitch')
     .addSeparator()
+    .addItem('Development team: import the guide', 'rsGuideImport')
+    .addSeparator()
     .addItem('Check that everything works', 'healthCheck')
     .addToUi();
 }
@@ -2370,4 +2376,202 @@ function build_(name, note, formula, formats, pctCol) {
   }
   sh.autoResizeColumns(1, 12);
   sh.getRange('A2').setValue(note).setFontColor('#6b7280');   // after resizing, so a long note does not widen column A
+}
+
+// ---------------------------------------------------------------- Razvojna skupina (docs/razvojna-skupina/RAZVOJNA-SKUPINA-PLAN.md, 6 Nov 2026)
+// The school development team's section: pages team/ (home), team/strategije/ (teacher guide), team/dostop/ (access management).
+// Every page of the section shows its content only after the Google sign-in of an account that is on the access list: pupils share
+// the os-verzej.si domain, so access is NEVER granted by domain. The list is the hidden tab RS_Dostop (one row per person and role),
+// edited by the teacher on team/dostop/ (only accounts in TEACHER_EMAILS may edit it; they also count as members of the team).
+// RS_Nastavitve holds the links and dates the home page shows and the switch "rezultati_odprti" (which roles see the questionnaire
+// results: skupina -> skupina,razrednik -> skupina,razrednik,ravnatelj,ucitelj). RS_Dnevnik logs every change of the list.
+// RS_Vodnik holds the text of the guide "Učne strategije v razredu" (not in this public repository; imported once from the menu).
+// No pupil data in any of these tabs.
+var RS_ACCESS = 'RS_Dostop', RS_SETTINGS = 'RS_Nastavitve', RS_LOG = 'RS_Dnevnik', RS_GUIDE = 'RS_Vodnik';
+var RS_ACCESS_HEADER = ['E-naslov', 'Ime', 'Vloga', 'Razred', 'Opomba', 'Spremenjeno', 'Spremenil'];
+var RS_ROLES = ['skupina', 'razrednik', 'ucitelj', 'ravnatelj'];
+// key, description; the values are typed on team/dostop/ (never in this file: the repository is public)
+var RS_SETTING_KEYS = [
+  ['obrazec_1vio', 'Obrazec »Kako se učim?« – 1. VIO (povezava)'],
+  ['obrazec_2vio', 'Obrazec »Kako se učim?« – 2. VIO (povezava)'],
+  ['obrazec_3vio', 'Obrazec »Kako se učim?« – 3. VIO (povezava)'],
+  ['tisk_1vio', 'Vprašalnik 1. VIO za tisk – 1. in 2. razred (povezava)'],
+  ['mapa', 'Mapa razvojne skupine na Drivu (povezava)'],
+  ['kazalo', 'Kazalo – Samouravnavanje učenja (povezava)'],
+  ['vprasalnik_jesen', 'Začetni vprašalnik (besedilo, npr. 11.–21. 11. 2026)'],
+  ['vprasalnik_pomlad', 'Končni vprašalnik (besedilo, npr. spomladi 2027)'],
+  ['rezultati_odprti', 'Kdo vidi rezultate vprašalnika: skupina | skupina,razrednik | skupina,razrednik,ravnatelj | vsi']
+];
+var RS_GUIDE_SOURCE = 'https://raw.githubusercontent.com/noisyclassroom/english-tools/5786ac77729c5e3d867ad22ee6dbd4e03a5458a4/docs/razvojna-skupina/strategije-v-razredu.html';
+
+function rsSheet_(name, header) {
+  var ss = SpreadsheetApp.getActive(), sh = ss.getSheetByName(name);
+  if (!sh) {
+    sh = ss.insertSheet(name);
+    sh.appendRow(header); sh.setFrozenRows(1); sh.getRange(1, 1, 1, header.length).setFontWeight('bold');
+    sh.getRange('A:Z').setNumberFormat('@');
+    if (ss.getActiveSheet().getName() === name && ss.getSheetByName(SHEET)) ss.setActiveSheet(ss.getSheetByName(SHEET));
+    sh.hideSheet();
+  }
+  return sh;
+}
+function rsAccessSheet_() { return rsSheet_(RS_ACCESS, RS_ACCESS_HEADER); }
+function rsLogSheet_() { return rsSheet_(RS_LOG, ['Čas', 'Kdo', 'Kaj', 'Podrobnosti']); }
+function rsGuideSheet_() { return rsSheet_(RS_GUIDE, ['Del', 'Vsebina', 'Uvoženo']); }
+function rsSettingsSheet_() {
+  var sh = rsSheet_(RS_SETTINGS, ['Ključ', 'Vrednost', 'Opis']);
+  var have = {}; if (sh.getLastRow() > 1) sh.getRange(2, 1, sh.getLastRow() - 1, 1).getValues().forEach(function (r) { have[String(r[0])] = 1; });
+  var add = RS_SETTING_KEYS.filter(function (k) { return !have[k[0]]; }).map(function (k) { return [k[0], k[0] === 'rezultati_odprti' ? 'skupina' : '', k[1]]; });
+  if (add.length) sh.getRange(sh.getLastRow() + 1, 1, add.length, 3).setValues(add);
+  return sh;
+}
+
+// [{email, name, role, cls, note, changed, by}]
+function rsAccessRows_() {
+  var sh = SpreadsheetApp.getActive().getSheetByName(RS_ACCESS);
+  if (!sh || sh.getLastRow() < 2) return [];
+  return sh.getRange(2, 1, sh.getLastRow() - 1, RS_ACCESS_HEADER.length).getValues().map(function (r) {
+    return { email: String(r[0]).trim().toLowerCase(), name: String(r[1]).trim(), role: String(r[2]).trim().toLowerCase(), cls: String(r[3]).trim().toUpperCase(),
+             note: String(r[4]).trim(), changed: String(r[5]), by: String(r[6]) };
+  }).filter(function (r) { return r.email && RS_ROLES.indexOf(r.role) >= 0; });
+}
+function rsSettings_() {
+  var o = {}; RS_SETTING_KEYS.forEach(function (k) { o[k[0]] = ''; });
+  var sh = SpreadsheetApp.getActive().getSheetByName(RS_SETTINGS);
+  if (sh && sh.getLastRow() > 1) sh.getRange(2, 1, sh.getLastRow() - 1, 2).getValues().forEach(function (r) { if (o[String(r[0])] != null) o[String(r[0])] = String(r[1]).trim(); });
+  if (!o.rezultati_odprti) o.rezultati_odprti = 'skupina';
+  return o;
+}
+// the roles of one account; an account in TEACHER_EMAILS is the admin and always a member of the team
+function rsWho_(email) {
+  var e = String(email).toLowerCase(), admin = isTeacher_(e), roles = [], classes = [], name = '';
+  rsAccessRows_().forEach(function (r) {
+    if (r.email !== e) return;
+    if (roles.indexOf(r.role) < 0) roles.push(r.role);
+    if (r.role === 'razrednik' && r.cls && classes.indexOf(r.cls) < 0) classes.push(r.cls);
+    if (r.name && !name) name = r.name;
+  });
+  if (admin && roles.indexOf('skupina') < 0) roles.unshift('skupina');
+  return { admin: admin, roles: roles, classes: classes, name: name };
+}
+
+// any account on the list: who am I, what may I open, the links and dates of the home page
+function rsHomeReply_(d) {
+  var who = verify_(d.token);
+  if (!who) return out_({ ok: false, error: 'token' });
+  var me = rsWho_(who.email);
+  if (!me.roles.length) return out_({ ok: false, error: 'access' });
+  var s = rsSettings_(), open = s.rezultati_odprti.toLowerCase().split(/[\s,;]+/).filter(String);
+  return out_({ ok: true, admin: me.admin, roles: me.roles, classes: me.classes, name: me.name || who.first,
+                settings: s, resultsOpen: open.indexOf('vsi') >= 0 ? RS_ROLES.slice() : open });
+}
+
+// the guide text, for any account on the list
+function rsGuideReply_(d) {
+  var who = verify_(d.token);
+  if (!who) return out_({ ok: false, error: 'token' });
+  if (!rsWho_(who.email).roles.length) return out_({ ok: false, error: 'access' });
+  var sh = SpreadsheetApp.getActive().getSheetByName(RS_GUIDE), parts = {};
+  if (sh && sh.getLastRow() > 1) sh.getRange(2, 1, sh.getLastRow() - 1, 3).getValues().forEach(function (r) { parts[String(r[0])] = String(r[1]); parts._t = String(r[2]); });
+  if (!parts.html) return out_({ ok: true, empty: true });
+  var strat = []; try { strat = JSON.parse(parts.strategije || '[]'); } catch (e) {}
+  return out_({ ok: true, html: parts.html, strat: strat, imported: parts._t });
+}
+
+// access management (admin only): the list, the settings and the last 200 log lines
+function rsAccessReply_(d) {
+  var who = verify_(d.token);
+  if (!who || !isTeacher_(who.email)) return out_({ ok: false, error: 'token' });
+  rsAccessSheet_(); rsSettingsSheet_();
+  var log = [], lg = SpreadsheetApp.getActive().getSheetByName(RS_LOG);
+  if (lg && lg.getLastRow() > 1) {
+    var n = Math.min(200, lg.getLastRow() - 1);
+    log = lg.getRange(lg.getLastRow() - n + 1, 1, n, 4).getValues().reverse().map(function (r) { return [String(r[0]), String(r[1]), String(r[2]), String(r[3])]; });
+  }
+  var labels = {}; RS_SETTING_KEYS.forEach(function (k) { labels[k[0]] = k[1]; });
+  return out_({ ok: true, rows: rsAccessRows_(), settings: rsSettings_(), labels: labels, roles: RS_ROLES, log: log, me: who.email, domain: ALLOWED_DOMAIN });
+}
+
+// admin only: saves the WHOLE list (d.rows = [{email, name, role, cls, note}]) and the settings (d.settings = {key: value});
+// every difference to what was stored is written to RS_Dnevnik
+function rsAccessSetReply_(d) {
+  var who = verify_(d.token);
+  if (!who || !isTeacher_(who.email)) return out_({ ok: false, error: 'token' });
+  var rows = d.rows instanceof Array ? d.rows.slice(0, 400) : null;
+  if (!rows) return out_({ ok: false, error: 'data' });
+  var clean = [], seen = {}, errors = [];
+  rows.forEach(function (r, i) {
+    var email = String(r.email || '').trim().toLowerCase(), role = String(r.role || '').trim().toLowerCase(), cls = String(r.cls || '').replace(/\s+/g, '').toUpperCase().replace(/^(\d)\.?([A-Z])$/, '$1.$2');
+    if (!email && !r.name) return;                                                       // an empty line is ignored
+    if (!/^[^\s@]+@[^\s@]+$/.test(email) || (ALLOWED_DOMAIN && email.split('@')[1] !== ALLOWED_DOMAIN)) { errors.push('vrstica ' + (i + 1) + ': e-naslov mora biti @' + ALLOWED_DOMAIN); return; }
+    if (RS_ROLES.indexOf(role) < 0) { errors.push('vrstica ' + (i + 1) + ': neznana vloga'); return; }
+    if (role === 'razrednik' && !/^[1-9]\.[A-Z]$/.test(cls)) { errors.push('vrstica ' + (i + 1) + ': razrednik potrebuje razred, npr. 5.A'); return; }
+    if (role !== 'razrednik') cls = '';
+    var k = email + '|' + role + '|' + cls;
+    if (seen[k]) return; seen[k] = 1;
+    clean.push({ email: email, name: clip_(r.name, 80), role: role, cls: cls, note: clip_(r.note, 120) });
+  });
+  if (errors.length) return out_({ ok: false, error: 'rows', details: errors.slice(0, 10) });
+
+  var lock = LockService.getScriptLock(), skipped = []; lock.waitLock(20000);
+  try {
+    var sh = rsAccessSheet_(), old = rsAccessRows_(), now = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd HH:mm'), by = String(who.email).toLowerCase();
+    var key = function (r) { return r.email + '|' + r.role + '|' + r.cls; }, oldBy = {}, logRows = [];
+    old.forEach(function (r) { oldBy[key(r)] = r; });
+    var out = clean.map(function (r) {
+      var o = oldBy[key(r)], same = o && o.name === r.name && o.note === r.note;
+      if (!o) logRows.push([now, by, 'dodano', r.email + ' · ' + r.role + (r.cls ? ' ' + r.cls : '') + (r.name ? ' · ' + r.name : '')]);
+      else if (!same) logRows.push([now, by, 'spremenjeno', r.email + ' · ' + r.role + (r.cls ? ' ' + r.cls : '') + ' · ime/opomba']);
+      if (o) delete oldBy[key(r)];
+      return [r.email, r.name, r.role, r.cls, r.note, same ? o.changed : now, same ? o.by : by];
+    });
+    Object.keys(oldBy).forEach(function (k) { var r = oldBy[k]; logRows.push([now, by, 'odstranjeno', r.email + ' · ' + r.role + (r.cls ? ' ' + r.cls : '')]); });
+    if (sh.getLastRow() > 1) sh.getRange(2, 1, sh.getLastRow() - 1, RS_ACCESS_HEADER.length).clearContent();
+    if (out.length) sh.getRange(2, 1, out.length, RS_ACCESS_HEADER.length).setValues(out);
+
+    if (d.settings && typeof d.settings === 'object') {
+      var st = rsSettingsSheet_(), vals = st.getRange(2, 1, st.getLastRow() - 1, 2).getValues();
+      vals.forEach(function (r, i) {
+        var k = String(r[0]); if (!(k in d.settings)) return;
+        var v = clip_(d.settings[k], 300);
+        if (/^(obrazec_|tisk_|mapa|kazalo)/.test(k) && v && !/^https:\/\/(docs|drive)\.google\.com\//.test(v)) { skipped.push(k); return; }   // only Google links
+        if (v !== String(r[1]).trim()) { st.getRange(i + 2, 2).setValue(v); logRows.push([now, by, 'nastavitev', k + ' = ' + (v || '(prazno)')]); }
+      });
+    }
+    if (logRows.length) { var lg = rsLogSheet_(); lg.getRange(lg.getLastRow() + 1, 1, logRows.length, 4).setValues(logRows); }
+  } finally { lock.releaseLock(); }
+  return out_({ ok: true, changes: logRows.length, skipped: skipped });
+}
+
+// Menu: copies the guide "Učne strategije v razredu" into the hidden tab RS_Vodnik. The source is the version of 6 Nov 2026 in the
+// repository's history (the file itself was removed from the public pages); run it again only to restore that version.
+function rsGuideImport() {
+  var ui = SpreadsheetApp.getUi();
+  var r = UrlFetchApp.fetch(RS_GUIDE_SOURCE, { muteHttpExceptions: true });
+  if (r.getResponseCode() !== 200) { ui.alert('The guide could not be read (HTTP ' + r.getResponseCode() + ').'); return; }
+  var t = r.getContentText(), a = t.indexOf('<div class="wrap">'), b = t.indexOf('<script>', a), m = /const S = (\[[\s\S]*?\n\]);/.exec(t);
+  if (a < 0 || b < 0 || !m) { ui.alert('The guide does not look as expected; nothing was changed.'); return; }
+  var strat; try { strat = JSON.parse(m[1].replace(/([{,]\s*)([a-z]{1,2})\s*:/g, '$1"$2":')); } catch (e) { ui.alert('The strategy list could not be read; nothing was changed.'); return; }
+  var html = t.slice(a, b).replace(/^<div class="wrap">/, '').replace(/<\/div>\s*$/, '');
+  var sh = rsGuideSheet_(), now = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd HH:mm');
+  if (sh.getLastRow() > 1) sh.getRange(2, 1, sh.getLastRow() - 1, 3).clearContent();
+  sh.getRange(2, 1, 2, 3).setValues([['html', html, now], ['strategije', JSON.stringify(strat), now]]);
+  rsAccessSheet_(); rsSettingsSheet_();
+  ui.alert('The guide is in the hidden tab ' + RS_GUIDE + ' (' + strat.length + ' strategies). Teachers on the access list see it on team/strategije/.');
+}
+
+// health check part
+function hcTeam_(add) {
+  var ss = SpreadsheetApp.getActive(), rows = rsAccessRows_(), by = {};
+  rows.forEach(function (r) { by[r.role] = (by[r.role] || 0) + 1; });
+  if (!ss.getSheetByName(RS_ACCESS)) add('warn', 'No access list yet (tab ' + RS_ACCESS + '): open team/dostop/ with the teacher account and add the people.');
+  else add(rows.length ? 'ok' : 'warn', 'Access list: ' + (rows.length ? RS_ROLES.map(function (k) { return k + ' ' + (by[k] || 0); }).join(', ') : 'empty') + ' (plus the account(s) in TEACHER_EMAILS as the team).');
+  var s = rsSettings_(), empty = RS_SETTING_KEYS.filter(function (k) { return !s[k[0]]; }).map(function (k) { return k[0]; });
+  add(empty.length ? 'warn' : 'ok', empty.length ? 'Settings without a value (team/dostop/ > Povezave in datumi): ' + empty.join(', ') + '.' : 'All links and dates of the section are filled in.');
+  var g = ss.getSheetByName(RS_GUIDE);
+  add(g && g.getLastRow() > 2 ? 'ok' : 'warn', g && g.getLastRow() > 2 ? 'The guide text is in the tab ' + RS_GUIDE + '.' : 'The guide text is missing: menu English hub > Development team: import the guide.');
+  var pages = ['team/index.html', 'team/dostop/index.html', 'team/strategije/index.html'];
+  var res = UrlFetchApp.fetchAll(pages.map(function (p) { return { url: SITE_BASE + p + '?check=' + Date.now(), muteHttpExceptions: true }; }));
+  var bad = pages.filter(function (p, i) { return res[i].getResponseCode() !== 200; });
+  add(bad.length ? 'bad' : 'ok', bad.length ? 'Pages of the section not found on GitHub Pages: ' + bad.join(', ') + '.' : 'The section pages (team/) are on GitHub Pages.');
 }
