@@ -70,6 +70,13 @@ table { border-collapse: collapse; font-size: .85rem; }
 th, td { border: 1px solid var(--line); padding: 4px 8px; text-align: center; white-space: nowrap; }
 th:first-child, td:first-child { text-align: left; }
 td.has { font-weight: 700; }
+.fb { border-color: var(--warn); }
+.fb .note { border-top: 1px dashed var(--line); padding-top: 8px; display: grid; gap: 2px; }
+.fb .note .top { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.fb .note .top .sp { flex: 1; }
+.fb .note p { white-space: pre-wrap; }
+.fbform { display: grid; grid-template-columns: minmax(0, 220px) minmax(0, 1fr); gap: 10px; margin: 10px 0; }
+@media (max-width: 560px) { .fbform { grid-template-columns: 1fr; } }
 </style>
 </head>
 <body>
@@ -131,6 +138,17 @@ td.has { font-weight: 700; }
       <h2>Kaj sem že uvedel</h2>
       <p class="small" id="gridNote">Število ur s strategijo po razredih; v oklepaju najvišji dosežen korak (1 predstavim · 2 vodena vaja · 3 samostojno · 4 refleksija).</p>
       <div class="tbl" id="grid"></div>
+    </div>
+
+    <div class="box fb" id="fbBox" style="display:none">
+      <h2>💬 Pripombe k opazovalnemu listu</h2>
+      <p class="small">Samo za razvojno skupino, dokler list preizkušamo. Kaj manjka, kaj je odveč, kaj ni jasno? Pripombe vidijo vsi člani skupine z imenom. Brez imen učencev.</p>
+      <div class="fbform">
+        <label class="q">Kaj zadeva<select id="fbPart"></select></label>
+        <label class="q">Pripomba (največ 500 znakov)<textarea id="fbText" maxlength="500" placeholder="npr. Pri koraku uvajanja bi dodal …"></textarea></label>
+      </div>
+      <div class="actions" style="margin-top:0"><button class="btn main" id="fbSend" type="button">Pošlji pripombo</button><span class="msg" id="fbMsg"></span></div>
+      <div class="list" id="fbList" style="margin-top:12px"></div>
     </div>
   </div>
 </div>
@@ -278,7 +296,34 @@ td.has { font-weight: 700; }
   $('#fReset').onclick = () => { Object.keys(F).forEach(id => { $('#' + id).value = ''; }); shown = PAGE; drawMine(); };
   $('#more').onclick = () => { shown += PAGE; drawMine(); };
 
+  // team feedback on this page (role skupina only; stored with code OPAZ in RS_Pripombe)
+  const FB = [['vse', 'list v celoti'], ['obrazec', 'polja obrazca'], ['lestvice', 'lestvice in ocene'], ['seznami', 'razredi, predmeti, strategije'], ['pregled', 'Moja opazovanja in preglednica'], ['drugo', 'drugo']];
+  const drawFb = () => {
+    $('#fbBox').style.display = D.team ? '' : 'none';
+    if (!D.team) return;
+    const ns = (D.notes || []).slice().sort((a, b) => a.t < b.t ? 1 : -1);
+    $('#fbList').innerHTML = ns.length ? ns.map(n => `<div class="note"><div class="top"><b>${esc(n.who)}</b><span class="small">${esc(fmtDate(String(n.t).slice(0, 10)))} · ${esc((FB.find(f => f[0] === n.part) || [0, n.part])[1])}</span><span class="sp"></span>${n.mine ? `<button class="btn sm" data-del="${esc(n.id)}">Izbriši</button>` : ''}</div><p>${esc(n.text)}</p></div>`).join('')
+      : '<p class="muted small">Še ni pripomb.</p>';
+    $('#fbList').querySelectorAll('[data-del]').forEach(b => b.onclick = async () => {
+      if (!confirm('Izbrišem to pripombo?')) return;
+      b.disabled = true;
+      let j = null; try { j = await api('rspicknotedel', { id: b.dataset.del }); } catch (e) {}
+      if (j && j.ok) { D.notes = D.notes.filter(n => n.id !== b.dataset.del); drawFb(); } else { b.disabled = false; alert('Ni izbrisano. Poskusite znova.'); }
+    });
+  };
+  $('#fbSend').onclick = async () => {
+    const text = $('#fbText').value.trim(), part = $('#fbPart').value, msg = $('#fbMsg');
+    if (!text) { msg.className = 'msg bad'; msg.textContent = 'Vpišite pripombo.'; return; }
+    $('#fbSend').disabled = true; msg.className = 'msg'; msg.textContent = 'Pošiljam …';
+    let j = null; try { j = await api('rsobsnote', { part, text }); } catch (e) {}
+    $('#fbSend').disabled = false;
+    if (!j || !j.ok) { msg.className = 'msg bad'; msg.textContent = j && j.error === 'token' ? 'Ni shranjeno: prijava je potekla. Osvežite stran.' : 'Ni shranjeno. Poskusite znova.'; return; }
+    D.notes = (D.notes || []).concat({ id: j.id, t: today() + ' ' + new Date().toTimeString().slice(0, 5), who: D.name || 'jaz', part, text, mine: true });
+    $('#fbText').value = ''; msg.className = 'msg ok'; msg.textContent = '✓ Hvala, pripomba je shranjena.'; drawFb();
+  };
+
   const fill = () => {
+    $('#fbPart').innerHTML = FB.map(([v, l]) => `<option value="${v}">${esc(l)}</option>`).join('');
     $('#year').textContent = '(šolsko leto ' + D.year.replace('-', '/') + ')';
     $('#cls').innerHTML = D.classes.map(c => `<option>${esc(c)}</option>`).join('');
     $('#subj').innerHTML = Object.keys(D.subjects).map(k => `<optgroup label="${esc(k)}">${D.subjects[k].map(x => `<option>${esc(x)}</option>`).join('')}</optgroup>`).join('');
@@ -292,7 +337,7 @@ td.has { font-weight: 700; }
     setForm(Object.assign({ cls: last.cls, subj: last.subj }, pre));
     if (pre.cls && !D.classes.includes(pre.cls)) { $('#msg').className = 'msg warn'; $('#msg').textContent = 'Razreda ' + pre.cls + ' ni na seznamu; izberite ga ročno.'; }
     if (Object.keys(pre).length) history.replaceState(null, '', location.pathname);
-    drawMine(); drawGrid();
+    drawMine(); drawGrid(); drawFb();
   };
 
   const load = async () => {

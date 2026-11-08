@@ -85,7 +85,7 @@ var UNITS = {
 
 // Change this text whenever the code of doPost changes: the health check compares it with what the published web app answers,
 // so it can tell you that the saved code has not been deployed as a new version yet.
-var CODE_VERSION = '2026-11-07.1';
+var CODE_VERSION = '2026-11-08.1';
 
 // ---------------------------------------------------------------- saving results
 
@@ -127,6 +127,7 @@ function doPost(e) {
     if (d.action === 'rsobs') return rsObsReply_(d);                   // observation sheet team/opazovanje/: lists + own observations (accounts on the list)
     if (d.action === 'rsobssave') return rsObsSaveReply_(d);           // save a new or an own observation
     if (d.action === 'rsobsdelete') return rsObsDeleteReply_(d);       // delete an own observation
+    if (d.action === 'rsobsnote') return rsObsNoteReply_(d);           // team feedback on the observation sheet itself (role skupina; delete with rspicknotedel)
     if (d.action === 'ping') return out_({ ok: true, v: CODE_VERSION });   // no data; used by "Check that everything works" in the Sheet menu
     var who = verify_(d.token);
     if (!who) return out_({ ok: false, error: 'token' });
@@ -2745,13 +2746,37 @@ function rsObsReply_(d) {
   var who = verify_(d.token);
   if (!who) return out_({ ok: false, error: 'token' });
   if (!rsWho_(who.email).roles.length) return out_({ ok: false, error: 'access' });
+  var rw = rsWho_(who.email), team = rw.roles.indexOf('skupina') >= 0;
   var ss = obsBook_(false), me = String(who.email).toLowerCase(), year = schoolYear_(new Date()), mine = [];
   var sh = ss && ss.getSheetByName('Opazovanja');
   if (sh && sh.getLastRow() > 1) sh.getRange(2, 1, sh.getLastRow() - 1, OBS_HEADER.length).getValues().forEach(function (r) {
     if (String(r[4]).toLowerCase() === me && String(r[2]) === year) mine.push(obsRowOut_(r));
   });
   mine.sort(function (a, b) { return a.date < b.date ? 1 : a.date > b.date ? -1 : 0; });
-  return out_({ ok: true, year: year, classes: obsClasses_(ss), strat: obsStrategies_(), subjects: OBS_SUBJECTS, mine: mine });
+  return out_({ ok: true, year: year, classes: obsClasses_(ss), strat: obsStrategies_(), subjects: OBS_SUBJECTS, mine: mine, team: team, name: rw.name, notes: team ? obsNotes_(me) : [] });
+}
+// Team feedback on the observation sheet itself (decision of the teacher, 8 Nov 2026): members of the development team (role skupina)
+// leave remarks on the form while it is still being tested; everyone in the team sees them with names. Stored in RS_Pripombe with
+// Koda OPAZ (Pregled Izbire shows only strategy codes, so these never appear there); Del = which part of the page. No pupil data.
+var OBS_NOTE_CODE = 'OPAZ', OBS_NOTE_PARTS = ['vse', 'obrazec', 'lestvice', 'seznami', 'pregled', 'drugo'];
+function obsNotes_(me) {
+  var sh = SpreadsheetApp.getActive().getSheetByName(RS_NOTES), notes = [];
+  if (sh && sh.getLastRow() > 1) sh.getRange(2, 1, sh.getLastRow() - 1, RS_NOTES_HEADER.length).getValues().forEach(function (r) {
+    if (!r[0] || String(r[2]) !== OBS_NOTE_CODE) return;
+    var em = String(r[3]).toLowerCase();
+    notes.push({ id: String(r[0]), t: String(r[1]), who: String(r[4]) || em.split('@')[0], part: String(r[5]), text: String(r[7]), mine: em === me });
+  });
+  return notes;
+}
+function rsObsNoteReply_(d) {
+  var me = rsTeam_(d); if (me.error) return out_({ ok: false, error: me.error });
+  var part = String(d.part || 'vse'), text = String(d.text || '').trim();
+  if (OBS_NOTE_PARTS.indexOf(part) < 0 || !text) return out_({ ok: false, error: 'data' });
+  var sh = rsSheet_(RS_NOTES, RS_NOTES_HEADER), lock = LockService.getScriptLock(); lock.waitLock(20000);
+  var id = 'N-' + Utilities.formatDate(new Date(), TZ, 'yyyyMMddHHmmss') + '-' + Math.random().toString(36).slice(2, 6);
+  try { sh.appendRow([id, Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd HH:mm'), OBS_NOTE_CODE, me.email, me.name, part, 'change', clip_(text, 500)]); }
+  finally { lock.releaseLock(); }
+  return out_({ ok: true, id: id });
 }
 // d.row = {id?, date 'yyyy-MM-dd', cls, sklop, subj, strat, phase 1-4, topic, mins 5-45, eff 1-5, part 1-4, react 1-5, own da|ne|še ne vem, note}
 function rsObsSaveReply_(d) {
