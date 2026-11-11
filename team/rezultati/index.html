@@ -4,11 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
-<title>Kako se učimo – primer rezultatov</title>
+<title>Kako se učimo – rezultati vprašalnika</title>
 <style>
 /* Questionnaire results, built after docs/razvojna-skupina/ANALIZA-PRIMER.md (the sample the team saw on 6 Nov 2026).
-   Until the real answers exist (after 21 Nov 2026) every number is INVENTED: 212 pupils, both rounds and grades,
-   generated in the browser with a fixed seed and labelled "PRIMER". Scales as in the merged questionnaire
+   Real answers since 11 Nov 2026 (decision of the teacher: live while the questionnaire runs, aggregates only, no sample data):
+   action rsresults sends the coded answers per pupil and round WITHOUT names or e-mails; every share is computed here.
+   The pupil view and the grades (parts 6 and 5 of the sample) come later, as separate steps. Scales as in the merged questionnaire
    (decision of the team, 7 Nov 2026): 2nd/3rd VIO 5 steps Nikoli | Redko | Včasih | Pogosto | Vedno, top answers = 4–5;
    1st VIO 3 steps Še ne | Včasih | Pogosto, top answer = 3. Colours checked with the dataviz validator for both
    surfaces: rounds = blue (končno) / orange (začetno); ordinal and heat map = one blue ramp; change = blue / red. */
@@ -120,33 +121,32 @@ select { font: inherit; color: var(--ink); background: var(--field); border: 1px
     <a class="btn" href="../">← Samouravnavanje učenja</a><span class="sp"></span>
     <button class="btn" id="theme">Svetlo / temno</button>
   </div>
-  <h1>📊 Kako se učimo – primer rezultatov</h1>
+  <h1>📊 Kako se učimo – rezultati vprašalnika</h1>
   <div id="login" class="box">
     <p id="loginMsg" class="muted">Stran je namenjena razvojni skupini. Prijavite se s šolskim Google računom.</p>
     <div id="slot" style="display:inline-block"></div>
   </div>
 
   <div id="app">
-    <div class="box banner"><b>PRIMER:</b> vse številke so <b>izmišljene</b> (212 učencev, jesen in pomlad, ocene po sklopih) in se ustvarijo v brskalniku. Tako bo stran videti s pravimi odgovori; pravi začetni podatki bodo po 21. 11. 2026. Lestvice so iz združenega vprašalnika: 2. in 3. VIO <i>nikoli · redko · včasih · pogosto · vedno</i>, 1. VIO <i>še ne · včasih · pogosto</i>.</div>
+    <div class="box banner" id="info"></div>
     <p class="lead" id="lead"></p>
-    <div class="filters" id="triF" role="group" aria-label="Triada">
-      <label class="tg"><input type="checkbox" id="onlyA"> samo začetno merjenje (kot po 21. 11. 2026)</label>
-    </div>
+    <div class="filters" id="triF" role="group" aria-label="Triada"></div>
+    <div class="box hide" id="none"><p>Za izbrano triado še ni odgovorov.</p></div>
 
     <!-- 1. KPI -->
     <div class="kpis" id="kpis"></div>
     <p class="note" id="kpiNote" style="margin-top:6px"></p>
 
     <!-- 2. dumbbell -->
-    <div class="box"><span class="stamp">PRIMER</span>
-      <h2>Začetno in končno merjenje po trditvah</h2>
+    <div class="box" id="dbBox">
+      <h2 id="dbH">Začetno in končno merjenje po trditvah</h2>
       <p class="note" id="dbNote"></p>
       <div class="legend" id="dbLeg"></div>
       <div class="db" id="db"></div>
     </div>
 
     <!-- 3. strategies -->
-    <div class="box" id="stBox"><span class="stamp">PRIMER</span>
+    <div class="box" id="stBox">
       <h2>Katere strategije učenci poznajo in uporabljajo</h2>
       <p class="note" id="stNote"></p>
       <div class="legend"><span><i class="k4"></i>poznam in uporabljam</span><span><i class="k3"></i>poznam, ne uporabljam</span><span><i class="k1"></i>ne poznam</span></div>
@@ -154,46 +154,22 @@ select { font: inherit; color: var(--ink); background: var(--field); border: 1px
     </div>
 
     <!-- 4. classes -->
-    <div class="box"><span class="stamp">PRIMER</span>
+    <div class="box" id="clBox">
       <h2>Primerjava razredov</h2>
       <p class="note" id="clNote"></p>
       <div class="tablewrap"><table id="cl"></table></div>
     </div>
 
-    <!-- 5. grades -->
-    <div class="box" id="grBox"><span class="stamp">PRIMER</span>
-      <h2>Učne navade in ocene</h2>
-      <p class="note">2. in 3. VIO. <b>Povezava, ne vzrok:</b> učenci z navado imajo lahko boljše ocene tudi iz drugih razlogov.</p>
-      <div class="filters" id="sgF" role="group" aria-label="Predmetni sklop" style="margin-top:0"></div>
-      <h3>Povprečna ocena ob koncu leta: z navado in brez nje</h3>
-      <p class="note" id="g5aNote"></p>
-      <div class="legend"><span><i class="da"></i>ima navado (da)</span><span><i class="ne"></i>nima navade (ne)</span></div>
-      <div class="gb" id="g5a"></div>
-      <div id="g5bW"><h3 style="margin-top:16px">Sprememba ocene glede na spremembo navad</h3>
-      <p class="note" id="g5bNote"></p>
-      <div id="g5b"></div></div>
-      <p class="note hide" id="grNone">Ocene so samo za 2. in 3. VIO (v 1. VIO so ocene večinoma opisne).</p>
-    </div>
-
-    <!-- 6. one pupil -->
-    <div class="box" id="puBox"><span class="stamp">PRIMER</span>
-      <h2>Napredek posameznega učenca</h2>
-      <p class="note">Vidita ga samo razvojna skupina in razrednik tega učenca. V primeru so učenci izmišljeni in označeni s številkami.</p>
-      <select id="pupil" aria-label="Učenec"></select>
-      <div class="tablewrap" style="margin-top:10px"><table class="pt-table" id="puT"></table></div>
-      <p class="note" id="puScale" style="margin-top:6px"></p>
-      <div id="puGW"><h3>Ocene istega učenca</h3><div class="tablewrap"><table class="pt-table" id="puG"></table></div></div>
-    </div>
-
-    <!-- 7. method -->
+    <!-- method -->
     <div class="box method">
-      <h2>Kako bomo delali analize</h2>
+      <h2>Kako računamo</h2>
       <ul>
-        <li>Odgovori se shranijo s kodami (N1, R1, S5.ST06 …), zato ničesar ne pretipkavamo.</li>
+        <li>Odgovori se ob oddaji shranijo s kodami (N1, R1, S5.ST06 …), zato ničesar ne pretipkavamo.</li>
+        <li>Vsak učenec šteje enkrat v posameznem merjenju: če je oddal večkrat, velja zadnja oddaja. Oddaje učiteljev (preizkusi obrazcev) niso upoštevane.</li>
         <li>Deleže računamo po triadah in razredih; lestvic 1. VIO in 2./3. VIO ne povprečimo skupaj, primerjamo deleže zgornjih odgovorov.</li>
-        <li>Isti vprašalnik ponovimo spomladi; spremembe so v odstotnih točkah (o. t.).</li>
-        <li>Odgovore povežemo z ocenami po predmetnih sklopih (2. in 3. VIO).</li>
-        <li>Razred z manj kot 5 odgovori ni prikazan. Rezultate najprej vidi razvojna skupina, nato svoj pogled dobijo razredniki, učitelji in ravnatelj.</li>
+        <li>Isti vprašalnik ponovimo spomladi; spremembe bodo v odstotnih točkah (o. t.).</li>
+        <li>Razred z manj kot 5 odgovori ni prikazan. Stran ne pokaže imen ali e-naslovov. Rezultate najprej vidi razvojna skupina, nato svoj pogled dobijo razredniki, učitelji in ravnatelj.</li>
+        <li>Pozneje: napredek posameznega učenca (za razvojno skupino in razrednika) in povezava z ocenami po predmetnih sklopih (2. in 3. VIO).</li>
       </ul>
     </div>
   </div>
@@ -217,45 +193,20 @@ select { font: inherit; color: var(--ink); background: var(--field); border: 1px
   const SCALE = { 1: ['še ne', 'včasih', 'pogosto'], 2: ['nikoli', 'redko', 'včasih', 'pogosto', 'vedno'], 3: ['nikoli', 'redko', 'včasih', 'pogosto', 'vedno'] };
   const TOP = v => v === 1 ? 3 : 4;                       // top answers: 1st VIO value 3 (pogosto); 2nd/3rd VIO values 4–5 (pogosto, vedno)
   const top = (a, c) => a[c] != null && a[c] >= a._top;     // every answer set carries the top value of its own scale
-  const SG = [['vsi', 'Vsi predmeti'], ['JEZ', 'Jezikovni sklop'], ['MAT', 'Matematika'], ['NAR', 'Naravoslovni sklop'], ['DRU', 'Družboslovni sklop'], ['TEH', 'Tehnični sklop'], ['UMS', 'Umetnostni in športni sklop']];
-  const CLASSES = [['1.A', 22], ['2.A', 24], ['3.A', 23], ['4.A', 25], ['5.A', 24], ['6.A', 23], ['7.A', 24], ['8.A', 22], ['9.A', 21], ['9.B', 4]];   // 212; 9.B shows the "fewer than 5" rule
-
-  // ---- invented data, fixed seed ----
-  let seed = 20261106;
-  const rnd = () => { seed = (seed + 0x6D2B79F5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
-  const nrm = () => Math.sqrt(-2 * Math.log(rnd() || 1e-9)) * Math.cos(2 * Math.PI * rnd());
-  const cut = (x, n) => n === 3 ? (x < -0.5 ? 1 : x < 0.6 ? 2 : 3) : (x < -1.2 ? 1 : x < -0.45 ? 2 : x < 0.25 ? 3 : x < 1 ? 4 : 5);
-  const BASE = {}; ST.forEach(([c]) => { BASE[c] = nrm() * 0.4; }); BASE.N3 = -0.35; BASE.N9 = -0.2; BASE.P1 = 0.2;
-  const SBASE = {}; STRAT.forEach(([c], i) => { SBASE[c] = 0.6 - i * 0.09 + nrm() * 0.2; }); SBASE.ST02 = 0.9; SBASE.ST06 = -0.1; SBASE.ST24 = -0.3; SBASE.ST18 = -0.6;
-  const PUSH = { ST06: 0.25, ST24: 0.25, ST08: 0.2, ST10: 0.15 };          // strategies the team introduces: bigger spring change
-  const pupils = []; let id = 0;
-  CLASSES.forEach(([cls, n]) => {
-    const g = Number(cls[0]), vio = Math.ceil(g / 3), cb = nrm() * 0.25;
-    for (let i = 0; i < n; i++) {
-      const a = nrm(), imp = 0.22 + nrm() * 0.45, p = { id: ++id, name: 'Učenec ' + String(id).padStart(3, '0'), cls, vio, r: {}, gr: null };
-      ['zacetno', 'koncno'].forEach((k, ki) => {
-        if (rnd() < (ki ? 0.05 : 0.03)) return;                         // a few pupils missed a round
-        const ans = { _top: TOP(vio) }, L = SCALE[vio].length;
-        ST.forEach(([c, , t]) => { if (t.includes(vio)) ans[c] = cut(a * 0.7 + BASE[c] + cb + (c === 'P1' ? 0 : ki * imp) + nrm() * 0.6 - (vio === 3 ? 0.15 : 0), L); });
-        if (vio > 1) {
-          STRAT.forEach(([c]) => { const x = SBASE[c] + a * 0.3 + ki * (0.15 + (PUSH[c] || 0)) + (vio === 3 ? 0.2 : 0) + nrm() * 0.7; ans['S5_' + c] = x < -0.4 ? 1 : x < 0.5 ? 2 : 3; });
-          const pl = a * 0.6 + ki * imp + nrm() * 0.8; ans.N7 = pl > 1.2 ? 1 : pl > 0.4 ? 2 : pl > -0.4 ? 3 : pl > -1.2 ? 4 : 5;
-        }
-        p.r[k] = ans;
-      });
-      if (vio > 1) {
-        const p1 = {}, end = {}, h = p.r.zacetno && p.r.koncno ? ['N2', 'N3', 'M1', 'R1', 'R3', 'D2'].reduce((s, c) => s + (p.r.koncno[c] - p.r.zacetno[c]), 0) : 0;
-        SG.slice(1).forEach(([k]) => { const b = 3.4 + a * 0.55 + nrm() * 0.45 + (k === 'UMS' ? 0.6 : k === 'MAT' ? -0.2 : 0); p1[k] = Math.max(1, Math.min(5, b)); end[k] = Math.max(1, Math.min(5, b + h * 0.06 + nrm() * 0.18)); });
-        const avg = o => SG.slice(1).reduce((s, [k]) => s + o[k], 0) / 6; p1.vsi = avg(p1); end.vsi = avg(end);
-        p.gr = { p1, end };
-      }
-      pupils.push(p);
-    }
-  });
+  // ---- real answers (action rsresults): one entry per pupil, {v, c, r: {zacetno: {code: value}, koncno: {...}}}, no names ----
+  let pupils = [], CLASSES = [], meta = {};
+  const setData = j => {
+    meta = j;
+    pupils = (j.pupils || []).filter(p => p.v >= 1 && p.v <= 3).map(p => {
+      const r = {}; Object.keys(p.r || {}).forEach(k => { r[k] = Object.assign({ _top: TOP(p.v) }, p.r[k]); });
+      return { cls: p.c, vio: p.v, r };
+    });
+    CLASSES = [...new Set(pupils.map(p => p.cls))].sort((a, b) => a.localeCompare(b, 'sl', { numeric: true })).map(c => [c]);
+  };
 
   // ---- state and helpers ----
-  let tri = 'all', sg = 'vsi', onlyA = false, loaded = false;
-  try { tri = localStorage.getItem('rez.tri') || 'all'; sg = localStorage.getItem('rez.sg') || 'vsi'; } catch (e) {}
+  let tri = 'all', loaded = false;
+  try { tri = localStorage.getItem('rez.tri') || 'all'; } catch (e) {}
   const pct = x => x == null || isNaN(x) ? '—' : Math.round(x * 100) + ' %';
   const pp = (a, b) => { const d = Math.round(b * 100) - Math.round(a * 100); return (d > 0 ? '+' : d < 0 ? '−' : '±') + Math.abs(d) + ' o. t.'; };
   const dcls = (a, b) => Math.round(b * 100) > Math.round(a * 100) ? 'up' : Math.round(b * 100) < Math.round(a * 100) ? 'down' : '';
@@ -268,14 +219,24 @@ select { font: inherit; color: var(--ink); background: var(--field); border: 1px
     node.addEventListener('mousemove', e => { tip.textContent = text; tip.style.display = 'block'; tip.style.left = Math.min(e.clientX + 12, innerWidth - 290) + 'px'; tip.style.top = (e.clientY + 14) + 'px'; });
     node.addEventListener('mouseleave', () => { tip.style.display = 'none'; });
   };
-  const HAB = [['N3', 'Načrtuje čas učenja', a => top(a, 'N3')], ['ST06', 'Uporablja samopreverjanje', a => a.S5_ST06 === 3], ['N7', 'Začne se učiti 2+ dni prej', a => a.N7 <= 3], ['R1', 'Pregleda napake', a => top(a, 'R1')]];
-
   const draw = () => {
-    try { localStorage.setItem('rez.tri', tri); localStorage.setItem('rez.sg', sg); } catch (e) {}
-    const P = pupils.filter(inTri), P23 = P.filter(p => p.vio > 1), late = !onlyA;
+    try { localStorage.setItem('rez.tri', tri); } catch (e) {}
+    const P = pupils.filter(inTri), P23 = P.filter(p => p.vio > 1), late = pupils.some(p => p.r.koncno);   // the change appears once spring answers exist
     // filters
-    const tf = $('#triF'); tf.querySelectorAll('.chip').forEach(b => b.remove());
-    [['all', 'Vse triade'], ['1', '1. VIO (1.–3. razred)'], ['2', '2. VIO (4.–6. razred)'], ['3', '3. VIO (7.–9. razred)']].reverse().forEach(([k, l]) => { const b = el('button', 'chip', l); b.setAttribute('aria-pressed', String(k === tri)); b.onclick = () => { tri = k; draw(); }; tf.prepend(b); });
+    const tf = $('#triF'); tf.innerHTML = '';
+    [['all', 'Vse triade'], ['1', '1. VIO (1.–3. razred)'], ['2', '2. VIO (4.–6. razred)'], ['3', '3. VIO (7.–9. razred)']].forEach(([k, l]) => { const b = el('button', 'chip', l + ' · ' + pupils.filter(p => k === 'all' || p.vio === Number(k)).length); b.setAttribute('aria-pressed', String(k === tri)); b.onclick = () => { tri = k; draw(); }; tf.append(b); });
+    // what is in: the source and how fresh it is
+    const fmtN = n => n === 1 ? '1 učenec' : n === 2 ? '2 učenca' : n === 3 || n === 4 ? n + ' učenci' : n + ' učencev';
+    $('#info').innerHTML = '';
+    $('#dbH').textContent = late ? 'Začetno in končno merjenje po trditvah' : 'Začetno merjenje po trditvah';
+    const ib = el('b', '', 'Pravi odgovori, začetno merjenje ' + String(meta.year || '').replace('-', '/') + '.');
+    $('#info').append(ib, document.createTextNode(' Zbiranje poteka do 21. 11. 2026, številke se sproti spreminjajo. Upoštevanih: ' + fmtN(pupils.length) +
+      (meta.repeats ? ' (ponovnih oddaj ' + meta.repeats + ': velja zadnja)' : '') + (meta.staff ? '; oddaj učiteljev (preizkusi) ' + meta.staff + ' ni upoštevanih' : '') +
+      '. Zadnja oddaja: ' + (meta.last || '—') + '. Lestvice: 2. in 3. VIO '), el('i', '', 'nikoli · redko · včasih · pogosto · vedno'), document.createTextNode(', 1. VIO '), el('i', '', 'še ne · včasih · pogosto'), document.createTextNode('.'));
+    const empty = !P.some(p => p.r.zacetno || p.r.koncno);
+    ['#kpis', '#kpiNote', '#dbBox', '#stBox', '#clBox', '#lead'].forEach(s => $(s).classList.toggle('hide', empty));
+    $('#none').classList.toggle('hide', !empty);
+    if (empty) return;
 
     // 1. KPI tiles
     const kb = $('#kpis'); kb.innerHTML = '';
@@ -307,7 +268,7 @@ select { font: inherit; color: var(--ink); background: var(--field); border: 1px
     const rows = ST.map(([c, l]) => { const a = share(P, 'zacetno', x => top(x, c)), s = share(P, 'koncno', x => top(x, c));
       const na = P.filter(p => p.r.zacetno && p.r.zacetno[c] != null).length, ns = P.filter(p => p.r.koncno && p.r.koncno[c] != null).length;
       const av = P.filter(p => p.r.zacetno && top(p.r.zacetno, c)).length / (na || 1), sv = P.filter(p => p.r.koncno && top(p.r.koncno, c)).length / (ns || 1);
-      return { c, l, a: av, s: sv, na, ns }; }).filter(r => r.na && (onlyA || r.ns)).sort((x, y) => (late ? y.s - x.s : y.a - x.a));
+      return { c, l, a: av, s: sv, na, ns }; }).filter(r => r.na && (!late || r.ns)).sort((x, y) => (late ? y.s - x.s : y.a - x.a));
     const db = $('#db'); db.innerHTML = '';
     const ax = el('div', 'axis'); ax.append(el('span'), (() => { const t = el('div', 'ticks'); [0, 25, 50, 75, 100].forEach(v => { const s = el('span', '', v + ' %'); s.style.left = v + '%'; if (v === 100) s.style.transform = 'translateX(-100%)'; if (v === 0) s.style.transform = 'none'; t.append(s); }); return t; })(), el('span', '', late ? 'pomlad' : 'jesen')); db.append(ax);
     rows.forEach(r => {
@@ -323,7 +284,7 @@ select { font: inherit; color: var(--ink); background: var(--field); border: 1px
     $('#dbNote').textContent = 'Delež zgornjih odgovorov (2. in 3. VIO: pogosto ali vedno; 1. VIO: pogosto). Razvrščeno po ' + (late ? 'končnem' : 'začetnem') + ' deležu; vsaka trditev samo v triadah, kjer je zastavljena. n = ' + P.filter(p => p.r.zacetno).length + (late ? ' jeseni, ' + P.filter(p => p.r.koncno).length + ' spomladi' : '') + '.';
 
     // 3. strategies (2nd/3rd VIO)
-    $('#stBox').classList.toggle('hide', one);
+    $('#stBox').classList.toggle('hide', one || !P23.some(p => p.r.zacetno));
     const sp = (k, c) => { const r = P23.map(p => p.r[k]).filter(Boolean), n = r.length || 1; return [3, 2, 1].map(v => r.filter(a => a['S5_' + c] === v).length / n).concat([r.length]); };
     const order = STRAT.slice().sort((x, y) => sp(late ? 'koncno' : 'zacetno', y[0])[0] - sp(late ? 'koncno' : 'zacetno', x[0])[0]);
     const panel = (box, k) => { box.innerHTML = ''; order.forEach(([c, l]) => { const d = sp(k, c), row = el('div', 'srow'), st = el('div', 'stack');
@@ -351,42 +312,6 @@ select { font: inherit; color: var(--ink); background: var(--field); border: 1px
       tb.append(tr);
     });
     $('#clNote').textContent = (late ? 'Končni delež in v oklepaju sprememba od jeseni (o. t.). ' : 'Začetni delež. ') + 'Temnejša celica = večji delež. Razredi z manj kot 5 odgovori niso prikazani. »—« = vprašanja v tej triadi ni.';
-
-    // 5. grades and habits (2nd/3rd VIO)
-    $('#sgF').innerHTML = ''; SG.forEach(([k, l]) => { const b = el('button', 'chip', l); b.setAttribute('aria-pressed', String(k === sg)); b.onclick = () => { sg = k; draw(); }; $('#sgF').append(b); });
-    ['#sgF', '#g5a', '#g5aNote', '#g5bW'].forEach(s => $(s).classList.toggle('hide', one)); $('#grBox').querySelectorAll('h3, .legend').forEach(e => e.classList.toggle('hide', one)); $('#grNone').classList.toggle('hide', !one);
-    const G = P23.filter(p => p.gr), mean = a => a.length ? a.reduce((s, x) => s + x, 0) / a.length : NaN, f2 = x => isNaN(x) ? '—' : x.toFixed(2).replace('.', ',');
-    const kH = late ? 'koncno' : 'zacetno', g5a = $('#g5a'); g5a.innerHTML = '';
-    HAB.forEach(([c, l, f]) => {
-      const W = G.filter(p => p.r[kH]), yes = W.filter(p => f(p.r[kH])), no = W.filter(p => !f(p.r[kH])), row = el('div', 'gbr'), pair = el('div', 'pair');
-      [['da', yes], ['ne', no]].forEach(([cl, L]) => { const m = mean(L.map(p => p.gr.end[sg])), hb = el('div', 'hb'), bar = el('i', cl); bar.style.width = (isNaN(m) ? 0 : (m - 1) / 4 * 85) + '%'; hb.append(bar, document.createTextNode(f2(m) + ' (n = ' + L.length + ')')); hover(hb, l + ' · ' + cl + ': povprečna ocena ' + f2(m) + ', n = ' + L.length); pair.append(hb); });
-      row.append(el('div', '', l), pair); g5a.append(row);
-    });
-    $('#g5aNote').textContent = 'Navada iz ' + (late ? 'pomladnega' : 'jesenskega') + ' merjenja, ocena ob koncu leta (' + SG.find(s => s[0] === sg)[1].toLowerCase() + '). Dolžina stolpca: ocena od 1 do 5.';
-    const g5b = $('#g5b'); g5b.innerHTML = ''; $('#g5bW').classList.toggle('hide', one || !late);
-    const B = G.filter(p => p.r.zacetno && p.r.koncno).map(p => ({ p, h: ['N2', 'N3', 'M1', 'R1', 'R3', 'D2'].reduce((s, c) => s + (p.r.koncno[c] - p.r.zacetno[c]), 0), d: p.gr.end[sg] - p.gr.p1[sg] }));
-    [['Izboljšali navade (+3 ali več)', x => x.h >= 3], ['Malo ali brez spremembe (−1 do +2)', x => x.h >= -1 && x.h <= 2], ['Poslabšali navade (−2 ali več)', x => x.h <= -2]].forEach(([l, f]) => {
-      const L = B.filter(f), m = mean(L.map(x => x.d)), row = el('div', 'chg'), ng = el('div', 'neg'), ps = el('div', 'pos'), w = Math.min(100, Math.abs(m) / 0.4 * 100);
-      if (m < 0) { const i = el('i'); i.style.width = w + '%'; ng.append(i); } else { const i = el('i'); i.style.width = w + '%'; ps.append(i); }
-      row.append(el('div', '', l), ng, ps, el('div', 'val', (m > 0 ? '+' : '') + f2(m) + ' (n = ' + L.length + ')')); hover(row, l + ': povprečna sprememba ocene ' + f2(m) + ', n = ' + L.length); g5b.append(row);
-    });
-    $('#g5bNote').textContent = 'Učenci z obema merjenjema in obema ocenama. Sprememba navad = vsota (pomlad − jesen) pri N2, N3, M1, R1, R3, D2. Stolpec: povprečna sprememba ocene od 1. ocenjevalnega obdobja do konca leta (levo manj, desno več).';
-
-    // 6. one pupil
-    $('#puBox').classList.toggle('hide', !late);
-    const sel = $('#pupil'), keep = sel.value; sel.innerHTML = '';
-    P.filter(p => p.r.zacetno && p.r.koncno).forEach(p => { const o = el('option', '', p.name + ' · ' + p.cls); o.value = p.id; sel.append(o); });
-    if ([...sel.options].some(o => o.value === keep)) sel.value = keep;
-    const pu = pupils.find(p => String(p.id) === sel.value), T = $('#puT'), TG = $('#puG'); T.innerHTML = ''; TG.innerHTML = '';
-    if (pu) {
-      const h = el('tr'); ['Trditev', 'Jesen', 'Pomlad', 'Razlika'].forEach(x => h.append(el('th', '', x))); T.append(h);
-      ST.filter(([, , t]) => t.includes(pu.vio)).forEach(([c, l]) => { const a = pu.r.zacetno[c], s = pu.r.koncno[c], d = s - a, tr = el('tr');
-        tr.append(el('td', '', c + ' ' + l), el('td', '', a + ' ' + SCALE[pu.vio][a - 1]), el('td', '', s + ' ' + SCALE[pu.vio][s - 1]), el('td', d > 0 ? 'up' : d < 0 ? 'down' : '', d > 0 ? '▲ +' + d : d < 0 ? '▼ −' + -d : '0')); T.append(tr); });
-      $('#puScale').textContent = 'Lestvica (' + pu.vio + '. VIO): ' + SCALE[pu.vio].map((x, i) => (i + 1) + ' ' + x).join(' · ') + '.';
-      $('#puGW').classList.toggle('hide', !pu.gr);
-      if (pu.gr) { const g = el('tr'); ['Sklop', '1. obdobje', 'Konec leta', 'Sprememba'].forEach(x => g.append(el('th', '', x))); TG.append(g);
-        SG.forEach(([k, l]) => { const a = pu.gr.p1[k], b = pu.gr.end[k], d = b - a, tr = el('tr'); tr.append(el('td', '', l), el('td', '', f2(a)), el('td', '', f2(b)), el('td', d > 0.005 ? 'up' : d < -0.005 ? 'down' : '', (d > 0 ? '+' : '') + f2(d))); TG.append(tr); }); }
-    }
   };
 
   const api = async (action) => {
@@ -400,16 +325,23 @@ select { font: inherit; color: var(--ink); background: var(--field); border: 1px
     let h = null; try { h = await api('rshome'); } catch (e) {}
     if (!h || !h.ok || !h.roles.includes('skupina')) {
       loaded = false;
-      $('#loginMsg').textContent = h && h.ok ? 'Primer rezultatov je zaenkrat samo za razvojno skupino.' : h && h.error === 'access' ? 'Ta račun nima dostopa. Obrnite se na razvojno skupino.'
+      $('#loginMsg').textContent = h && h.ok ? 'Rezultati so zaenkrat samo za razvojno skupino.' : h && h.error === 'access' ? 'Ta račun nima dostopa. Obrnite se na razvojno skupino.'
         : h && h.error === 'token' ? 'Prijava je potekla. Prijavite se znova.' : 'Strani trenutno ni mogoče naložiti.';
       if (!h || h.error === 'token') Track.button($('#slot'));
       return;
     }
+    let j = null; try { j = await api('rsresults'); } catch (e) {}
+    if (!j || !j.ok) {
+      loaded = false;
+      $('#loginMsg').textContent = j && j.error === 'nosheet' ? 'Preglednica z odgovori vprašalnika ni nastavljena (SURVEY_SHEET_ID). Obvestite skrbnika.'
+        : j && j.error === 'token' ? 'Prijava je potekla. Prijavite se znova.' : 'Rezultatov trenutno ni mogoče naložiti. Poskusite znova čez nekaj minut.';
+      if (!j || j.error === 'token') Track.button($('#slot'));
+      return;
+    }
+    setData(j);
     $('#login').style.display = 'none'; $('#app').style.display = 'block';
     draw();
   };
-  $('#onlyA').onchange = e => { onlyA = e.target.checked; draw(); };
-  $('#pupil').onchange = draw;
   $('#theme').onclick = () => { document.body.classList.toggle('light'); try { localStorage.setItem('board.light', document.body.classList.contains('light') ? '1' : ''); } catch (e) {} if (loaded) draw(); };
   try { if (localStorage.getItem('board.light')) document.body.classList.add('light'); } catch (e) {}
   if (window.Track && Track.enabled) {

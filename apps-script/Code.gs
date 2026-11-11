@@ -85,7 +85,7 @@ var UNITS = {
 
 // Change this text whenever the code of doPost changes: the health check compares it with what the published web app answers,
 // so it can tell you that the saved code has not been deployed as a new version yet.
-var CODE_VERSION = '2026-11-11.2';
+var CODE_VERSION = '2026-11-11.3';
 
 // ---------------------------------------------------------------- saving results
 
@@ -128,6 +128,7 @@ function doPost(e) {
     if (d.action === 'rsobssave') return rsObsSaveReply_(d);           // save a new or an own observation
     if (d.action === 'rsobsdelete') return rsObsDeleteReply_(d);       // delete an own observation
     if (d.action === 'rsobsnote') return rsObsNoteReply_(d);           // team feedback on the observation sheet itself (role skupina; delete with rspicknotedel)
+    if (d.action === 'rsresults') return rsResultsReply_(d);           // questionnaire results team/rezultati/ (role skupina): coded answers, no names or e-mails
     if (d.action === 'ping') return out_({ ok: true, v: CODE_VERSION });   // no data; used by "Check that everything works" in the Sheet menu
     var who = verify_(d.token);
     if (!who) return out_({ ok: false, error: 'token' });
@@ -2831,8 +2832,64 @@ function rsObsDeleteReply_(d) {
 }
 
 // health check part
+// Questionnaire results for team/rezultati/ (decision of the teacher, 11 Nov 2026: real answers, live while the questionnaire runs;
+// aggregates only, no pupil view and no grades yet). Role skupina only for now; the switch rezultati_odprti decides the other roles later.
+// Reads the separate survey Sheet (script property SURVEY_SHEET_ID, tab Vprasalnik, written by the form trigger of the project
+// "Vprašalnik – samouravnavanje učenja") and never copies it. One answer set per pupil and round; the last submission counts
+// (key: school e-mail in 2nd/3rd VIO, name + class in 1st VIO). The page gets NO names and NO e-mails: only triad, class and the coded
+// answers of the statements, the strategy grid S5 and N7. Submissions from accounts on the access list or in TEACHER_EMAILS
+// (staff trying the forms) are left out.
+var RS_RES_CODES = /^(N\d|D\d|S0|S3|M\d|R\d|P1)$/;
+function rsResultsReply_(d) {
+  var me = rsTeam_(d); if (me.error) return out_({ ok: false, error: me.error });
+  var id = PropertiesService.getScriptProperties().getProperty('SURVEY_SHEET_ID'), book = null;
+  try { book = id ? SpreadsheetApp.openById(id) : null; } catch (e) {}
+  var sh = book && book.getSheetByName('Vprasalnik');
+  if (!sh) return out_({ ok: false, error: 'nosheet' });
+  var vals = sh.getLastRow() > 1 ? sh.getRange(2, 1, sh.getLastRow() - 1, 12).getValues() : [];
+  var staff = {}; rsAccessRows_().forEach(function (r) { staff[r.email] = 1; });
+  var year = ''; vals.forEach(function (r) { var y = String(r[1]).trim(); if (/^\d{4}-\d{2}$/.test(y) && y > year) year = y; });
+  var subs = {}, order = [];
+  vals.forEach(function (r) {
+    if (String(r[1]).trim() !== year) return;
+    var sid = String(r[8]), s = subs[sid];
+    if (!s) {
+      s = subs[sid] = { t: (r[0] instanceof Date ? r[0] : new Date(r[0])).getTime() || 0, k: String(r[2]).trim(), v: Number(r[3]),
+        email: String(r[4]).trim().toLowerCase(), name: String(r[5]).trim().toLowerCase().replace(/\s+/g, ' '),
+        c: String(r[7]).trim().toUpperCase().replace(/\s+/g, ''), a: {} };
+      order.push(sid);
+    }
+    var code = String(r[9]).trim(), val = Number(r[10]);
+    if (!val) return;
+    if (/^S5\.ST\d{2}$/.test(code)) s.a['S5_' + code.slice(3)] = val;
+    else if (RS_RES_CODES.test(code)) s.a[code] = val;
+  });
+  var pupils = {}, repeats = 0, left = 0, last = 0;
+  order.forEach(function (sid) {
+    var s = subs[sid];
+    if (s.email && (staff[s.email] || isTeacher_(s.email))) { left++; return; }
+    if (s.t > last) last = s.t;
+    var key = s.v > 1 && s.email ? s.email : s.v + '|' + s.name + '|' + s.c;
+    if (s.v === 1 && !s.name) key = sid;
+    var p = pupils[key] || (pupils[key] = { v: s.v, c: s.c, r: {}, t: {} });
+    if (p.r[s.k]) { repeats++; if (p.t[s.k] > s.t) return; }
+    p.r[s.k] = s.a; p.t[s.k] = s.t;
+    if (!p.tc || s.t >= p.tc) { p.v = s.v; p.c = s.c; p.tc = s.t; }      // class of the latest submission
+  });
+  var list = Object.keys(pupils).map(function (k) { var p = pupils[k]; return { v: p.v, c: p.c, r: p.r }; });
+  list.sort(function (a, b) { return a.c < b.c ? -1 : a.c > b.c ? 1 : 0; });   // by class only: the order says nothing about who is who
+  return out_({ ok: true, year: year, pupils: list, submissions: order.length, repeats: repeats, staff: left,
+                last: last ? Utilities.formatDate(new Date(last), TZ, 'd. M. yyyy, HH:mm') : '' });
+}
+
 function hcTeam_(add) {
   var ss = SpreadsheetApp.getActive(), rows = rsAccessRows_(), by = {};
+  var sid = PropertiesService.getScriptProperties().getProperty('SURVEY_SHEET_ID'), sb = null;
+  try { sb = sid ? SpreadsheetApp.openById(sid) : null; } catch (e) {}
+  var sv = sb && sb.getSheetByName('Vprasalnik');
+  add(sv ? 'ok' : sid ? 'bad' : 'warn', sv ? 'Questionnaire results: the survey Sheet opens (' + Math.max(0, sv.getLastRow() - 1) + ' answer rows in its tab Vprasalnik).'
+    : sid ? 'SURVEY_SHEET_ID is set, but the survey Sheet (or its tab Vprasalnik) cannot be opened: team/rezultati/ shows no data.'
+    : 'Questionnaire results: script property SURVEY_SHEET_ID is not set, so team/rezultati/ shows no data.');
   rows.forEach(function (r) { by[r.role] = (by[r.role] || 0) + 1; });
   if (!ss.getSheetByName(RS_ACCESS)) add('warn', 'No access list yet (tab ' + RS_ACCESS + '): open team/dostop/ with the teacher account and add the people.');
   else add(rows.length ? 'ok' : 'warn', 'Access list: ' + (rows.length ? RS_ROLES.map(function (k) { return k + ' ' + (by[k] || 0); }).join(', ') : 'empty') + ' (plus the account(s) in TEACHER_EMAILS as the team).');
