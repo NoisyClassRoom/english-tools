@@ -85,7 +85,7 @@ var UNITS = {
 
 // Change this text whenever the code of doPost changes: the health check compares it with what the published web app answers,
 // so it can tell you that the saved code has not been deployed as a new version yet.
-var CODE_VERSION = '2026-11-08.1';
+var CODE_VERSION = '2026-11-11.1';
 
 // ---------------------------------------------------------------- saving results
 
@@ -1758,11 +1758,11 @@ function onOpen() {
     .addToUi();
 }
 
-// After you edit the Roster: put the right class on every result row (Results and Archive).
+// After you edit the Roster: put the right class on every result row (Results, Archive and Puzzles - the Puzzles tab has the same columns).
 function refreshClasses() {
   var lock = LockService.getScriptLock();
   lock.waitLock(20000);
-  try { fillDerived_(resultsSheet_()); fillDerived_(archiveSheet_()); } finally { lock.releaseLock(); }
+  try { fillDerived_(resultsSheet_()); fillDerived_(archiveSheet_()); fillDerived_(puzzleSheet_()); } finally { lock.releaseLock(); }
   SpreadsheetApp.getActive().toast('Classes updated from the Roster.', 'English hub', 5);
 }
 
