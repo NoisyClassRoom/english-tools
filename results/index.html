@@ -515,7 +515,7 @@
     else if (hwSums.length) {
       card.append(el('h2', '', 'Homework (school year ' + hwData.year + ')'));
       card.append(table('repH', [
-        { h: 'Assignment', k: x => x.it.created, v: x => [x.it.cls, x.it.unit, x.it.topic].filter(Boolean).join(' · ') + ' (' + x.it.acts.map(id => (HW_ACTS.find(a => a[0] === id) || [0, id])[1]).join(', ') + (x.it.min ? ', min ' + x.it.min + ' %' : '') + ')' },
+        { h: 'Assignment', k: x => x.it.created, v: x => [x.it.cls, x.it.unit, x.it.topic].filter(Boolean).join(' · ') + ' (' + x.it.acts.map(id => (HW_ACTS.find(a => a[0] === id) || [0, id])[1]).join(', ') + (x.it.min ? ', min ' + x.it.min + ' %' : '') + (x.it.earlier ? ', earlier work counts' : '') + ')' },
         { h: 'Due', k: x => x.it.dueEnd, v: x => fmtDate(x.it.dueEnd), num: true },
         { h: 'Done', k: x => (x.onTime + x.late) / (x.n || 1), v: x => (x.onTime + x.late) + ' / ' + x.n, num: true },
         { h: 'Late', k: x => x.late, v: x => x.late, num: true },
@@ -1031,6 +1031,8 @@
     const due = el('input'); due.type = 'date'; due.className = 'btn'; { const d = new Date(); d.setDate(d.getDate() + 7); due.value = dayKey(d.getTime()); }
     const note = el('input'); note.type = 'text'; note.placeholder = 'optional, shown to the pupils'; note.maxLength = 300; note.style.width = 'min(420px, 100%)';
     const whole = el('input'); whole.type = 'checkbox'; whole.checked = true;
+    const earlier = el('input'); earlier.type = 'checkbox';                // work done earlier this school year counts: every pupil only does what is still missing
+    const wrapE = el('label'); wrapE.append(earlier, document.createTextNode(' Work already done in this unit counts (each pupil only does what is still missing)')); wrapE.style.cssText = 'display:block;margin:0 0 10px';
     const pBox = el('div'); pBox.style.cssText = 'display:none;columns:2 220px;margin:0 0 10px';
     const fillPupils = () => {
       pBox.innerHTML = '';
@@ -1068,13 +1070,13 @@
       try {
         const ex = sBook.value === 'extra', lv = EXTRA_LEVELS.find(l => l[0] === sLevel.value) || EXTRA_LEVELS[0];
         const j = await api('hwsave', { hw: { cls: sCls.value, book: sBook.value, set: ex ? u.id + '.' + lv[0] : u.id, topic: ex ? u.title + ' · ' + lv[1] : u.title, unit: u.unit, acts, min: min.value === '' ? 0 : Number(min.value), due: due.value,
-          note: note.value, pupils: whole.checked ? [] : chosen } });
+          note: note.value, pupils: whole.checked ? [] : chosen, earlier: earlier.checked } });
         if (!j.ok) throw new Error('save');
         hwForm = false; hwState = ''; hwData = null; hwNotice = '✓ Homework saved: ' + [sCls.value, u.unit, u.title].filter(Boolean).join(' · ') + (j.duplicate ? ' (it was already saved a moment ago, so it was not saved twice)' : '') + '. The list below is loading…'; render();
       } catch (e) { save.disabled = false; msg.className = 'msg err'; msg.textContent = 'Could not save the homework. Try again.'; }
     };
     card.append(field('Class', sCls), field('Book', sBook), field('Unit', sUnit), levelRow, el('div', 'muted', 'Activities'), actBox,
-      field('Minimum score in each activity (%)', min), field('Due date', due), field('Note', note), wrapW, pBox, msg, save, cancel);
+      field('Minimum score in each activity (%)', min), wrapE, field('Due date', due), field('Note', note), wrapW, pBox, msg, save, cancel);
     fillPupils(); bookChanged();
     return card;
   };
@@ -1170,7 +1172,7 @@
       const it = s.it, card = el('div', 'card'), pup = s.pup;
       const names = it.acts.map(id => (HW_ACTS.find(a => a[0] === id) || [0, id])[1]);
       card.append(el('h2', '', (BOOKS[it.book] || it.book) + ' · ' + [it.unit, it.topic].filter(Boolean).join(' · ')));
-      card.append(el('p', 'note', 'Class ' + it.cls + (it.all ? ' (whole class)' : ' (' + pup.length + ' chosen pupils)') + ' · ' + names.join(', ') + (it.min ? ' · at least ' + it.min + ' %' : '') +
+      card.append(el('p', 'note', 'Class ' + it.cls + (it.all ? ' (whole class)' : ' (' + pup.length + ' chosen pupils)') + ' · ' + names.join(', ') + (it.min ? ' · at least ' + it.min + ' %' : '') + (it.earlier ? ' · work done earlier counts' : '') +
         ' · due ' + fmtDate(it.dueEnd || 0) + ' · assigned ' + fmtDate(it.created) + (it.note ? ' · “' + it.note + '”' : '')));
       const tiles2 = el('div', 'tiles'); tiles2.append(tile((s.onTime + s.late) + ' / ' + s.n, 'done' + (s.late ? ' (' + s.late + ' late)' : '')), tile(s.missing, 'missing'), tile(s.open, 'open'),
         tile(s.avgScore == null ? '—' : pct(s.avgScore), 'average best score'), tile(s.med == null ? '—' : (s.med < 1 ? 'same day' : s.med.toFixed(1) + ' days'), 'typical time to finish'));
