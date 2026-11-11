@@ -143,7 +143,8 @@
     dates.append(el('li', '', 'Končni vprašalnik: ' + (s.vprasalnik_pomlad || 'spomladi 2027')));
     const links = $('#links'); links.innerHTML = '';
     [['obrazec_1vio', 'Obrazec »Kako se učim?« – 1. VIO'], ['obrazec_2vio', 'Obrazec »Kako se učim?« – 2. VIO'], ['obrazec_3vio', 'Obrazec »Kako se učim?« – 3. VIO'],
-     ['tisk_1vio', 'Vprašalnik za tisk (1. in 2. razred)'], ['kazalo', 'Kazalo – Samouravnavanje učenja'], ['mapa', 'Mapa razvojne skupine na Drivu']].forEach(([k, label]) => {
+     ['tisk_1vio', 'Vprašalnik za tisk (1. in 2. razred)']].concat(team ? [['kazalo', 'Kazalo – Samouravnavanje učenja'], ['mapa', 'Mapa razvojne skupine na Drivu']] : [])
+     .forEach(([k, label]) => {   // Kazalo and the Drive folder are shared with the team only, so other roles do not see these links
       const li = el('li');
       if (/^https:\/\/(docs|drive)\.google\.com\//.test(s[k] || '')) { const a = el('a', '', label); a.href = s[k]; a.target = '_blank'; a.rel = 'noopener'; a.style.color = 'var(--accent)'; li.append(a); }
       else li.append(el('span', 'muted', label + ' (povezava še ni vpisana)'));
