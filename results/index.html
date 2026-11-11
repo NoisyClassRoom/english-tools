@@ -1306,7 +1306,7 @@
     sortKey.pcomp = sortKey.pcomp || { k: 'Unit', asc: true }; sortKey['pcomp2' + (lang || 'en')] = sortKey['pcomp2' + (lang || 'en')] || { k: R.hUnit, asc: true };
     for (const book of books) {
       const sets = await loadClassSets(book);
-      const best = {}; p.rows.filter(r => r.book === book).forEach(r => { const k = String(r.unit).trim().toLowerCase() + '\u0001' + r.act; if (!(best[k] >= r.p)) best[k] = r.p; });
+      const best = {}; p.rows.filter(r => r.book === book).forEach(r => { const k = String(r.unit).split(' · ').pop().trim().toLowerCase() + '\u0001' + r.act; if (!(best[k] >= r.p)) best[k] = r.p; });
       const items = sets.map(s => {
         const key = s.title.trim().toLowerCase(), done = s.acts.filter(a => best[key + '\u0001' + a] != null);
         return Object.assign({ key, done: done.length, total: s.acts.length, best }, s);
