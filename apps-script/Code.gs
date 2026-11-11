@@ -85,7 +85,7 @@ var UNITS = {
 
 // Change this text whenever the code of doPost changes: the health check compares it with what the published web app answers,
 // so it can tell you that the saved code has not been deployed as a new version yet.
-var CODE_VERSION = '2026-11-11.1';
+var CODE_VERSION = '2026-11-11.2';
 
 // ---------------------------------------------------------------- saving results
 
@@ -346,9 +346,10 @@ function mistakesReply_(d) {
 // Tab "Homework": one row per assignment. Class = Roster class (teaching group); Pupils blank = the whole class,
 // otherwise the chosen Roster names separated by ";". An activity counts as done when the pupil saved a result for
 // that book + topic + activity after the assignment was created (best attempt; at least Min % when set).
+// "Earlier work counts" = 1: a result from earlier in the same school year counts too, so every pupil only has to do what is still missing.
 // Extra practice homework: Book = extra, Set = '<topic id>.<level>' (food.hard), Topic = 'Food and drink · Hard' (= what the page saves).
 var HWSHEET = 'Homework';
-var HWHEADER = ['Id', 'Created', 'Class', 'Book', 'Set', 'Topic', 'Unit', 'Activities', 'Min %', 'Due', 'Note', 'Pupils', 'School year', 'Deleted'];
+var HWHEADER = ['Id', 'Created', 'Class', 'Book', 'Set', 'Topic', 'Unit', 'Activities', 'Min %', 'Due', 'Note', 'Pupils', 'School year', 'Deleted', 'Earlier work counts'];
 var HW_ACTS = { match: 'Match', quiz: 'Quiz', gap: 'Fill the gap', test: 'Unit test', test2: 'Unit test 2', gcheck: 'Grammar quick check',
   wordsearch: 'Word search', hangman: 'Hangman', scramble: 'Word scramble', crossword: 'Crossword', tarsia: 'Tarsia' };   // the last five are puzzles: their results are in the "Puzzles" tab
 
@@ -364,6 +365,7 @@ function hwSheet_() {
     if (first) ss.setActiveSheet(first);
     sh.hideSheet();
   }
+  if (!String(sh.getRange(1, HWHEADER.length).getValue()).trim()) sh.getRange(1, HWHEADER.length).setValue(HWHEADER[HWHEADER.length - 1]).setFontWeight('bold');   // column O, added 11 Nov 2026
   return sh;
 }
 
@@ -382,7 +384,8 @@ function hwAll_() {
     out.push({ id: String(r[0]), created: r[1].getTime(), cls: String(r[2]), book: String(r[3]), set: String(r[4]), topic: String(r[5]),
       unit: String(r[6]), acts: acts, min: Number(r[8]) || 0, due: due,
       dueEnd: /^\d{4}-\d{2}-\d{2}$/.test(due) ? new Date(due + 'T23:59:59' + Utilities.formatDate(new Date(due + 'T12:00:00Z'), TZ, 'XXX')).getTime() : 0,
-      note: String(r[10]), names: names, keys: names.map(nameKey_), year: String(r[12]) });
+      note: String(r[10]), names: names, keys: names.map(nameKey_), year: String(r[12]), earlier: Number(r[14]) === 1,
+      yearStart: /^\d{4}-\d{2}$/.test(String(r[12])) ? new Date(Number(String(r[12]).slice(0, 4)), 8, 1).getTime() : 0 });
   });
   return out;
 }
@@ -407,7 +410,7 @@ function hwProgress_(a, results, email, keys) {
   var per = names.map(function () { return { pct: null, at: null }; });
   email = String(email || '').toLowerCase();
   results.forEach(function (r) {
-    if (r.book !== a.book || r.topic !== a.topic || r.t < a.created) return;
+    if (r.book !== a.book || r.topic !== a.topic || r.t < (a.earlier ? a.yearStart : a.created)) return;    // "earlier work counts": anything from this school year
     var i = names.indexOf(r.act); if (i < 0) return;
     var mine = email && r.email === email;
     if (!mine) { if (r.nk === null) r.nk = nameKey_(r.first + ' ' + r.last); mine = keys.indexOf(r.nk) >= 0; }
@@ -479,7 +482,7 @@ function hwListReply_(d) {
       return [p.name, pr.per.map(function (o) { return o.pct; }), pr.doneAt, pr.late ? 1 : 0, pr.per.map(function (o) { return o.at !== null ? 1 : 0; })];
     });
     items.push({ id: a.id, created: a.created, cls: a.cls, book: a.book, set: a.set, topic: a.topic, unit: a.unit, acts: a.acts, min: a.min,
-      due: a.due, dueEnd: a.dueEnd, note: a.note, all: !a.keys.length, pupils: pupils });
+      due: a.due, dueEnd: a.dueEnd, note: a.note, all: !a.keys.length, earlier: a.earlier, pupils: pupils });
   });
   return out_({ ok: true, year: year, items: items });
 }
@@ -504,15 +507,15 @@ function hwSaveReply_(d) {
       for (var q = 0; q < recent.length; q++) {
         var x = recent[q];
         if (x[1] instanceof Date && now - x[1] < 600000 && Number(x[13]) !== 1 && String(x[2]) === clip_(a.cls, 40) && String(x[3]) === clip_(a.book, 20) && String(x[4]) === clip_(a.set, 60) &&
-            String(x[7]) === acts.join(',') && hwDay_(x[9]) === due && String(x[11]) === names.join('; ') && Number(x[8]) === min) return out_({ ok: true, duplicate: true });
+            String(x[7]) === acts.join(',') && hwDay_(x[9]) === due && String(x[11]) === names.join('; ') && Number(x[8]) === min && (Number(x[14]) === 1) === !!a.earlier) return out_({ ok: true, duplicate: true });
       }
     }
     var id = 'hw' + Utilities.formatDate(now, TZ, 'yyMMddHHmmss') + Math.floor(Math.random() * 90 + 10);
     var row = [id, now, clip_(a.cls, 40), clip_(a.book, 20), clip_(a.set, 60), clip_(a.topic, 80), clip_(a.unit, 30), acts.join(','), min, due,
-               clip_(a.note, 300), names.join('; '), schoolYear_(now), 0];
+               clip_(a.note, 300), names.join('; '), schoolYear_(now), 0, a.earlier ? 1 : 0];
     sh.appendRow(row);
     sh.getRange(sh.getLastRow(), 1, 1, HWHEADER.length).setNumberFormat('@');
-    sh.getRange(sh.getLastRow(), 2).setNumberFormat('dd.mm.yyyy hh:mm'); sh.getRange(sh.getLastRow(), 9).setNumberFormat('0'); sh.getRange(sh.getLastRow(), 14).setNumberFormat('0');
+    sh.getRange(sh.getLastRow(), 2).setNumberFormat('dd.mm.yyyy hh:mm'); sh.getRange(sh.getLastRow(), 9).setNumberFormat('0'); sh.getRange(sh.getLastRow(), 14, 1, 2).setNumberFormat('0');
     sh.getRange(sh.getLastRow(), 1, 1, HWHEADER.length).setValues([row]);
   } finally { lock.releaseLock(); }
   return out_({ ok: true });
