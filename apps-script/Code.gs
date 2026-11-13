@@ -85,7 +85,7 @@ var UNITS = {
 
 // Change this text whenever the code of doPost changes: the health check compares it with what the published web app answers,
 // so it can tell you that the saved code has not been deployed as a new version yet.
-var CODE_VERSION = '2026-11-13.1';
+var CODE_VERSION = '2026-11-13.2';
 
 // ---------------------------------------------------------------- saving results
 
@@ -2905,9 +2905,11 @@ function rsSzsMembers_() {
 }
 function rsMeetList_() {
   var sh = SpreadsheetApp.getActive().getSheetByName(RS_MEET); if (!sh || sh.getLastRow() < 2) return [];
+  // the Sheet may turn "2026-11-13" into a date value: always send dates and times back as text
+  var txt = function (v, f) { return v instanceof Date ? Utilities.formatDate(v, TZ, f) : String(v); };
   return sh.getRange(2, 1, sh.getLastRow() - 1, RS_MEET_HEADER.length).getValues().filter(function (r) { return String(r[0]); }).map(function (r) {
-    return { id: String(r[0]), date: String(r[1]), topic: String(r[2]), present: String(r[3]).split(/\s*;\s*/).filter(String), guests: String(r[4]),
-             min: Number(r[5]) || 0, by: String(r[6]), at: String(r[7]), chBy: String(r[8]), chAt: String(r[9]) };
+    return { id: String(r[0]), date: txt(r[1], 'yyyy-MM-dd'), topic: String(r[2]), present: String(r[3]).split(/\s*;\s*/).filter(String), guests: String(r[4]),
+             min: Number(r[5]) || 0, by: String(r[6]), at: txt(r[7], 'yyyy-MM-dd HH:mm'), chBy: String(r[8]), chAt: txt(r[9], 'yyyy-MM-dd HH:mm') };
   }).sort(function (a, b) { return a.date < b.date ? 1 : a.date > b.date ? -1 : 0; });
 }
 function rsMeetReply_(d) {
