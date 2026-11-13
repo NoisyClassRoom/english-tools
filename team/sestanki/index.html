@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="sl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Sestanki SZS</title>
+<style>
+/* Meetings of the self-evaluation group SZS (decision of the teacher, 13 Nov 2026). Role szs only (and the admin).
+   Fields: date, short topic, attendees (SZS members as ticks, all ticked for a new meeting) + guests, duration in minutes.
+   Below: all meetings of the chosen school year with the total time, and a print view (A4) for the annual report.
+   Everything is loaded after sign-in (actions rsmeet, rsmeetsave, rsmeetdelete); hidden tab RS_Sestanki. No pupil data. */
+body {
+  --bg: #141418; --paper: #1f1f26; --ink: #f2efe9; --muted: #a39f95; --line: #34343e; --field: #14141a;
+  --accent: #ff8a1f; --accent-ink: #111; --ok: #34c06d; --bad: #ff5a5a; --warn: #f0b429;
+  --font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+body.light {
+  --bg: #f6f4ef; --paper: #ffffff; --ink: #1f2a37; --muted: #6b7280; --line: #e5e1d8; --field: #ffffff;
+  --accent: #e8710a; --accent-ink: #fff; --ok: #1f9d55; --bad: #d64545; --warn: #b7791f;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 var(--font); padding: 0 16px 64px; }
+.wrap { max-width: 900px; margin: 0 auto; }
+h1 { font-size: 1.6rem; margin: 18px 0 4px; line-height: 1.2; }
+h2 { font-size: 1.15rem; color: var(--accent); margin: 0 0 10px; }
+p { margin: 0; }
+.muted { color: var(--muted); } .small { font-size: .85rem; }
+.shellbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 14px 0 0; }
+.shellbar .sp { flex: 1; }
+.btn { background: var(--field); color: var(--ink); border: 1px solid var(--line); border-radius: 10px; padding: 6px 12px; font: inherit; cursor: pointer; text-decoration: none; display: inline-block; }
+.btn:hover { border-color: var(--accent); }
+.btn.main { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 700; }
+.btn.sm { padding: 2px 9px; font-size: .85rem; }
+.btn[disabled] { opacity: .5; cursor: default; }
+.box { background: var(--paper); border: 1px solid var(--line); border-radius: 14px; padding: 16px; margin-top: 14px; }
+.box.editing { border-color: var(--accent); }
+#login { text-align: center; padding: 40px 14px; }
+#login p { margin-bottom: 10px; }
+#app { display: none; }
+.form { display: grid; grid-template-columns: 170px 1fr 140px; gap: 12px; }
+.form label, .q { display: grid; gap: 4px; font-size: .85rem; color: var(--muted); align-content: start; }
+.form .wide { grid-column: 1 / -1; }
+input, select, textarea { font: inherit; color: var(--ink); background: var(--field); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; width: 100%; min-width: 0; }
+textarea { min-height: 70px; resize: vertical; }
+input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+@media (max-width: 640px) { .form { grid-template-columns: 1fr 1fr; } .form .topic { grid-column: 1 / -1; } }
+.ticks { display: flex; flex-wrap: wrap; gap: 6px 14px; color: var(--ink); font-size: .95rem; }
+.ticks label { display: inline-flex; gap: 6px; align-items: center; color: var(--ink); font-size: .95rem; }
+.ticks input { width: auto; }
+.actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; align-items: center; }
+.msg { font-size: .9rem; }
+.msg.ok { color: var(--ok); } .msg.bad { color: var(--bad); } .msg.warn { color: var(--warn); }
+.bar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 10px; }
+.bar select { width: auto; }
+.bar .sp { flex: 1; }
+table { width: 100%; min-width: 620px; border-collapse: collapse; font-size: .92rem; }
+th:nth-child(2), td:nth-child(2) { width: 42%; }
+th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { color: var(--muted); font-weight: 600; font-size: .85rem; }
+td.num, th.num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+td.when { white-space: nowrap; }
+td .who { color: var(--muted); font-size: .82rem; }
+td.act { white-space: nowrap; text-align: right; }
+tfoot td { font-weight: 700; border-bottom: 0; }
+.tablewrap { overflow-x: auto; }
+.empty { color: var(--muted); padding: 10px 0; }
+.ptitle { display: none; }
+@media print {
+  @page { size: A4; margin: 16mm 14mm; }
+  body { background: #fff; color: #000; padding: 0; font-size: 11pt; --ink: #000; --muted: #444; --line: #bbb; --paper: #fff; }
+  .shellbar, #formBox, .bar, td.act, th.act, #login, .noprint, h1 { display: none !important; }
+  .box { border: 0; padding: 0; margin: 0; }
+  table { min-width: 0; }
+  .ptitle { display: block; margin-bottom: 10px; }
+  .ptitle h2 { color: #000; font-size: 14pt; margin: 0 0 2px; }
+  tr { break-inside: avoid; }
+}
+</style>
+</head>
+<body>
+<script src="../../exercises/tracking.js"></script>
+<div class="wrap">
+  <div class="shellbar">
+    <a class="btn" href="../">← Samouravnavanje učenja</a><span class="sp"></span>
+    <button class="btn" id="theme">Svetlo / temno</button>
+  </div>
+  <h1>🗓️ Sestanki skupine za samoevalvacijo</h1>
+  <div id="login" class="box">
+    <p id="loginMsg" class="muted">Stran je namenjena skupini za samoevalvacijo (SZS). Prijavite se s šolskim Google računom.</p>
+    <div id="slot" style="display:inline-block"></div>
+  </div>
+
+  <div id="app">
+    <div class="box" id="formBox">
+      <h2 id="formTitle">Nov sestanek</h2>
+      <div class="form">
+        <label>Datum<input type="date" id="date"></label>
+        <label class="topic">Vsebina na kratko / tema<input id="topic" maxlength="500" placeholder="npr. pregled prvih odgovorov vprašalnika"></label>
+        <label>Trajanje (min)<input type="number" id="min" min="1" max="600" step="5" placeholder="45"></label>
+        <div class="q wide">Prisotni<div class="ticks" id="present"></div></div>
+        <label class="wide">Gostje (neobvezno)<input id="guests" maxlength="200" placeholder="npr. ravnateljica"></label>
+      </div>
+      <div class="actions">
+        <button class="btn main" id="save">Shrani sestanek</button>
+        <button class="btn" id="cancel" style="display:none">Prekliči urejanje</button>
+        <span class="msg" id="msg"></span>
+      </div>
+    </div>
+
+    <div class="box">
+      <div class="ptitle"><h2 id="pTitle"></h2><p id="pSub" class="small"></p></div>
+      <div class="bar">
+        <h2 style="margin:0">Pregled sestankov</h2><span class="sp"></span>
+        <label class="small muted">Šolsko leto <select id="year"></select></label>
+        <button class="btn" id="print">🖨️ Natisni</button>
+      </div>
+      <div class="tablewrap"><table id="list"></table></div>
+      <p class="small muted noprint" style="margin-top:8px">Vsak član SZS lahko doda, uredi ali izbriše katerikoli sestanek. Pri vsakem zapisu je shranjeno, kdo ga je vpisal ali nazadnje spremenil.</p>
+    </div>
+  </div>
+</div>
+<script>
+(() => {
+  'use strict';
+  const $ = s => document.querySelector(s);
+  const el = (t, c, x) => { const e = document.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e; };
+  let members = [], meetings = [], editId = '', loaded = false, year = '';
+
+  const api = async (action, extra) => {
+    const token = Track.token(); if (!token) throw new Error('token');
+    const r = await fetch(Track.config.endpoint, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(Object.assign({ action, token }, extra || {})) });
+    return r.json();
+  };
+  const today = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+  const syOf = iso => { const y = Number(iso.slice(0, 4)), m = Number(iso.slice(5, 7)); const s = m >= 9 ? y : y - 1; return s + '/' + String(s + 1).slice(2); };   // school year September–August
+  const fmtDate = iso => { const [y, m, d] = iso.split('-'); return Number(d) + '. ' + Number(m) + '. ' + y; };
+  const hm = min => { const h = Math.floor(min / 60), m = min % 60; return (h ? h + ' h ' : '') + (m || !h ? m + ' min' : ''); };
+  const say = (t, cls) => { $('#msg').className = 'msg ' + (cls || ''); $('#msg').textContent = t || ''; };
+
+  const drawTicks = picked => {
+    const box = $('#present'); box.innerHTML = '';
+    const names = members.concat(picked.filter(n => !members.includes(n)));   // a former member stays visible on old entries
+    if (!names.length) { box.append(el('span', 'muted small', 'Na seznamu dostopa še ni nikogar z vlogo SZS.')); return; }
+    names.forEach(n => { const l = el('label'), c = el('input'); c.type = 'checkbox'; c.value = n; c.checked = picked.includes(n); l.append(c, document.createTextNode(n)); box.append(l); });
+  };
+  const resetForm = () => {
+    editId = ''; $('#formTitle').textContent = 'Nov sestanek'; $('#formBox').classList.remove('editing'); $('#cancel').style.display = 'none';
+    $('#date').value = today(); $('#topic').value = ''; $('#min').value = ''; $('#guests').value = ''; drawTicks(members.slice());
+  };
+  const edit = m => {
+    editId = m.id; $('#formTitle').textContent = 'Urejanje sestanka ' + fmtDate(m.date); $('#formBox').classList.add('editing'); $('#cancel').style.display = '';
+    $('#date').value = m.date; $('#topic').value = m.topic; $('#min').value = m.min; $('#guests').value = m.guests; drawTicks(m.present);
+    say(''); $('#formBox').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  const drawYears = () => {
+    const ys = [...new Set(meetings.map(m => syOf(m.date)).concat([syOf(today())]))].sort().reverse();
+    if (!ys.includes(year)) year = syOf(today());
+    const s = $('#year'); s.innerHTML = ''; ys.forEach(y => { const o = el('option', '', y); o.value = y; s.append(o); }); s.value = year;
+  };
+  const drawList = () => {
+    drawYears();
+    const L = meetings.filter(m => syOf(m.date) === year), t = $('#list'); t.innerHTML = '';
+    $('#pTitle').textContent = 'Sestanki skupine za samoevalvacijo – šolsko leto ' + year;
+    $('#pSub').textContent = 'OŠ Veržej · natisnjeno ' + fmtDate(today()) + ' · sestankov: ' + L.length + ', skupaj ' + hm(L.reduce((s, m) => s + m.min, 0));
+    if (!L.length) { const tr = el('tr'), td = el('td', 'empty', 'V šolskem letu ' + year + ' še ni vpisanih sestankov.'); tr.append(td); t.append(tr); return; }
+    const h = el('tr'); [['Datum', ''], ['Vsebina / tema', ''], ['Prisotni', ''], ['Trajanje', 'num'], ['', 'act']].forEach(([x, c]) => h.append(el('th', c, x)));
+    const th = el('thead'); th.append(h); t.append(th);
+    const tb = el('tbody');
+    L.forEach(m => {
+      const tr = el('tr');
+      tr.append(el('td', 'when', fmtDate(m.date)));
+      const tdT = el('td', '', m.topic); tdT.append(el('div', 'who noprint', 'vpisal(a) ' + m.by + (m.chBy ? ' · spremenil(a) ' + m.chBy + ', ' + m.chAt : ''))); tr.append(tdT);
+      tr.append(el('td', '', m.present.join(', ') + (m.guests ? (m.present.length ? '; gostje: ' : 'gostje: ') + m.guests : '')));
+      tr.append(el('td', 'num', m.min + ' min'));
+      const a = el('td', 'act'), e = el('button', 'btn sm', 'Uredi'), d = el('button', 'btn sm', 'Izbriši');
+      e.onclick = () => edit(m);
+      d.onclick = async () => {
+        if (!confirm('Izbrišem sestanek ' + fmtDate(m.date) + ' (»' + m.topic.slice(0, 60) + '«)?')) return;
+        d.disabled = true; let j = null; try { j = await api('rsmeetdelete', { id: m.id }); } catch (e2) {}
+        if (j && j.ok) { meetings = j.meetings; if (editId === m.id) resetForm(); drawList(); say('Sestanek je izbrisan.', 'ok'); }
+        else { d.disabled = false; say(j && j.error === 'token' ? 'Prijava je potekla. Osvežite stran.' : 'Brisanje ni uspelo.', 'bad'); }
+      };
+      a.append(e, document.createTextNode(' '), d); tr.append(a); tb.append(tr);
+    });
+    t.append(tb);
+    const sum = L.reduce((s, m) => s + m.min, 0), tf = el('tfoot'), fr = el('tr');
+    const c1 = el('td', '', 'Skupaj: ' + L.length + (L.length === 1 ? ' sestanek' : L.length === 2 ? ' sestanka' : L.length < 5 ? ' sestanki' : ' sestankov')); c1.colSpan = 3;
+    fr.append(c1, el('td', 'num', sum + ' min (' + hm(sum) + ')'), el('td', 'act')); tf.append(fr); t.append(tf);
+  };
+
+  $('#save').onclick = async () => {
+    const m = { id: editId, date: $('#date').value, topic: $('#topic').value.trim(), min: Number($('#min').value), guests: $('#guests').value.trim(),
+                present: [...document.querySelectorAll('#present input:checked')].map(c => c.value) };
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(m.date)) { say('Vpišite datum.', 'bad'); return; }
+    if (!m.topic) { say('Vpišite vsebino oziroma temo.', 'bad'); return; }
+    if (!(m.min > 0 && m.min <= 600)) { say('Vpišite trajanje v minutah (1–600).', 'bad'); return; }
+    $('#save').disabled = true; say('Shranjujem …', 'warn');
+    let j = null; try { j = await api('rsmeetsave', { m }); } catch (e) {}
+    $('#save').disabled = false;
+    if (j && j.ok) { const was = editId; meetings = j.meetings; year = syOf(m.date); resetForm(); drawList(); say(was ? '✓ Spremembe so shranjene.' : '✓ Sestanek je shranjen.', 'ok'); }
+    else say(j && j.error === 'token' ? 'Prijava je potekla. Osvežite stran in se prijavite znova.' : j && j.error === 'data' ? 'Preverite datum, temo in trajanje.' : j && j.error === 'notfound' ? 'Tega sestanka ni več (morda ga je kdo izbrisal).' : 'Shranjevanje ni uspelo. Poskusite znova.', 'bad');
+  };
+  $('#cancel').onclick = () => { resetForm(); say(''); };
+  $('#year').onchange = e => { year = e.target.value; drawList(); };
+  $('#print').onclick = () => window.print();
+
+  const load = async () => {
+    if (!Track.token() || loaded) return;
+    loaded = true; $('#loginMsg').textContent = 'Nalagam …';
+    let j = null; try { j = await api('rsmeet'); } catch (e) {}
+    if (!j || !j.ok) {
+      loaded = false;
+      $('#loginMsg').textContent = j && j.error === 'access' ? 'Stran je samo za skupino za samoevalvacijo (SZS).' : j && j.error === 'token' ? 'Prijava je potekla. Prijavite se znova.' : 'Strani trenutno ni mogoče naložiti.';
+      if (!j || j.error === 'token') Track.button($('#slot'));
+      return;
+    }
+    members = j.members || []; meetings = j.meetings || []; year = syOf(today());
+    $('#login').style.display = 'none'; $('#app').style.display = 'block';
+    resetForm(); drawList();
+  };
+  $('#theme').onclick = () => { document.body.classList.toggle('light'); try { localStorage.setItem('board.light', document.body.classList.contains('light') ? '1' : ''); } catch (e) {} };
+  try { if (localStorage.getItem('board.light')) document.body.classList.add('light'); } catch (e) {}
+  if (window.Track && Track.enabled) {
+    Track.onChange(() => { if (Track.token()) load(); });
+    Track.init(() => { if (Track.token()) load(); else Track.button($('#slot')); });
+  } else $('#loginMsg').textContent = 'Prijava ni nastavljena.';
+})();
+</script>
+</body>
+</html>

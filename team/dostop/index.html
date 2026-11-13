@@ -70,6 +70,7 @@
       <b>Vloge</b>
       <ul>
         <li><b>razvojna skupina</b>: vse, tudi rezultate po učencih (ko bodo strani narejene).</li>
+        <li><b>skupina za samoevalvacijo (SZS)</b>: vse kot razvojna skupina in še sestanke SZS (datum, tema, prisotni, trajanje).</li>
         <li><b>razrednik</b> (z razredom, npr. 5.A): svoj razred; ena oseba ima lahko več vrstic.</li>
         <li><b>učitelj</b>: priročnik, opazovalni list, skupni rezultati šole in triad.</li>
         <li><b>ravnatelj</b>: skupni rezultati šole, triad in razredov.</li>
@@ -87,7 +88,7 @@
         <span class="muted" id="count"></span>
       </div>
       <div id="bulk" style="display:none;margin-top:10px">
-        <p class="muted" style="margin:0 0 6px">Ena oseba v vrstici: <code>e-naslov; ime; vloga; razred</code> (vloga: skupina, razrednik, ucitelj ali ravnatelj; razred samo pri razredniku). Primer: <code>ana.novak@os-verzej.si; Ana Novak; razrednik; 5.A</code></p>
+        <p class="muted" style="margin:0 0 6px">Ena oseba v vrstici: <code>e-naslov; ime; vloga; razred</code> (vloga: skupina, szs, razrednik, ucitelj ali ravnatelj; razred samo pri razredniku). Primer: <code>ana.novak@os-verzej.si; Ana Novak; razrednik; 5.A</code></p>
         <textarea id="bulkText" rows="6"></textarea>
         <div class="bar"><button class="btn" id="bulkAdd">Dodaj v tabelo</button><span class="msg" id="bulkMsg"></span></div>
       </div>
@@ -115,7 +116,7 @@
   'use strict';
   const $ = s => document.querySelector(s);
   const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
-  const ROLE = { skupina: 'razvojna skupina', razrednik: 'razrednik', ucitelj: 'učitelj', ravnatelj: 'ravnatelj' };
+  const ROLE = { skupina: 'razvojna skupina', szs: 'skupina za samoevalvacijo (SZS)', razrednik: 'razrednik', ucitelj: 'učitelj', ravnatelj: 'ravnatelj' };
   let data = null, rows = [], settings = {}, dirty = false, filter = 'vse', loaded = false;
 
   const api = async (action, extra) => {
@@ -198,7 +199,7 @@
     const bad = [], add = [];
     $('#bulkText').value.split(/\n/).map(s => s.trim()).filter(Boolean).forEach((line, i) => {
       const p = line.split(/[;\t]/).map(s => s.trim());
-      const role = (p[2] || '').toLowerCase().replace('č', 'c').replace(/^razvojna skupina$/, 'skupina');
+      const role = (p[2] || '').toLowerCase().replace('č', 'c').replace(/^razvojna skupina$/, 'skupina').replace(/^(skupina za samoevalvacijo|samoevalvacija)$/, 'szs');
       if (!/@/.test(p[0] || '') || !data.roles.includes(role)) { bad.push(i + 1); return; }
       add.push({ email: p[0].toLowerCase(), name: p[1] || '', role, cls: role === 'razrednik' ? normCls(p[3]) : '', note: '' });
     });

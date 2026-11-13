@@ -85,7 +85,7 @@ var UNITS = {
 
 // Change this text whenever the code of doPost changes: the health check compares it with what the published web app answers,
 // so it can tell you that the saved code has not been deployed as a new version yet.
-var CODE_VERSION = '2026-11-11.3';
+var CODE_VERSION = '2026-11-13.1';
 
 // ---------------------------------------------------------------- saving results
 
@@ -129,6 +129,9 @@ function doPost(e) {
     if (d.action === 'rsobsdelete') return rsObsDeleteReply_(d);       // delete an own observation
     if (d.action === 'rsobsnote') return rsObsNoteReply_(d);           // team feedback on the observation sheet itself (role skupina; delete with rspicknotedel)
     if (d.action === 'rsresults') return rsResultsReply_(d);           // questionnaire results team/rezultati/ (role skupina): coded answers, no names or e-mails
+    if (d.action === 'rsmeet') return rsMeetReply_(d);                 // meetings of the self-evaluation group team/sestanki/ (role szs): list + members
+    if (d.action === 'rsmeetsave') return rsMeetSaveReply_(d);         // add or edit one meeting (any SZS member)
+    if (d.action === 'rsmeetdelete') return rsMeetDeleteReply_(d);     // delete one meeting (any SZS member)
     if (d.action === 'ping') return out_({ ok: true, v: CODE_VERSION });   // no data; used by "Check that everything works" in the Sheet menu
     var who = verify_(d.token);
     if (!who) return out_({ ok: false, error: 'token' });
@@ -2403,7 +2406,9 @@ function build_(name, note, formula, formats, pctCol) {
 // No pupil data in any of these tabs.
 var RS_ACCESS = 'RS_Dostop', RS_SETTINGS = 'RS_Nastavitve', RS_LOG = 'RS_Dnevnik', RS_GUIDE = 'RS_Vodnik';
 var RS_ACCESS_HEADER = ['E-naslov', 'Ime', 'Vloga', 'Razred', 'Opomba', 'Spremenjeno', 'Spremenil'];
-var RS_ROLES = ['skupina', 'razrednik', 'ucitelj', 'ravnatelj'];
+// skupina = razvojna skupina; szs = skupina za samoevalvacijo (decision of the teacher, 13 Nov 2026): sees everything the razvojna
+// skupina sees and also the meetings page team/sestanki/. The admin (TEACHER_EMAILS) is in both.
+var RS_ROLES = ['skupina', 'szs', 'razrednik', 'ucitelj', 'ravnatelj'];
 // key, description; the values are typed on team/dostop/ (never in this file: the repository is public)
 var RS_SETTING_KEYS = [
   ['obrazec_1vio', 'Obrazec »Kako se učim?« – 1. VIO (povezava)'],
@@ -2468,7 +2473,8 @@ function rsWho_(email) {
     if (r.role === 'razrednik' && r.cls && classes.indexOf(r.cls) < 0) classes.push(r.cls);
     if (r.name && !name) name = r.name;
   });
-  if (admin && roles.indexOf('skupina') < 0) roles.unshift('skupina');
+  if (admin && roles.indexOf('szs') < 0) roles.unshift('szs');
+  if (roles.indexOf('szs') >= 0 && roles.indexOf('skupina') < 0) roles.push('skupina');   // SZS opens everything the razvojna skupina opens
   return { admin: admin, roles: roles, classes: classes, name: name };
 }
 
@@ -2882,6 +2888,63 @@ function rsResultsReply_(d) {
                 last: last ? Utilities.formatDate(new Date(last), TZ, 'd. M. yyyy, HH:mm') : '' });
 }
 
+// Meetings of the self-evaluation group SZS (decision of the teacher, 13 Nov 2026): team/sestanki/, role szs only (and the admin).
+// Hidden tab RS_Sestanki, one row per meeting: date, short topic, who was there (SZS members by name, ticked on the page), guests,
+// duration in minutes. Every SZS member adds, edits and deletes any entry; who wrote or changed a row and when is kept in the row.
+// No pupil data.
+var RS_MEET = 'RS_Sestanki', RS_MEET_HEADER = ['ID', 'Datum', 'Tema', 'Prisotni', 'Gostje', 'Trajanje (min)', 'Vpisal', 'Vpisano', 'Spremenil', 'Spremenjeno'];
+function rsSzs_(d) {
+  var who = verify_(d.token); if (!who) return { error: 'token' };
+  var me = rsWho_(who.email); if (me.roles.indexOf('szs') < 0) return { error: 'access' };
+  me.email = String(who.email).toLowerCase(); me.name = me.name || [who.first, who.last].filter(String).join(' ') || me.email; return me;
+}
+function rsSzsMembers_() {
+  var seen = {}, out = [];
+  rsAccessRows_().forEach(function (r) { if (r.role === 'szs' && !seen[r.email]) { seen[r.email] = 1; out.push(r.name || r.email); } });
+  return out.sort(function (a, b) { return a.localeCompare(b, 'sl'); });
+}
+function rsMeetList_() {
+  var sh = SpreadsheetApp.getActive().getSheetByName(RS_MEET); if (!sh || sh.getLastRow() < 2) return [];
+  return sh.getRange(2, 1, sh.getLastRow() - 1, RS_MEET_HEADER.length).getValues().filter(function (r) { return String(r[0]); }).map(function (r) {
+    return { id: String(r[0]), date: String(r[1]), topic: String(r[2]), present: String(r[3]).split(/\s*;\s*/).filter(String), guests: String(r[4]),
+             min: Number(r[5]) || 0, by: String(r[6]), at: String(r[7]), chBy: String(r[8]), chAt: String(r[9]) };
+  }).sort(function (a, b) { return a.date < b.date ? 1 : a.date > b.date ? -1 : 0; });
+}
+function rsMeetReply_(d) {
+  var me = rsSzs_(d); if (me.error) return out_({ ok: false, error: me.error });
+  return out_({ ok: true, name: me.name, members: rsSzsMembers_(), meetings: rsMeetList_() });
+}
+function rsMeetSaveReply_(d) {
+  var me = rsSzs_(d); if (me.error) return out_({ ok: false, error: me.error });
+  var m = d.m || {}, date = String(m.date || ''), topic = String(m.topic || '').trim(), min = Math.round(Number(m.min));
+  var present = (Array.isArray(m.present) ? m.present : []).map(function (x) { return clip_(String(x).replace(/;/g, ','), 80); }).filter(String);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !topic || !(min > 0 && min <= 600)) return out_({ ok: false, error: 'data' });
+  var now = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd HH:mm'), sh = rsSheet_(RS_MEET, RS_MEET_HEADER), lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    var id = String(m.id || ''), row = 0;
+    if (id && sh.getLastRow() > 1) sh.getRange(2, 1, sh.getLastRow() - 1, 1).getValues().forEach(function (r, i) { if (String(r[0]) === id) row = i + 2; });
+    if (id && !row) return out_({ ok: false, error: 'notfound' });
+    var vals = [date, clip_(topic, 500), present.join('; '), clip_(String(m.guests || '').trim(), 200), min];
+    if (row) sh.getRange(row, 2, 1, 5).setValues([vals]).offset(0, 7, 1, 2).setValues([[me.name, now]]);
+    else sh.appendRow(['M-' + Utilities.formatDate(new Date(), TZ, 'yyyyMMddHHmmss') + '-' + Math.random().toString(36).slice(2, 6)].concat(vals, [me.name, now, '', '']));
+  } finally { lock.releaseLock(); }
+  return out_({ ok: true, meetings: rsMeetList_() });
+}
+function rsMeetDeleteReply_(d) {
+  var me = rsSzs_(d); if (me.error) return out_({ ok: false, error: me.error });
+  var sh = SpreadsheetApp.getActive().getSheetByName(RS_MEET), id = String(d.id || '');
+  if (!sh || sh.getLastRow() < 2 || !id) return out_({ ok: false, error: 'notfound' });
+  var lock = LockService.getScriptLock(); lock.waitLock(20000);
+  try {
+    var ids = sh.getRange(2, 1, sh.getLastRow() - 1, 1).getValues(), row = 0;
+    ids.forEach(function (r, i) { if (String(r[0]) === id) row = i + 2; });
+    if (!row) return out_({ ok: false, error: 'notfound' });
+    sh.deleteRow(row);
+  } finally { lock.releaseLock(); }
+  return out_({ ok: true, meetings: rsMeetList_() });
+}
+
 function hcTeam_(add) {
   var ss = SpreadsheetApp.getActive(), rows = rsAccessRows_(), by = {};
   var sid = PropertiesService.getScriptProperties().getProperty('SURVEY_SHEET_ID'), sb = null;
@@ -2904,7 +2967,7 @@ function hcTeam_(add) {
   add(!obsId ? 'ok' : os ? 'ok' : 'bad', !obsId ? 'Observation sheet: no observations yet (the Sheet "Samouravnavanje – opazovanja" is created with the first one).'
     : os ? 'Observation sheet: ' + Math.max(0, os.getLastRow() - 1) + ' observations in "' + ob.getName() + '"; classes in its tab Razredi: ' + obsClasses_(ob).join(', ') + '.'
     : 'Observation sheet: OBS_SHEET_ID is set but the Sheet (or its tab Opazovanja) cannot be opened.');
-  var pages = ['team/index.html', 'team/dostop/index.html', 'team/strategije/index.html', 'team/izbira/index.html', 'team/izbira/pregled/index.html', 'team/rezultati/index.html', 'team/opazovanje/index.html'];
+  var pages = ['team/index.html', 'team/dostop/index.html', 'team/strategije/index.html', 'team/izbira/index.html', 'team/izbira/pregled/index.html', 'team/rezultati/index.html', 'team/opazovanje/index.html', 'team/sestanki/index.html'];
   var res = UrlFetchApp.fetchAll(pages.map(function (p) { return { url: SITE_BASE + p + '?check=' + Date.now(), muteHttpExceptions: true }; }));
   var bad = pages.filter(function (p, i) { return res[i].getResponseCode() !== 200; });
   add(bad.length ? 'bad' : 'ok', bad.length ? 'Pages of the section not found on GitHub Pages: ' + bad.join(', ') + '.' : 'The section pages (team/) are on GitHub Pages.');

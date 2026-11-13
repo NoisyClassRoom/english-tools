@@ -94,7 +94,7 @@
   'use strict';
   const $ = s => document.querySelector(s);
   const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
-  const ROLE = { skupina: 'razvojna skupina', razrednik: 'razrednik', ucitelj: 'učitelj', ravnatelj: 'ravnatelj' };
+  const ROLE = { skupina: 'razvojna skupina', szs: 'skupina za samoevalvacijo (SZS)', razrednik: 'razrednik', ucitelj: 'učitelj', ravnatelj: 'ravnatelj' };
   let loaded = false;
 
   const api = async (action, extra) => {
@@ -122,6 +122,7 @@
     if (seesResults) tile('📊', 'Rezultati vprašalnika', team ? 'Kazalniki, trditve, strategije in razredi iz pravih odgovorov, sproti med zbiranjem.' : 'Pogled za vašo vlogo.', team ? 'rezultati/?v=2' : null, team ? 'začetno merjenje · zbiranje do 21. 11. 2026' : 'po 21. 11. 2026');
     if (team) tile('🔗', 'Analiza', 'Opazovanja in vprašalnik: kaj smo uvajali in kako so se spremenili odgovori.', null, 'kmalu');
     if (team) tile('🎤', 'Predstavitev za zbor', 'Izhodiščni rezultati za učiteljski zbor, samo skupne številke.', null, 'po 21. 11. 2026');
+    if (has('szs')) tile('🗓️', 'Sestanki SZS', 'Skupina za samoevalvacijo: datum, tema, prisotni in trajanje sestankov; pregled vseh sestankov s skupnim časom in tisk.', 'sestanki/');
     if (j.admin) tile('🔐', 'Upravljanje dostopa', 'Kdo vidi kaj: člani skupine, razredniki, učitelji, ravnatelj. Povezave in datumi.', 'dostop/');
 
     const s = j.settings || {};
@@ -152,7 +153,8 @@
     });
     const rl = $('#roleLine'); rl.innerHTML = '';
     rl.append(document.createTextNode('Vaša vloga: '));
-    j.roles.forEach(r => rl.append(el('span', 'role', ROLE[r] + (r === 'razrednik' && j.classes.length ? ' ' + j.classes.join(', ') : '')), document.createTextNode(' ')));
+    // SZS also opens the razvojna skupina pages: show only "SZS"
+    j.roles.filter(r => !(r === 'skupina' && has('szs'))).forEach(r => rl.append(el('span', 'role', ROLE[r] + (r === 'razrednik' && j.classes.length ? ' ' + j.classes.join(', ') : '')), document.createTextNode(' ')));
   };
 
   const load = async () => {
