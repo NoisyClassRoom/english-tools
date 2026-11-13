@@ -85,7 +85,7 @@ var UNITS = {
 
 // Change this text whenever the code of doPost changes: the health check compares it with what the published web app answers,
 // so it can tell you that the saved code has not been deployed as a new version yet.
-var CODE_VERSION = '2026-11-13.2';
+var CODE_VERSION = '2026-11-13.3';
 
 // ---------------------------------------------------------------- saving results
 
@@ -755,15 +755,17 @@ function restoreBoardOriginal() {
 function statsReply_(d) {
   var who = verify_(d.token);
   if (!who || !isTeacher_(who.email)) return out_({ ok: false, error: 'token' });
-  var ss = SpreadsheetApp.getActive(), rows = [], byEmail = {}, byName = {}, cats = rosterCats_();
-  [SHEET, ARCHIVE].forEach(function (n) {
+  // Puzzles (own tab) count as ACTIVITY (decision of the teacher, 13 Nov 2026): they are sent separately as prows and are added to the
+  // Roster counts (activities, last practised: "Not practising"); they never enter averages, scores or the heat-map.
+  var ss = SpreadsheetApp.getActive(), rows = [], prows = [], byEmail = {}, byName = {}, cats = rosterCats_();
+  [SHEET, ARCHIVE, PSHEET].forEach(function (n) {
     var sh = ss.getSheetByName(n);
     if (!sh || sh.getLastRow() < 2) return;
     sh.getRange(2, 1, sh.getLastRow() - 1, 18).getValues().forEach(function (r) {
       if (!(r[0] instanceof Date) || !r[1]) return;
       var t = r[0].getTime(), y = String(r[10]);
       var ct = catFor_(cats, r[1], r[2], r[3]);                                   // a test pupil is shown WITHOUT a class and with category 'test'
-      rows.push([t, r[3], r[2], ct === 'test' ? '' : r[11], r[4], r[15], r[6], r[14], r[7], r[8], y, ct === 'test' ? 'test' : String(r[11]).trim() ? '' : ct]);
+      (n === PSHEET ? prows : rows).push([t, r[3], r[2], ct === 'test' ? '' : r[11], r[4], r[15], r[6], r[14], r[7], r[8], y, ct === 'test' ? 'test' : String(r[11]).trim() ? '' : ct]);
       [[byEmail, y + '|' + String(r[1]).toLowerCase()], [byName, y + '|' + nameKey_(r[2] + ' ' + r[3])]].forEach(function (p) {
         var o = p[0][p[1]] = p[0][p[1]] || { n: 0, t: 0 };
         o.n++; if (t > o.t) o.t = t;
@@ -781,7 +783,7 @@ function statsReply_(d) {
       roster.push([y, cls, name || email, n, t]);
     });
   }
-  return out_({ ok: true, rows: rows, roster: roster });
+  return out_({ ok: true, rows: rows, prows: prows, roster: roster });
 }
 // The "Results" tab (current school year, newest first). An older layout is kept under another name;
 // newer columns are added in place and the old rows get their values.
@@ -810,7 +812,9 @@ function archiveSheet_() {
 }
 
 // The hidden "Puzzles" tab (added 15 Oct 2026): results of the online puzzles (word search, hangman, word scramble, crossword).
-// Same columns as Results, but a SEPARATE tab, so averages, the heat-map, homework, the analysis tabs and "My progress" are not affected.
+// Same columns as Results, but a SEPARATE tab, so averages, the heat-map and the analysis tabs are not affected. Puzzles DO count as activity:
+// homework, weekly goals (count), self-regulation, and since 13 Nov 2026 the activity counts of the Results page and "Not practising";
+// "My progress" and the weekly e-mail show them as a separate number.
 // Score / total: hangman and scramble = words right / words; word search, crossword and tarsia = 1 / 1 when finished. Rows of leavers are
 // handled by the same cleanup as Results; earlier school years stay here (every row has its school year).
 var PSHEET = 'Puzzles';

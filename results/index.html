@@ -183,6 +183,7 @@
   const avg = (a, f) => a.length ? a.reduce((s, x) => s + f(x), 0) / a.length : 0;
 
   let rows = [], roster = [], tab = 'overview', sortKey = {}, selPupil = '';
+  let prowsRaw = null;   // puzzle rows, sent with "stats" since 13 Nov 2026: they count as ACTIVITY, never in averages or scores
   const F = { year: '', cls: '', cls2: '', who: 'p', book: '', level: '', from: '', to: '' };
   // accounts filter: pupils = accounts with a class in the Roster; a chosen class always means pupils
   // one or two classes (lessons with combined classes): the second one only counts when a first one is chosen
@@ -206,6 +207,8 @@
       rows = j.rows.map(a => ({ t: a[0], last: a[1], first: a[2], cls: a[3] || '', book: a[4], unit: a[5], act: a[6],
                                 lvl: a[7], score: a[8], total: a[9], year: a[10], cat: a[11] || '', p: a[9] ? a[8] / a[9] : 0, key: a[1] + '|' + a[2] }));
       roster = j.roster.map(a => ({ year: a[0], cls: a[1], name: a[2], n: a[3], last: a[4] }));
+      prowsRaw = Array.isArray(j.prows) ? j.prows.map(a => ({ t: a[0], last: a[1], first: a[2], cls: a[3] || '', book: a[4], unit: a[5], act: a[6], score: a[8], total: a[9],
+                                                             year: a[10], cat: a[11] || '', p: a[9] ? a[8] / a[9] : 0, key: a[1] + '|' + a[2], pz: true })) : null;
       $('#login').style.display = 'none'; $('#app').style.display = 'block'; $('#reload').style.display = '';
       $('#who').textContent = 'Signed in as ' + (Track.email || '');
       setupFilters(); render();
@@ -329,16 +332,19 @@
 
   // ---------------------------------------------------------------- overview
   const overview = (view, data) => {
-    const names = new Set(data.map(r => r.key));
+    const pz = pzActs(), acts = data.concat(pz);          // activity counts include puzzles; scores and averages do not
+    const names = new Set(acts.map(r => r.key));
     const tiles = el('div', 'tiles');
-    tiles.append(tile(data.length, 'finished activities'), tile(data.reduce((s, r) => s + r.total, 0), 'questions answered'),
+    tiles.append(tile(acts.length, 'finished activities' + (pz.length ? ' (incl. ' + pz.length + ' puzzles)' : '')), tile(data.reduce((s, r) => s + r.total, 0), 'questions answered'),
       tile(names.size, 'pupils practising'), tile(data.length ? pct(avg(data, r => r.p)) : '—', 'average result'),
       tile(data.filter(r => r.lvl === 3).length, 'hard tests (Unit test 2)'));
-    const c1 = el('div', 'card'); c1.append(tiles); view.append(c1);
+    const c1 = el('div', 'card'); c1.append(tiles);
+    if (pz.length) c1.append(el('p', 'note', 'Activities and pupils practising include online puzzles; questions, the average and hard tests are exercises only.'));
+    view.append(c1);
 
     // activity per day
     const c2 = el('div', 'card'); c2.append(el('h2', '', 'Activity per day'));
-    const days = {}; data.forEach(r => { const k = dayKey(r.t); days[k] = (days[k] || 0) + 1; });
+    const days = {}; acts.forEach(r => { const k = dayKey(r.t); days[k] = (days[k] || 0) + 1; });
     const keys = Object.keys(days).sort();
     if (!keys.length) c2.append(el('p', 'msg', 'No results for this selection.'));
     else {
@@ -366,13 +372,13 @@
       { h: 'Average', k: x => x.p == null ? -1 : x.p, v: x => x.p == null ? '—' : badge(x.p), num: true }], lv, 'Level'));
     c3.lastChild.style.maxHeight = 'none';
     const c4 = el('div', 'card'); c4.append(el('h2', '', 'By class'));
-    const byCls = {}; data.forEach(r => (byCls[r.cls || '(no class)'] = byCls[r.cls || '(no class)'] || []).push(r));
+    const byCls = {}; acts.forEach(r => (byCls[r.cls || '(no class)'] = byCls[r.cls || '(no class)'] || []).push(r));
     c4.append(table('cls', [
       { h: 'Class', k: x => x.c, v: x => x.c },
       { h: 'Pupils', k: x => x.pupils, v: x => x.pupils, num: true },
       { h: 'Activities', k: x => x.n, v: x => x.n, num: true },
-      { h: 'Average', k: x => x.p, v: x => badge(x.p), num: true }],
-      Object.keys(byCls).map(c => ({ c, n: byCls[c].length, pupils: new Set(byCls[c].map(r => r.key)).size, p: avg(byCls[c], r => r.p) })), 'Class'));
+      { h: 'Average', k: x => x.p == null ? -1 : x.p, v: x => x.p == null ? '—' : badge(x.p), num: true }],
+      Object.keys(byCls).map(c => { const ex = byCls[c].filter(r => !r.pz); return { c, n: byCls[c].length, pupils: new Set(byCls[c].map(r => r.key)).size, p: ex.length ? avg(ex, r => r.p) : null }; }), 'Class'));
     g.append(c3, c4); view.append(g);
   };
 
@@ -439,15 +445,15 @@
   };
   // ---------------------------------------------------------------- class report (for printing)
   const nk = s => String(s || '').toLowerCase().replace(/đ/g, 'd').normalize('NFD').replace(/[\u0300-\u036f]/g, '').split(/[^a-z0-9]+/).filter(Boolean).sort().join(' ');
-  const weeklySvg = d => {
-    const wk = {}; d.forEach(r => { const k = weekStart(r.t); const w = wk[k] = wk[k] || { n: 0, s: 0 }; w.n++; w.s += r.p; });
+  const weeklySvg = (d, pz) => {          // bars = activities incl. puzzles; line = average of the exercises only
+    const wk = {}; d.concat(pz || []).forEach(r => { const k = weekStart(r.t); const w = wk[k] = wk[k] || { n: 0, s: 0, e: 0 }; w.n++; if (!r.pz) { w.s += r.p; w.e++; } });
     const ks = Object.keys(wk).map(Number).sort((a, b) => a - b); if (!ks.length) return '';
     const list = []; for (let w = ks[0]; w <= ks[ks.length - 1] && list.length < 60; ) { list.push(w); const n = new Date(w); n.setDate(n.getDate() + 7); w = n.getTime(); }
     const W = 700, H = 120, L = 34, step = (W - L - 6) / list.length, bw = Math.max(6, Math.min(34, step - 6)), maxN = Math.max(...Object.values(wk).map(w => w.n)), pts = [];
     let svg = `<svg viewBox="0 -8 ${W} ${H + 36}" width="100%" role="img" aria-label="Activity per week">`;
     [0, 0.5, 1].forEach(v => { const y = H - v * H; svg += `<line x1="${L}" x2="${W}" y1="${y}" y2="${y}" stroke="var(--line)"/><text x="0" y="${y + 4}">${v * 100} %</text>`; });
     list.forEach((w, i) => { const x = L + i * step + step / 2, v = wk[w];
-      if (v) { const h = v.n / maxN * H * 0.5; svg += `<rect class="bar2" x="${(x - bw / 2).toFixed(1)}" y="${(H - h).toFixed(1)}" width="${bw}" height="${h.toFixed(1)}" rx="2"/>`; pts.push([x, H - v.s / v.n * H]); }
+      if (v) { const h = v.n / maxN * H * 0.5; svg += `<rect class="bar2" x="${(x - bw / 2).toFixed(1)}" y="${(H - h).toFixed(1)}" width="${bw}" height="${h.toFixed(1)}" rx="2"/>`; if (v.e) pts.push([x, H - v.s / v.e * H]); }
       if (list.length <= 14 || i % Math.ceil(list.length / 10) === 0) { const dd = new Date(w); svg += `<text x="${(x - 14).toFixed(1)}" y="${H + 14}">${String(dd.getDate()).padStart(2, '0')}.${String(dd.getMonth() + 1).padStart(2, '0')}.</text>`; } });
     svg += `<polyline class="linep" points="${pts.map(p => p[0].toFixed(1) + ',' + p[1].toFixed(1)).join(' ')}"/>` + pts.map(p => `<circle class="dot" cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="3.5"/>`).join('') + '</svg>';
     return svg;
@@ -469,24 +475,27 @@
     ta.rows = 2; ta.maxLength = 600; ta.placeholder = 'e.g. Please practise the past simple before the test on 15 October.'; ta.value = saved; pr.textContent = saved;
     ta.oninput = () => { pr.textContent = ta.value; try { ta.value.trim() ? localStorage.setItem(nkey, ta.value) : localStorage.removeItem(nkey); } catch (e) {} };
     box.append(lab, ta); card.append(box, pr);
-    if (!data.length) { card.append(el('p', 'msg', 'There are no results for this selection.')); return; }
+    const pz = pzActs();
+    if (!data.length && !pz.length) { card.append(el('p', 'msg', 'There are no results for this selection.')); return; }
 
-    // pupils: everyone with results, plus Roster pupils of the class without any
-    const by = {}; data.forEach(r => (by[r.key] = by[r.key] || []).push(r));
-    const people = Object.keys(by).map(k => { const a = by[k], last = a.reduce((m, r) => r.t > m ? r.t : m, 0);
-      return { key: k, nk: nk(a[0].first + ' ' + a[0].last), name: a[0].last + ' ' + a[0].first, cls: [...new Set(a.map(r => r.cls).filter(Boolean))].join(', '),
-               n: a.length, q: a.reduce((s, r) => s + r.total, 0), p: avg(a, r => r.p), lv: avg(a, r => r.lvl), hard: a.filter(r => r.lvl === 3).length, last }; });
+    // pupils: everyone with results or puzzles, plus Roster pupils of the class without any.
+    // Activities and Last practised include puzzles; questions, average, level and hard tests are exercises only.
+    const by = {}; data.concat(pz).forEach(r => (by[r.key] = by[r.key] || []).push(r));
+    const people = Object.keys(by).map(k => { const all = by[k], a = all.filter(r => !r.pz), last = all.reduce((m, r) => r.t > m ? r.t : m, 0);
+      return { key: k, nk: nk(all[0].first + ' ' + all[0].last), name: all[0].last + ' ' + all[0].first, cls: [...new Set(all.map(r => r.cls).filter(Boolean))].join(', '),
+               n: all.length, q: a.reduce((s, r) => s + r.total, 0), p: a.length ? avg(a, r => r.p) : null, lv: a.length ? avg(a, r => r.lvl) : null, hard: a.filter(r => r.lvl === 3).length, last }; });
     const have = new Set(people.map(p => p.nk));
     roster.filter(r => r.year === year && clsOk(r.cls) && !have.has(nk(r.name))).forEach(r => people.push({ key: 'r|' + r.name, nk: nk(r.name), name: r.name, cls: r.cls, n: 0, q: 0, p: null, lv: null, hard: 0, last: 0 }));
     people.sort((a, b) => a.cls.localeCompare(b.cls, 'sl', { numeric: true }) || a.name.localeCompare(b.name, 'sl'));
     const active = people.filter(p => p.n > 0), idle = Date.now() - 14 * 86400000;
 
     const tiles = el('div', 'tiles');
-    tiles.append(tile(people.length, 'pupils in the group'), tile(active.length, 'practised'), tile(data.length, 'finished activities'),
-      tile(data.reduce((s, r) => s + r.total, 0), 'questions answered'), tile(pct(avg(data, r => r.p)), 'average result'), tile(data.filter(r => r.lvl === 3).length, 'hard tests'));
+    tiles.append(tile(people.length, 'pupils in the group'), tile(active.length, 'practised'), tile(data.length + pz.length, 'finished activities' + (pz.length ? ' (incl. ' + pz.length + ' puzzles)' : '')),
+      tile(data.reduce((s, r) => s + r.total, 0), 'questions answered'), tile(data.length ? pct(avg(data, r => r.p)) : '—', 'average result'), tile(data.filter(r => r.lvl === 3).length, 'hard tests'));
     card.append(tiles);
+    if (pz.length) card.append(el('p', 'note', PZ_NOTE));
 
-    const ch = weeklySvg(data);
+    const ch = weeklySvg(data, pz);
     if (ch) { card.append(el('h2', '', 'Activity per week')); const hold = el('div'); hold.innerHTML = ch; card.append(hold);
       const lg = el('div', 'legend'); lg.innerHTML = '<span><i class="sw" style="background:var(--accent)"></i>average result of the week</span><span><i class="sw" style="background:var(--line)"></i>number of activities</span>'; card.append(lg); }
 
@@ -494,7 +503,7 @@
     if (hwState === '') loadHw();
     const hwSums = hwState === 'ok' ? hwItems().map(hwSummary) : null, hwMap = hwSums && hwSums.length ? hwByPupil(hwSums) : null;
     card.append(el('h2', '', 'Pupils'));
-    const noteOf = p => { const o = []; if (!p.n) o.push(['no practice yet', 0]); else { if (p.p < 0.6) o.push(['below 60 %', 0]); if (p.last < idle) o.push(['not practising for 14+ days', 1]); } return o; };
+    const noteOf = p => { const o = []; if (!p.n) o.push(['no practice yet', 0]); else { if (p.p != null && p.p < 0.6) o.push(['below 60 %', 0]); if (p.last < idle) o.push(['not practising for 14+ days', 1]); } return o; };
     card.append(table('rep', [
       { h: 'Pupil', k: x => x.name, v: x => x.name },
       { h: 'Activities', k: x => x.n, v: x => x.n, num: true },
@@ -735,13 +744,19 @@
   };
   const puzzleRows = () => {
     const from = F.from ? new Date(F.from + 'T00:00:00').getTime() : 0, to = F.to ? new Date(F.to + 'T23:59:59').getTime() : Infinity;
-    return (praw || []).filter(r => (!F.year || r.year === F.year) && clsOk(r.cls) && whoOk(r.cls, r.cat) && (!F.book || r.book === F.book) && r.t >= from && r.t <= to);
+    return (praw || prowsRaw || []).filter(r => (!F.year || r.year === F.year) && clsOk(r.cls) && whoOk(r.cls, r.cat) && (!F.book || r.book === F.book) && r.t >= from && r.t <= to);
   };
+  const pzReady = () => pState === 'ok' || !!prowsRaw;
+  // puzzles of the current selection that count as activity (none when a level is chosen: puzzles have no level)
+  const pzActs = () => F.level ? [] : puzzleRows();
+  // per pupil key: puzzles finished and the last one (for "Activities" and "Last practised")
+  const pzByKey = () => { const m = {}; pzActs().forEach(r => { const o = m[r.key] = m[r.key] || { n: 0, last: 0, first: r.first, lastName: r.last, cls: r.cls }; o.n++; if (r.t > o.last) o.last = r.t; }); return m; };
+  const PZ_NOTE = 'Activities and Last practised include online puzzles; Questions, Average and Hard tests are exercises only.';
   const puzzles = view => {
-    if (pState === '') loadPuzzles();
+    if (pState === '' && !prowsRaw) loadPuzzles();
     const card = el('div', 'card'); view.append(card);
-    card.append(el('p', 'note', 'Online puzzles (word search, hangman, word scramble, crossword, tarsia, mind map) saved by pupils who were signed in. They are kept in their own Sheet tab ("Puzzles") and are NOT part of the average, heat-map, reports, homework or the pupils\' "My progress" numbers. Word search, crossword and tarsia count when finished; for hangman, scramble and the mind map the result is words right / words.'));
-    if (pState !== 'ok') { card.append(el('p', pState === 'error' ? 'msg err' : 'msg', pState === 'error' ? 'The puzzle data could not be loaded.' : 'Loading the puzzle data…')); return; }
+    card.append(el('p', 'note', 'Online puzzles (word search, hangman, word scramble, crossword, tarsia, mind map) saved by pupils who were signed in. They are kept in their own Sheet tab ("Puzzles"). They count as activity (activity counts and "Last practised" on the other tabs, "Not practising", homework, weekly goals, self-regulation) but are NOT part of any average, score or heat-map; "My progress" shows them as a separate number. Word search, crossword and tarsia count when finished; for hangman, scramble and the mind map the result is words right / words.'));
+    if (!pzReady()) { card.append(el('p', pState === 'error' ? 'msg err' : 'msg', pState === 'error' ? 'The puzzle data could not be loaded.' : 'Loading the puzzle data…')); return; }
     const d = puzzleRows();
     if (!d.length) { card.append(el('p', 'msg', 'No puzzle results for this selection yet.')); return; }
     const tiles = el('div', 'tiles'), pupilsSet = new Set(d.map(r => r.key));
@@ -943,7 +958,7 @@
   const weekStart = t => { const d = new Date(t); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d.getTime(); };
   const progress = (view, data) => {
     const card = el('div', 'card');
-    const names = {}; data.forEach(r => { names[r.key] = r.last + ' ' + r.first; });
+    const names = {}; data.concat(pzActs()).forEach(r => { names[r.key] = r.last + ' ' + r.first; });
     const sel = el('select');
     const o0 = el('option', '', 'Whole selection (all pupils above)'); o0.value = ''; sel.append(o0);
     Object.keys(names).sort((a, b) => names[a].localeCompare(names[b], 'sl')).forEach(k => { const o = el('option', '', names[k]); o.value = k; sel.append(o); });
@@ -952,9 +967,10 @@
     const holder = el('div'); card.append(top, holder); view.append(card);
     const draw = () => {
       selPupil = sel.value; holder.innerHTML = '';
-      const d = sel.value ? data.filter(r => r.key === sel.value) : data;
+      const all = data.concat(pzActs()), d = sel.value ? all.filter(r => r.key === sel.value) : all;   // activities incl. puzzles; the average of exercises only
       if (!d.length) { holder.append(el('p', 'msg', 'No results for this selection.')); return; }
-      const wk = {}; d.forEach(r => { const k = weekStart(r.t); const w = wk[k] = wk[k] || { n: 0, s: 0, pupils: new Set(), hard: 0, q: 0 }; w.n++; w.s += r.p; w.pupils.add(r.key); if (r.lvl === 3) w.hard++; w.q += r.total; });
+      const wk = {}; d.forEach(r => { const k = weekStart(r.t); const w = wk[k] = wk[k] || { n: 0, s: 0, e: 0, pupils: new Set(), hard: 0, q: 0 }; w.n++; w.pupils.add(r.key);
+        if (!r.pz) { w.s += r.p; w.e++; if (r.lvl === 3) w.hard++; w.q += r.total; } });
       const ks = Object.keys(wk).map(Number).sort((a, b) => a - b), list = [];
       for (let w = ks[0]; w <= ks[ks.length - 1] && list.length < 200; ) { list.push(w); const n = new Date(w); n.setDate(n.getDate() + 7); w = n.getTime(); }
       const W = 1040, H = 200, L = 40, step = (W - L - 10) / list.length, bw = Math.max(6, Math.min(40, step - 6)), maxN = Math.max(...Object.values(wk).map(w => w.n));
@@ -964,9 +980,9 @@
       list.forEach((w, i) => {
         const x = L + i * step + step / 2, v = wk[w];
         if (v) {
-          const h = v.n / maxN * (H * 0.5), a = v.s / v.n, y = H - a * H;
+          const h = v.n / maxN * (H * 0.5), a = v.e ? v.s / v.e : null, y = a == null ? 0 : H - a * H;
           svg += `<rect class="bar2" x="${(x - bw / 2).toFixed(1)}" y="${(H - h).toFixed(1)}" width="${bw}" height="${h.toFixed(1)}" rx="2"><title>${fmtDate(w)}: ${v.n} activities</title></rect>`;
-          pts.push([x, y, a, v, w]);
+          if (a != null) pts.push([x, y, a, v, w]);
         }
         if (list.length <= 20 || i % Math.ceil(list.length / 14) === 0) { const dd = new Date(w); svg += `<text x="${(x - 14).toFixed(1)}" y="${H + 16}">${String(dd.getDate()).padStart(2, '0')}.${String(dd.getMonth() + 1).padStart(2, '0')}.</text>`; }
       });
@@ -976,12 +992,13 @@
       const chart = el('div'); chart.innerHTML = svg; holder.append(chart);
       const lg = el('div', 'legend'); lg.innerHTML = '<span><i class="sw" style="background:var(--accent)"></i>average result of the week</span><span><i class="sw" style="background:var(--line)"></i>number of activities (relative)</span><span>weeks start on Monday</span>';
       holder.append(lg);
-      const rowsT = list.filter(w => wk[w]).map(w => ({ w, n: wk[w].n, pupils: wk[w].pupils.size, q: wk[w].q, p: wk[w].s / wk[w].n, hard: wk[w].hard }));
+      if (d.some(r => r.pz)) holder.append(el('p', 'note', 'Activities include online puzzles; questions, the average and hard tests are exercises only.'));
+      const rowsT = list.filter(w => wk[w]).map(w => ({ w, n: wk[w].n, pupils: wk[w].pupils.size, q: wk[w].q, p: wk[w].e ? wk[w].s / wk[w].e : null, hard: wk[w].hard }));
       const tcols = [
         { h: 'Week of', k: x => x.w, v: x => fmtDate(x.w) },
         { h: 'Activities', k: x => x.n, v: x => x.n, num: true },
         { h: 'Questions', k: x => x.q, v: x => x.q, num: true },
-        { h: 'Average', k: x => x.p, v: x => badge(x.p), num: true },
+        { h: 'Average', k: x => x.p == null ? -1 : x.p, v: x => x.p == null ? '—' : badge(x.p), num: true },
         { h: 'Hard tests', k: x => x.hard, v: x => x.hard, num: true }];
       if (!sel.value) tcols.splice(1, 0, { h: 'Pupils', k: x => x.pupils, v: x => x.pupils, num: true });
       const tw = table('prog', tcols, rowsT, 'Week of'); tw.style.marginTop = '10px'; tw.style.maxHeight = '300px'; holder.append(tw);
@@ -1257,10 +1274,13 @@
   // ---------------------------------------------------------------- pupils
   const pupils =(view, data) => {
     const by = {}; data.forEach(r => (by[r.key] = by[r.key] || []).push(r));
-    const list = Object.keys(by).map(k => { const a = by[k], last = a.reduce((m, r) => r.t > m ? r.t : m, 0);
+    const pz = pzByKey();
+    const list = Object.keys(by).map(k => { const a = by[k], last = a.reduce((m, r) => r.t > m ? r.t : m, 0), z = pz[k] || { n: 0, last: 0 };
       return { key: k, name: a[0].last + ' ' + a[0].first, cls: [...new Set(a.map(r => r.cls).filter(Boolean))].join(', '),
                n: a.length, q: a.reduce((s, r) => s + r.total, 0), p: avg(a, r => r.p), lv: avg(a, r => r.lvl),
-               hard: a.filter(r => r.lvl === 3).length, last, rows: a }; });
+               hard: a.filter(r => r.lvl === 3).length, last, rows: a, na: a.length + z.n, lastA: Math.max(last, z.last) }; });
+    Object.keys(pz).filter(k => !by[k]).forEach(k => { const z = pz[k];   // pupils who only did puzzles
+      list.push({ key: k, name: z.lastName + ' ' + z.first, cls: z.cls, n: 0, q: 0, p: null, lv: null, hard: 0, last: 0, rows: [], na: z.n, lastA: z.last }); });
     const card = el('div', 'card');
     const s = el('input'); s.type = 'search'; s.placeholder = 'Find a pupil…'; s.style.marginBottom = '8px';
     const holder = el('div');
@@ -1271,15 +1291,15 @@
       holder.append(table('pupils', [
         { h: 'Pupil', k: x => x.name, v: x => x.name },
         { h: 'Class', k: x => x.cls, v: x => x.cls },
-        { h: 'Activities', k: x => x.n, v: x => x.n, num: true },
+        { h: 'Activities', k: x => x.na, v: x => x.na, num: true },
         { h: 'Questions', k: x => x.q, v: x => x.q, num: true },
-        { h: 'Average', k: x => x.p, v: x => badge(x.p), num: true },
-        { h: 'Avg level', k: x => x.lv, v: x => x.lv.toFixed(1), num: true },
+        { h: 'Average', k: x => x.p == null ? -1 : x.p, v: x => x.p == null ? '—' : badge(x.p), num: true },
+        { h: 'Avg level', k: x => x.lv == null ? -1 : x.lv, v: x => x.lv == null ? '—' : x.lv.toFixed(1), num: true },
         { h: 'Hard tests', k: x => x.hard, v: x => x.hard, num: true },
-        { h: 'Last practised', k: x => x.last, v: x => fmtDate(x.last), num: true }], items, 'Activities', x => { selPupil = x.key; render(); }));
+        { h: 'Last practised', k: x => x.lastA, v: x => fmtDate(x.lastA), num: true }], items, 'Activities', x => { if (x.rows.length) { selPupil = x.key; render(); } }));
     };
     s.oninput = draw;
-    card.append(el('p', 'note', list.length + ' pupils. Click a column to sort, click a pupil for the details.'), s, holder);
+    card.append(el('p', 'note', list.length + ' pupils. Click a column to sort, click a pupil for the details. ' + PZ_NOTE), s, holder);
     view.append(card); draw();
     if (selPupil && by[selPupil]) pupilDetail(view, list.find(x => x.key === selPupil));
   };
@@ -1375,8 +1395,8 @@
     const tiles = el('div', 'tiles');
     tiles.append(tile(p.n, 'activities'), tile(p.q, 'questions'), tile(pct(p.p), 'average'), tile(p.lv.toFixed(1), 'avg level'), tile(p.hard, 'hard tests'));
     card.append(tiles);
-    if (pState === '') loadPuzzles();                   // puzzles are a separate tab of the Sheet: shown as one line, never mixed into the numbers
-    if (pState === 'ok') { const np = puzzleRows().filter(r => r.key === p.key); if (np.length) card.append(el('p', 'note', '🧩 Puzzles finished: ' + np.length + ' (' + [...new Set(np.map(r => r.act))].join(', ') + '), last ' + fmtDate(np.reduce((m, r) => r.t > m ? r.t : m, 0)) + '. Not counted in the numbers above.')); }
+    if (pState === '' && !prowsRaw) loadPuzzles();      // puzzles are a separate tab of the Sheet: shown as one line, never mixed into scores
+    if (pzReady()) { const np = puzzleRows().filter(r => r.key === p.key); if (np.length) card.append(el('p', 'note', '🧩 Puzzles finished: ' + np.length + ' (' + [...new Set(np.map(r => r.act))].join(', ') + '), last ' + fmtDate(np.reduce((m, r) => r.t > m ? r.t : m, 0)) + '. They count as activity in the pupil lists, not in the questions, average or level above.')); }
     const byUnit = {}; p.rows.forEach(r => (byUnit[r.unit] = byUnit[r.unit] || []).push(r));
     const ul = Object.keys(byUnit).map(u => ({ u, n: byUnit[u].length, best: Math.max(...byUnit[u].map(r => r.p)), p: avg(byUnit[u], r => r.p), last: Math.max(...byUnit[u].map(r => r.t)) }));
     const h = el('h2', '', 'Units'); h.style.marginTop = '14px'; card.append(h);
