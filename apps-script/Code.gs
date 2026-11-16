@@ -85,7 +85,7 @@ var UNITS = {
 
 // Change this text whenever the code of doPost changes: the health check compares it with what the published web app answers,
 // so it can tell you that the saved code has not been deployed as a new version yet.
-var CODE_VERSION = '2026-11-13.3';
+var CODE_VERSION = '2026-11-16.1';
 
 // ---------------------------------------------------------------- saving results
 
@@ -128,7 +128,7 @@ function doPost(e) {
     if (d.action === 'rsobssave') return rsObsSaveReply_(d);           // save a new or an own observation
     if (d.action === 'rsobsdelete') return rsObsDeleteReply_(d);       // delete an own observation
     if (d.action === 'rsobsnote') return rsObsNoteReply_(d);           // team feedback on the observation sheet itself (role skupina; delete with rspicknotedel)
-    if (d.action === 'rsresults') return rsResultsReply_(d);           // questionnaire results team/rezultati/ (role skupina): coded answers, no names or e-mails
+    if (d.action === 'rsresults') return rsResultsReply_(d);           // questionnaire results team/rezultati/ (skupina; other roles per rezultati_odprti): coded answers, names only for the team / own class
     if (d.action === 'rsmeet') return rsMeetReply_(d);                 // meetings of the self-evaluation group team/sestanki/ (role szs): list + members
     if (d.action === 'rsmeetsave') return rsMeetSaveReply_(d);         // add or edit one meeting (any SZS member)
     if (d.action === 'rsmeetdelete') return rsMeetDeleteReply_(d);     // delete one meeting (any SZS member)
@@ -2842,16 +2842,37 @@ function rsObsDeleteReply_(d) {
 }
 
 // health check part
-// Questionnaire results for team/rezultati/ (decision of the teacher, 11 Nov 2026: real answers, live while the questionnaire runs;
-// aggregates only, no pupil view and no grades yet). Role skupina only for now; the switch rezultati_odprti decides the other roles later.
+// Questionnaire results for team/rezultati/ (decision of the teacher, 11 Nov 2026: real answers, live while the questionnaire runs).
 // Reads the separate survey Sheet (script property SURVEY_SHEET_ID, tab Vprasalnik, written by the form trigger of the project
 // "Vprašalnik – samouravnavanje učenja") and never copies it. One answer set per pupil and round; the last submission counts
-// (key: school e-mail in 2nd/3rd VIO, name + class in 1st VIO). The page gets NO names and NO e-mails: only triad, class and the coded
-// answers of the statements, the strategy grid S5 and N7. Submissions from accounts on the access list or in TEACHER_EMAILS
-// (staff trying the forms) are left out.
+// (key: school e-mail in 2nd/3rd VIO, name + class in 1st VIO). Submissions from accounts on the access list or in TEACHER_EMAILS
+// (staff trying the forms) are left out. Sent: triad, class and the coded answers of the statements, the strategy grid S5, N7 and
+// the 1st VIO strategy choices S1 (as S1_<option code> = 1, with the option texts in s1).
+// Who sees what (docs/razvojna-skupina/ANALIZA-PRIMER.md, built 16 Nov 2026): role skupina always; the other roles only once the
+// switch rezultati_odprti in RS_Nastavitve names them (the teacher opens it after the questionnaire closes).
+//   skupina:   everything; every pupil with a name (part 6, pupil progress)
+//   razrednik: whole school by triad; classes and names only for the own class(es)
+//   ravnatelj: whole school and every class, no names
+//   ucitelj:   whole school by triad only (the class is not sent)
+// A name is sent only where the viewer may see it: the pupil's name (1st VIO) or, in 2nd/3rd VIO, the name made from the school
+// e-mail. Never the e-mail itself.
 var RS_RES_CODES = /^(N\d|D\d|S0|S3|M\d|R\d|P1)$/;
+function rsResultsView_(d) {
+  var who = verify_(d.token); if (!who) return { error: 'token' };
+  var me = rsWho_(who.email);
+  if (!me.roles.length) return { error: 'access' };
+  var open = rsSettings_().rezultati_odprti.toLowerCase().split(/[\s,;]+/).filter(String);
+  var has = function (r) { return me.roles.indexOf(r) >= 0 && (r === 'skupina' || open.indexOf(r) >= 0 || open.indexOf('vsi') >= 0); };
+  var v = { team: has('skupina'), principal: has('ravnatelj'), own: has('razrednik') ? me.classes.slice() : [], teacher: has('ucitelj') };
+  if (!v.team && !v.principal && !v.own.length && !v.teacher) return { error: 'closed' };
+  v.allClasses = v.team || v.principal;
+  return v;
+}
+function rsNameFromEmail_(e) {
+  return String(e).split('@')[0].split(/[._]+/).filter(String).map(function (w) { return w.charAt(0).toUpperCase() + w.slice(1); }).join(' ');
+}
 function rsResultsReply_(d) {
-  var me = rsTeam_(d); if (me.error) return out_({ ok: false, error: me.error });
+  var view = rsResultsView_(d); if (view.error) return out_({ ok: false, error: view.error });
   var id = PropertiesService.getScriptProperties().getProperty('SURVEY_SHEET_ID'), book = null;
   try { book = id ? SpreadsheetApp.openById(id) : null; } catch (e) {}
   var sh = book && book.getSheetByName('Vprasalnik');
@@ -2859,17 +2880,22 @@ function rsResultsReply_(d) {
   var vals = sh.getLastRow() > 1 ? sh.getRange(2, 1, sh.getLastRow() - 1, 12).getValues() : [];
   var staff = {}; rsAccessRows_().forEach(function (r) { staff[r.email] = 1; });
   var year = ''; vals.forEach(function (r) { var y = String(r[1]).trim(); if (/^\d{4}-\d{2}$/.test(y) && y > year) year = y; });
-  var subs = {}, order = [];
+  var subs = {}, order = [], s1 = {};
   vals.forEach(function (r) {
     if (String(r[1]).trim() !== year) return;
     var sid = String(r[8]), s = subs[sid];
     if (!s) {
       s = subs[sid] = { t: (r[0] instanceof Date ? r[0] : new Date(r[0])).getTime() || 0, k: String(r[2]).trim(), v: Number(r[3]),
         email: String(r[4]).trim().toLowerCase(), name: String(r[5]).trim().toLowerCase().replace(/\s+/g, ' '),
-        c: String(r[7]).trim().toUpperCase().replace(/\s+/g, ''), a: {} };
+        c: String(r[7]).trim().toUpperCase().replace(/\s+/g, ''), a: {}, nm: String(r[5]).trim().replace(/\s+/g, ' ') };
       order.push(sid);
     }
     var code = String(r[9]).trim(), val = Number(r[10]);
+    if (code === 'S1') {                                   // 1st VIO strategy choices: the value is the option code (ST02 … or S1g)
+      var oc = String(r[10]).trim();
+      if (/^(ST\d{2}|S1[a-z])$/.test(oc)) { s.a['S1_' + oc] = 1; if (!s1[oc]) s1[oc] = String(r[11]).trim().slice(0, 80); }
+      return;
+    }
     if (!val) return;
     if (/^S5\.ST\d{2}$/.test(code)) s.a['S5_' + code.slice(3)] = val;
     else if (RS_RES_CODES.test(code)) s.a[code] = val;
@@ -2884,11 +2910,16 @@ function rsResultsReply_(d) {
     var p = pupils[key] || (pupils[key] = { v: s.v, c: s.c, r: {}, t: {} });
     if (p.r[s.k]) { repeats++; if (p.t[s.k] > s.t) return; }
     p.r[s.k] = s.a; p.t[s.k] = s.t;
-    if (!p.tc || s.t >= p.tc) { p.v = s.v; p.c = s.c; p.tc = s.t; }      // class of the latest submission
+    if (!p.tc || s.t >= p.tc) { p.v = s.v; p.c = s.c; p.tc = s.t; p.n = s.nm || (s.email ? rsNameFromEmail_(s.email) : ''); }   // class and name of the latest submission
   });
-  var list = Object.keys(pupils).map(function (k) { var p = pupils[k]; return { v: p.v, c: p.c, r: p.r }; });
+  var list = Object.keys(pupils).map(function (k) {
+    var p = pupils[k], mine = view.own.indexOf(p.c) >= 0, o = { v: p.v, c: view.allClasses || mine ? p.c : '', r: p.r };
+    if ((view.team || mine) && p.n) o.n = p.n;
+    return o;
+  });
   list.sort(function (a, b) { return a.c < b.c ? -1 : a.c > b.c ? 1 : 0; });   // by class only: the order says nothing about who is who
-  return out_({ ok: true, year: year, pupils: list, submissions: order.length, repeats: repeats, staff: left,
+  return out_({ ok: true, year: year, pupils: list, s1: s1, submissions: order.length, repeats: repeats, staff: left,
+                view: { team: view.team, principal: view.principal, own: view.own, teacher: view.teacher, allClasses: view.allClasses },
                 last: last ? Utilities.formatDate(new Date(last), TZ, 'd. M. yyyy, HH:mm') : '' });
 }
 

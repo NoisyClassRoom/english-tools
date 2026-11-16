@@ -9,7 +9,9 @@
 /* Questionnaire results, built after docs/razvojna-skupina/ANALIZA-PRIMER.md (the sample the team saw on 6 Nov 2026).
    Real answers since 11 Nov 2026 (decision of the teacher: live while the questionnaire runs, aggregates only, no sample data):
    action rsresults sends the coded answers per pupil and round WITHOUT names or e-mails; every share is computed here.
-   The pupil view and the grades (parts 6 and 5 of the sample) come later, as separate steps. Scales as in the merged questionnaire
+   16 Nov 2026: D9, R6 and the 1st VIO strategy choices S1 (incl. S1g); part 6 (one pupil, named) for the team and the pupil's own
+   class teacher; views per role as in the sample's table (the server decides what each role gets; the other roles only see the page
+   once the switch rezultati_odprti names them). The grades (part 5) come later. Scales as in the merged questionnaire
    (decision of the team, 7 Nov 2026): 2nd/3rd VIO 5 steps Nikoli | Redko | Včasih | Pogosto | Vedno, top answers = 4–5;
    1st VIO 3 steps Še ne | Včasih | Pogosto, top answer = 3. Colours checked with the dataviz validator for both
    surfaces: rounds = blue (končno) / orange (začetno); ordinal and heat map = one blue ramp; change = blue / red. */
@@ -109,6 +111,10 @@ td.na { color: var(--muted); background: var(--h0); }
 select { font: inherit; color: var(--ink); background: var(--field); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; max-width: 100%; }
 .pt-table td, .pt-table th { text-align: right; } .pt-table td:first-child, .pt-table th:first-child { text-align: left; }
 .pt-table tr td { border-bottom: 1px solid var(--line); border-radius: 0; }
+.pu-pick { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 10px; }
+.tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.tag { font-size: .8rem; border: 1px solid var(--line); border-radius: 999px; padding: 1px 9px; }
+.tag.u { background: var(--o4); color: #0b0b0b; border-color: var(--o4); } body.light .tag.u { color: #fff; }
 .method ul { margin: 6px 0 0; padding-left: 20px; display: grid; gap: 4px; }
 #tip { position: fixed; pointer-events: none; background: var(--card); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; font-size: .85rem; box-shadow: 0 4px 14px rgba(0,0,0,.3); display: none; z-index: 9; max-width: 280px; }
 .hide { display: none !important; }
@@ -123,7 +129,7 @@ select { font: inherit; color: var(--ink); background: var(--field); border: 1px
   </div>
   <h1>📊 Kako se učimo – rezultati vprašalnika</h1>
   <div id="login" class="box">
-    <p id="loginMsg" class="muted">Stran je namenjena razvojni skupini. Prijavite se s šolskim Google računom.</p>
+    <p id="loginMsg" class="muted">Prijavite se s šolskim Google računom.</p>
     <div id="slot" style="display:inline-block"></div>
   </div>
 
@@ -153,11 +159,27 @@ select { font: inherit; color: var(--ink); background: var(--field); border: 1px
       <div class="two"><div><h3 id="stA">Začetno</h3><div id="stLeft"></div></div><div id="stRightW"><h3 id="stB">Končno</h3><div id="stRight"></div></div></div>
     </div>
 
+    <!-- 3b. strategies 1st VIO -->
+    <div class="box" id="s1Box">
+      <h2>Kako se učijo učenci 1. VIO</h2>
+      <p class="note" id="s1Note"></p>
+      <div id="s1"></div>
+    </div>
+
     <!-- 4. classes -->
     <div class="box" id="clBox">
       <h2>Primerjava razredov</h2>
       <p class="note" id="clNote"></p>
       <div class="tablewrap"><table id="cl"></table></div>
+    </div>
+
+    <!-- 6. one pupil -->
+    <div class="box" id="puBox">
+      <span class="stamp">IMENSKO</span>
+      <h2>Napredek posameznega učenca</h2>
+      <p class="note" id="puNote"></p>
+      <div class="pu-pick"><select id="puCls" aria-label="Razred"></select><select id="puSel" aria-label="Učenec"></select></div>
+      <div id="pu"></div>
     </div>
 
     <!-- method -->
@@ -168,8 +190,9 @@ select { font: inherit; color: var(--ink); background: var(--field); border: 1px
         <li>Vsak učenec šteje enkrat v posameznem merjenju: če je oddal večkrat, velja zadnja oddaja. Oddaje učiteljev (preizkusi obrazcev) niso upoštevane.</li>
         <li>Deleže računamo po triadah in razredih; lestvic 1. VIO in 2./3. VIO ne povprečimo skupaj, primerjamo deleže zgornjih odgovorov.</li>
         <li>Isti vprašalnik ponovimo spomladi; spremembe bodo v odstotnih točkah (o. t.).</li>
-        <li>Razred z manj kot 5 odgovori ni prikazan. Stran ne pokaže imen ali e-naslovov. Rezultate najprej vidi razvojna skupina, nato svoj pogled dobijo razredniki, učitelji in ravnatelj.</li>
-        <li>Pozneje: napredek posameznega učenca (za razvojno skupino in razrednika) in povezava z ocenami po predmetnih sklopih (2. in 3. VIO).</li>
+        <li>Razred z manj kot 5 odgovori ni prikazan v primerjavi razredov. Imena učencev vidita samo razvojna skupina in razrednik svojega razreda (napredek posameznega učenca); e-naslovov stran ne pokaže.</li>
+        <li>Rezultate najprej vidi razvojna skupina. Ko jih odpremo: razredniki vidijo celo šolo po triadah ter svoj razred, ravnatelj celo šolo in vse razrede brez imen, učitelji celo šolo po triadah.</li>
+        <li>Pozneje: povezava z ocenami po predmetnih sklopih (2. in 3. VIO).</li>
       </ul>
     </div>
   </div>
@@ -183,10 +206,10 @@ select { font: inherit; color: var(--ink); background: var(--field); border: 1px
 
   // ---- the merged questionnaire (codes, triads, short labels from ANALIZA-PRIMER.md) ----
   const ST = [['N1', 'Ve, kaj mora znati', [1, 2, 3]], ['N2', 'Postavi si cilj', [2, 3]], ['N3', 'Načrtuje čas učenja', [2, 3]], ['N5', 'Stalen čas in prostor', [1, 2, 3]],
-    ['N6', 'Pripravi potrebne stvari', [1]], ['N9', 'Omeji motnje', [2, 3]], ['D1', 'Domače naloge redno', [1, 2, 3]], ['D2', 'Uči se sproti', [2, 3]],
+    ['N6', 'Pripravi potrebne stvari', [1]], ['N9', 'Omeji motnje', [2, 3]], ['D1', 'Domače naloge redno', [1, 2, 3]], ['D9', 'Domačo nalogo naredi v podaljšanem bivanju', [1]], ['D2', 'Uči se sproti', [2, 3]],
     ['D3', 'Izpelje, kar si zada', [2, 3]], ['D5', 'Vztraja pri zahtevnem', [3]], ['S0', 'Pozna različne načine učenja', [1, 2, 3]], ['S3', 'Strategijo izbere po predmetu', [3]],
     ['M5', 'Izlušči bistvo besedila', [2]], ['M1', 'Preverja, ali razume', [1, 2, 3]], ['M3', 'Pravočasno prosi za pomoč', [1, 2, 3]], ['R3', 'Oceni, kaj mora ponoviti', [2, 3]],
-    ['R1', 'Pregleda napake', [1, 2, 3]], ['R2', 'Spremeni način učenja', [1, 2, 3]], ['R5', 'Ve, zakaj mu je šlo dobro ali slabo', [3]], ['P1', 'Podpora staršev pri šolskem delu', [1, 2, 3]]];
+    ['R1', 'Pregleda napake', [1, 2, 3]], ['R6', 'Pregleda napake v domači nalogi', [1]], ['R2', 'Spremeni način učenja', [1, 2, 3]], ['R5', 'Ve, zakaj mu je šlo dobro ali slabo', [3]], ['P1', 'Podpora staršev pri šolskem delu', [1, 2, 3]]];
   const STRAT = [['ST02', 'Podčrtovanje ključnih besed'], ['ST22', 'Zapisovanje ključnih besed'], ['ST04', 'Miselni vzorec'], ['ST03', 'Povzetek s svojimi besedami'],
     ['ST05', 'Skica, slika, tabela'], ['ST24', 'Kartice z vprašanji'], ['ST06', 'Samopreverjanje brez zapiskov'], ['ST21', 'Ponavljanje na glas'], ['ST07', 'Razlaga drugi osebi'],
     ['ST09', 'Samostojno reševanje nalog'], ['ST10', 'Ponovno reševanje napak'], ['ST08', 'Učenje v krajših obdobjih'], ['ST11', 'Povezovanje s predznanjem'], ['ST18', 'Pomnilni triki']];
@@ -194,14 +217,14 @@ select { font: inherit; color: var(--ink); background: var(--field); border: 1px
   const TOP = v => v === 1 ? 3 : 4;                       // top answers: 1st VIO value 3 (pogosto); 2nd/3rd VIO values 4–5 (pogosto, vedno)
   const top = (a, c) => a[c] != null && a[c] >= a._top;     // every answer set carries the top value of its own scale
   // ---- real answers (action rsresults): one entry per pupil, {v, c, r: {zacetno: {code: value}, koncno: {...}}}, no names ----
-  let pupils = [], CLASSES = [], meta = {};
+  let pupils = [], CLASSES = [], meta = {}, VIEW = {}, S1L = {};
   const setData = j => {
-    meta = j;
+    meta = j; VIEW = j.view || { team: true, allClasses: true, own: [] }; S1L = j.s1 || {};
     pupils = (j.pupils || []).filter(p => p.v >= 1 && p.v <= 3).map(p => {
       const r = {}; Object.keys(p.r || {}).forEach(k => { r[k] = Object.assign({ _top: TOP(p.v) }, p.r[k]); });
-      return { cls: p.c, vio: p.v, r };
+      return { cls: p.c || '', vio: p.v, r, n: p.n || '' };
     });
-    CLASSES = [...new Set(pupils.map(p => p.cls))].sort((a, b) => a.localeCompare(b, 'sl', { numeric: true })).map(c => [c]);
+    CLASSES = [...new Set(pupils.map(p => p.cls).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'sl', { numeric: true })).map(c => [c]);
   };
 
   // ---- state and helpers ----
@@ -219,6 +242,8 @@ select { font: inherit; color: var(--ink); background: var(--field); border: 1px
     node.addEventListener('mousemove', e => { tip.textContent = text; tip.style.display = 'block'; tip.style.left = Math.min(e.clientX + 12, innerWidth - 290) + 'px'; tip.style.top = (e.clientY + 14) + 'px'; });
     node.addEventListener('mouseleave', () => { tip.style.display = 'none'; });
   };
+  const viewLine = () => VIEW.team ? '' : VIEW.allClasses ? 'Vaš pogled: cela šola in vsi razredi, brez imen. '
+    : VIEW.own && VIEW.own.length ? 'Vaš pogled: cela šola po triadah in vaš razred (' + VIEW.own.join(', ') + '). ' : 'Vaš pogled: cela šola po triadah. ';
   const draw = () => {
     try { localStorage.setItem('rez.tri', tri); } catch (e) {}
     const P = pupils.filter(inTri), P23 = P.filter(p => p.vio > 1), late = pupils.some(p => p.r.koncno);   // the change appears once spring answers exist
@@ -232,9 +257,9 @@ select { font: inherit; color: var(--ink); background: var(--field); border: 1px
     const ib = el('b', '', 'Pravi odgovori, začetno merjenje ' + String(meta.year || '').replace('-', '/') + '.');
     $('#info').append(ib, document.createTextNode(' Zbiranje poteka do 21. 11. 2026, številke se sproti spreminjajo. Upoštevanih: ' + fmtN(pupils.length) +
       (meta.repeats ? ' (ponovnih oddaj ' + meta.repeats + ': velja zadnja)' : '') + (meta.staff ? '; oddaj učiteljev (preizkusi) ' + meta.staff + ' ni upoštevanih' : '') +
-      '. Zadnja oddaja: ' + (meta.last || '—') + '. Lestvice: 2. in 3. VIO '), el('i', '', 'nikoli · redko · včasih · pogosto · vedno'), document.createTextNode(', 1. VIO '), el('i', '', 'še ne · včasih · pogosto'), document.createTextNode('.'));
+      '. Zadnja oddaja: ' + (meta.last || '—') + '. ' + viewLine() + 'Lestvice: 2. in 3. VIO '), el('i', '', 'nikoli · redko · včasih · pogosto · vedno'), document.createTextNode(', 1. VIO '), el('i', '', 'še ne · včasih · pogosto'), document.createTextNode('.'));
     const empty = !P.some(p => p.r.zacetno || p.r.koncno);
-    ['#kpis', '#kpiNote', '#dbBox', '#stBox', '#clBox', '#lead'].forEach(s => $(s).classList.toggle('hide', empty));
+    ['#kpis', '#kpiNote', '#dbBox', '#stBox', '#s1Box', '#clBox', '#puBox', '#lead'].forEach(s => $(s).classList.toggle('hide', empty));
     $('#none').classList.toggle('hide', !empty);
     if (empty) return;
 
@@ -311,8 +336,87 @@ select { font: inherit; color: var(--ink); background: var(--field); border: 1px
       });
       tb.append(tr);
     });
-    $('#clNote').textContent = (late ? 'Končni delež in v oklepaju sprememba od jeseni (o. t.). ' : 'Začetni delež. ') + 'Temnejša celica = večji delež. Razredi z manj kot 5 odgovori niso prikazani. »—« = vprašanja v tej triadi ni.';
+    $('#clNote').textContent = (late ? 'Končni delež in v oklepaju sprememba od jeseni (o. t.). ' : 'Začetni delež. ') + 'Temnejša celica = večji delež. Razredi z manj kot 5 odgovori niso prikazani. »—« = vprašanja v tej triadi ni.'
+      + (!VIEW.allClasses && VIEW.own && VIEW.own.length ? ' Prikazan je samo vaš razred.' : '');
+    $('#clBox').classList.toggle('hide', !CLASSES.some(c => tri === 'all' || Math.ceil(Number(c[0][0]) / 3) === Number(tri)));
+
+    // 3b. 1st VIO strategy choices (S1): share of pupils who chose each option
+    const P1 = P.filter(p => p.vio === 1), k1 = late ? 'koncno' : 'zacetno';
+    const s1codes = Object.keys(S1L).sort((a, b) => a.localeCompare(b));
+    const P1k = P1.filter(p => p.r[k1] && Object.keys(p.r[k1]).some(x => x.startsWith('S1_')));
+    $('#s1Box').classList.toggle('hide', !(tri === 'all' || tri === '1') || !P1k.length);
+    if (P1k.length) {
+      const box = $('#s1'); box.innerHTML = '';
+      const rowsS1 = s1codes.map(c => ({ c, l: S1L[c] }))
+        .map(x => ({ c: x.c, l: x.l, a: P1.filter(p => p.r.zacetno && p.r.zacetno['S1_' + x.c]).length / (P1.filter(p => p.r.zacetno && Object.keys(p.r.zacetno).some(y => y.startsWith('S1_'))).length || 1),
+                     s: P1.filter(p => p.r.koncno && p.r.koncno['S1_' + x.c]).length / (P1.filter(p => p.r.koncno && Object.keys(p.r.koncno).some(y => y.startsWith('S1_'))).length || 1) }))
+        .sort((x, y) => (late ? y.s - x.s : y.a - x.a));
+      rowsS1.forEach(r => {
+        const row = el('div', 'gbr'), lab = el('div', ''); lab.textContent = r.l + (r.c.startsWith('ST') ? ' (' + r.c + ')' : '');
+        const pair = el('div', 'pair');
+        const bar = (v, cl, t) => { const h = el('div', 'hb'), i = el('i', cl); i.style.width = Math.max(v * 100, 0.5) + '%'; h.append(i, document.createTextNode(pct(v))); hover(h, r.l + ' · ' + t + ': ' + pct(v)); return h; };
+        if (late) pair.append(bar(r.a, 'ne', 'jeseni'), bar(r.s, 'da', 'spomladi')); else pair.append(bar(r.a, 'da', 'jeseni'));
+        row.append(lab, pair); box.append(row);
+      });
+      $('#s1Note').textContent = 'Vprašanje S1 (»Kako se učiš?«, več odgovorov): delež učencev 1. VIO, ki so izbrali posamezen način' + (late ? ' (oranžno jeseni, modro spomladi)' : '') + '. n = '
+        + P1.filter(p => p.r.zacetno && Object.keys(p.r.zacetno).some(y => y.startsWith('S1_'))).length + (late ? ' / ' + P1.filter(p => p.r.koncno && Object.keys(p.r.koncno).some(y => y.startsWith('S1_'))).length : '') + '.';
+    }
+
+    // 6. one pupil (named): only pupils the server sent with a name (team: all; class teacher: own class)
+    drawPupilPicker();
   };
+
+  // ---- 6. one pupil ----
+  let puCls = '', puIdx = -1;
+  const named = () => pupils.filter(p => p.n && inTri(p));
+  const word = (p, v) => v == null ? '—' : (SCALE[p.vio][v - 1] || '') + ' (' + v + ')';
+  const drawPupilPicker = () => {
+    const L = named();
+    $('#puBox').classList.toggle('hide', !L.length);
+    if (!L.length) return;
+    const cls = [...new Set(L.map(p => p.cls))].sort((a, b) => a.localeCompare(b, 'sl', { numeric: true }));
+    if (!cls.includes(puCls)) { puCls = cls[0]; puIdx = -1; }
+    const cs = $('#puCls'); cs.innerHTML = ''; cls.forEach(c => { const o = el('option', '', c); o.value = c; o.selected = c === puCls; cs.append(o); });
+    const inC = L.filter(p => p.cls === puCls).sort((a, b) => a.n.localeCompare(b.n, 'sl'));
+    const ps = $('#puSel'); ps.innerHTML = ''; ps.append(Object.assign(el('option', '', '— izberite učenca —'), { value: '-1' }));
+    inC.forEach(p => { const o = el('option', '', p.n); o.value = String(pupils.indexOf(p)); o.selected = pupils.indexOf(p) === puIdx; ps.append(o); });
+    if (!inC.includes(pupils[puIdx])) puIdx = -1;
+    $('#puNote').textContent = 'Vidita samo razvojna skupina in razrednik tega razreda. Vrednosti: 2. in 3. VIO 1 nikoli … 5 vedno; 1. VIO 1 še ne … 3 pogosto.'
+      + (pupils.some(p => p.r.koncno) ? ' Sprememba = končno − začetno.' : ' Končno merjenje bo spomladi; do takrat so prikazani samo začetni odgovori.');
+    drawPupil();
+  };
+  const drawPupil = () => {
+    const box = $('#pu'); box.innerHTML = '';
+    const p = pupils[puIdx];
+    if (!p) { box.append(el('p', 'muted small', 'Izberite razred in učenca.')); return; }
+    const A = p.r.zacetno || {}, B = p.r.koncno || {}, late = !!p.r.koncno || pupils.some(x => x.r.koncno);
+    const t = el('table', 'pt-table'), hr = el('tr');
+    ['Trditev', 'Začetno', ...(late ? ['Končno', 'Sprememba'] : [])].forEach(h => hr.append(el('th', '', h))); t.append(hr);
+    ST.filter(([c, , v]) => v.includes(p.vio) && (A[c] != null || B[c] != null)).forEach(([c, l]) => {
+      const tr = el('tr'), lab = el('td'); lab.append(el('span', 'c muted small', c + ' '), document.createTextNode(l)); tr.append(lab, el('td', '', word(p, A[c])));
+      if (late) { tr.append(el('td', '', word(p, B[c]))); const d = A[c] != null && B[c] != null ? B[c] - A[c] : null; tr.append(el('td', d > 0 ? 'up' : d < 0 ? 'down' : '', d == null ? '—' : (d > 0 ? '▲ +' : d < 0 ? '▼ −' : '±') + Math.abs(d))); }
+      t.append(tr);
+    });
+    const tw = el('div', 'tablewrap'); tw.append(t); box.append(tw);
+    // strategies of this pupil
+    const strat = (a, title) => {
+      if (!a || !Object.keys(a).length) return;
+      const wrap = el('div'); wrap.append(el('h3', '', title));
+      if (p.vio === 1) {
+        const ch = Object.keys(a).filter(k => k.startsWith('S1_')).map(k => S1L[k.slice(3)] || k.slice(3));
+        const tg = el('div', 'tags'); (ch.length ? ch : ['(ni izbral)']).forEach(x => tg.append(el('span', 'tag u', x))); wrap.append(tg);
+      } else {
+        [[3, 'poznam in uporabljam', 'tag u'], [2, 'poznam, ne uporabljam', 'tag']].forEach(([v, l, cl]) => {
+          const xs = STRAT.filter(([c]) => a['S5_' + c] === v); if (!xs.length) return;
+          wrap.append(el('p', 'small muted', l + ':')); const tg = el('div', 'tags'); xs.forEach(([c, n]) => tg.append(el('span', cl, n))); wrap.append(tg);
+        });
+      }
+      box.append(wrap);
+    };
+    strat(p.r.zacetno, 'Strategije – začetno'); if (late) strat(p.r.koncno, 'Strategije – končno');
+  };
+  $('#puCls').onchange = e => { puCls = e.target.value; puIdx = -1; drawPupilPicker(); };
+  $('#puSel').onchange = e => { puIdx = Number(e.target.value); drawPupil(); };
 
   const api = async (action) => {
     const token = Track.token(); if (!token) throw new Error('token');
@@ -323,9 +427,9 @@ select { font: inherit; color: var(--ink); background: var(--field); border: 1px
     if (!Track.token() || loaded) return;
     loaded = true; $('#loginMsg').textContent = 'Nalagam …';
     let h = null; try { h = await api('rshome'); } catch (e) {}
-    if (!h || !h.ok || !h.roles.includes('skupina')) {
+    if (!h || !h.ok || !(h.roles.includes('skupina') || h.roles.some(r => (h.resultsOpen || []).includes(r)))) {
       loaded = false;
-      $('#loginMsg').textContent = h && h.ok ? 'Rezultati so zaenkrat samo za razvojno skupino.' : h && h.error === 'access' ? 'Ta račun nima dostopa. Obrnite se na razvojno skupino.'
+      $('#loginMsg').textContent = h && h.ok ? 'Rezultati so zaenkrat samo za razvojno skupino. Odprli jih bomo po koncu zbiranja odgovorov.' : h && h.error === 'access' ? 'Ta račun nima dostopa. Obrnite se na razvojno skupino.'
         : h && h.error === 'token' ? 'Prijava je potekla. Prijavite se znova.' : 'Strani trenutno ni mogoče naložiti.';
       if (!h || h.error === 'token') Track.button($('#slot'));
       return;
@@ -333,7 +437,7 @@ select { font: inherit; color: var(--ink); background: var(--field); border: 1px
     let j = null; try { j = await api('rsresults'); } catch (e) {}
     if (!j || !j.ok) {
       loaded = false;
-      $('#loginMsg').textContent = j && j.error === 'nosheet' ? 'Preglednica z odgovori vprašalnika ni nastavljena (SURVEY_SHEET_ID). Obvestite skrbnika.'
+      $('#loginMsg').textContent = j && j.error === 'closed' ? 'Rezultati so zaenkrat samo za razvojno skupino.' : j && j.error === 'nosheet' ? 'Preglednica z odgovori vprašalnika ni nastavljena (SURVEY_SHEET_ID). Obvestite skrbnika.'
         : j && j.error === 'token' ? 'Prijava je potekla. Prijavite se znova.' : 'Rezultatov trenutno ni mogoče naložiti. Poskusite znova čez nekaj minut.';
       if (!j || j.error === 'token') Track.button($('#slot'));
       return;
