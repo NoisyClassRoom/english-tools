@@ -51,6 +51,12 @@
   #fab { position: fixed; right: 18px; bottom: 18px; z-index: 7; width: 46px; height: 46px; border-radius: 50%; border: 1px solid var(--accent); background: var(--accent); color: var(--accent-ink); font-size: 22px; line-height: 1; cursor: pointer; box-shadow: 0 2px 10px rgba(0,0,0,.35); opacity: .88; }
   #fab:hover { opacity: 1; }
   body.editing #fab { display: none; }
+  /* a second round button above the edit button: Full screen on / off, always within reach (also in the ▶ Board view) */
+  #fabFs { position: fixed; right: 18px; bottom: 72px; z-index: 51; width: 46px; height: 46px; border-radius: 50%; border: 1px solid var(--line); background: var(--card); color: var(--ink); font-size: 20px; line-height: 1; cursor: pointer; box-shadow: 0 2px 10px rgba(0,0,0,.35); opacity: .88; }
+  #fabFs:hover { opacity: 1; border-color: var(--accent); }
+  body.editing #fabFs { bottom: 18px; }
+  #ov.on ~ #fabFs { opacity: .5; }
+  #ov.on ~ #fabFs:hover { opacity: 1; }
   /* bookmarks: pinned exercises and where each class stopped */
   #marks { padding: 8px 14px; }
   #marks .mrow { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 3px 0; }
@@ -173,6 +179,7 @@
   </div>
   <div id="ovBody"></div>
 </div>
+<button id="fabFs" title="Full screen" aria-label="Full screen">⛶</button>
 
 <script src="../exercises/tracking.js"></script>
 <script>
@@ -675,6 +682,10 @@
   $('#gShow').onclick = () => scope($('#main'), 'lines', false);
   $('#theme').onclick = () => { document.body.classList.toggle('light'); try { localStorage.setItem('board.light', document.body.classList.contains('light') ? '1' : ''); } catch (e) {} };
   $('#fs').onclick = () => { const d = document.documentElement; if (document.fullscreenElement) document.exitFullscreen(); else if (d.requestFullscreen) d.requestFullscreen().catch(() => {}); };
+  // the round button near the edit button does the same, and both show the current state
+  const fsLook = () => { const on = !!document.fullscreenElement; $('#fabFs').textContent = on ? '✕' : '⛶'; $('#fabFs').title = $('#fabFs').ariaLabel = on ? 'Exit full screen' : 'Full screen'; $('#fs').textContent = on ? 'Exit full screen' : 'Full screen'; };
+  $('#fabFs').onclick = () => $('#fs').click();
+  document.addEventListener('fullscreenchange', fsLook);
 
   const load = async () => {
     if (!Track.token()) return;
