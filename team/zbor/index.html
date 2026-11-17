@@ -142,8 +142,9 @@ ul.next { font-size: 1.35em; display: grid; gap: .7em; padding-left: 1.2em; marg
     TRIADS.forEach(([v, name, g]) => { const L = P.filter(p => p.vio === Number(v)); cards.append(card(name + ' (' + g + ')', L.filter(p => p.r[K]).length, late ? 'jeseni ' + L.filter(p => p.r.zacetno).length : '')); });
     const cl = [...new Set(P.map(p => p.cls).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'sl', { numeric: true }));
     const max = Math.max(1, ...cl.map(c => P.filter(p => p.cls === c && p.r[K]).length));
-    const bars = el('div', 'bars'); bars.style.marginTop = '1.4em'; bars.style.gridTemplateColumns = 'repeat(2, minmax(0, 1fr))'; bars.style.columnGap = '3em';
-    bars.style.gridAutoFlow = 'column'; bars.style.gridTemplateRows = 'repeat(' + Math.max(1, Math.ceil(cl.length / 2)) + ', auto)';
+    const bars = el('div', 'bars'); bars.style.marginTop = '1.4em'; const ncol = cl.length > 10 ? 3 : 2;
+    bars.style.gridTemplateColumns = 'repeat(' + ncol + ', minmax(0, 1fr))'; bars.style.columnGap = '3em';
+    bars.style.gridAutoFlow = 'column'; bars.style.gridTemplateRows = 'repeat(' + Math.max(1, Math.ceil(cl.length / ncol)) + ', auto)';
     cl.forEach(c => { const k = P.filter(p => p.cls === c && p.r[K]).length; const b = bar(c, k / max, 'one', String(k)); b.style.gridTemplateColumns = '4em 1fr 2.5em'; bars.append(b); });
     return slide('Kdo je odgovoril', 'Število učencev, ki so oddali vprašalnik' + (late ? ' spomladi' : '') + ', po triadah in razredih.', [cards, bars]);
   };
@@ -205,8 +206,11 @@ ul.next { font-size: 1.35em; display: grid; gap: .7em; padding-left: 1.2em; marg
     const COLS = [['N3 načrtuje', a => a.N3 != null, a => a.N3 >= a._top], ['M1 preverja, ali razume', a => a.M1 != null, a => a.M1 >= a._top], ['R1 pregleda napake', a => a.R1 != null, a => a.R1 >= a._top],
       ['ST06 samopreverjanje', a => a.S5_ST06 != null, a => a.S5_ST06 === 3], ['N7 zgodnji začetek', a => a.N7 != null, a => a.N7 <= 3]];
     const heat = v => v < 0.2 ? 1 : v < 0.4 ? 2 : v < 0.6 ? 3 : v < 0.8 ? 4 : 5, dark = document.body.classList.contains('dark');
+    // at most PER_SLIDE classes on one slide (readable on a projector); more classes → more slides "Primerjava razredov (1/2)"
+    const PER_SLIDE = 8, parts = Math.ceil(cl.length / PER_SLIDE), per = Math.ceil(cl.length / parts);
+    return Array.from({ length: parts }, (_, pi) => {
     const t = el('table'), hr = el('tr'); hr.append(el('th', '', 'Razred'), el('th', '', 'n')); COLS.forEach(c => hr.append(el('th', '', c[0]))); t.append(hr);
-    cl.forEach(c => {
+    cl.slice(pi * per, (pi + 1) * per).forEach(c => {
       const L = P.filter(p => p.cls === c), n = L.filter(p => p.r[K]).length, tr = el('tr'); tr.append(el('td', '', c), el('td', '', String(n)));
       if (n < MIN_CLASS) { const td = el('td', 'na', 'premalo odgovorov'); td.colSpan = COLS.length; tr.append(td); t.append(tr); return; }
       COLS.forEach(([, has, ok]) => {
@@ -216,7 +220,8 @@ ul.next { font-size: 1.35em; display: grid; gap: .7em; padding-left: 1.2em; marg
       });
       t.append(tr);
     });
-    return slide('Primerjava razredov', (late ? 'Končni delež, v oklepaju sprememba od jeseni. ' : 'Začetni delež zgornjih odgovorov. ') + 'Temnejša celica = večji delež. »—« = vprašanja v tej triadi ni. Razred z manj kot ' + MIN_CLASS + ' odgovori ni prikazan.', t);
+    return slide('Primerjava razredov' + (parts > 1 ? ' (' + (pi + 1) + '/' + parts + ')' : ''), (late ? 'Končni delež, v oklepaju sprememba od jeseni. ' : 'Začetni delež zgornjih odgovorov. ') + 'Temnejša celica = večji delež. »—« = vprašanja v tej triadi ni. Razred z manj kot ' + MIN_CLASS + ' odgovori ni prikazan.', t);
+    });
   };
   const sNext = () => {
     const u = el('ul', 'next');
@@ -232,11 +237,16 @@ ul.next { font-size: 1.35em; display: grid; gap: .7em; padding-left: 1.2em; marg
   try { cur = Number(sessionStorage.getItem('zbor.cur')) || 0; } catch (e) {}
   const build = () => {
     const deck = $('#deck'); deck.innerHTML = '';
-    nodes = SLIDES.map(f => f()).filter(Boolean);
+    nodes = [].concat(...SLIDES.map(f => f())).filter(Boolean);       // a slide function may return several slides
     nodes.forEach((s, i) => { const f = el('div', 'foot'); f.append(el('span', '', 'Kako se učimo? · ' + String(meta.year || '').replace('-', '/')), el('span', '', (i + 1) + ' / ' + nodes.length)); if (i) s.append(f); deck.append(s); });
     show(Math.min(cur, nodes.length - 1));
   };
-  const show = i => { cur = Math.max(0, Math.min(nodes.length - 1, i)); nodes.forEach((s, k) => s.classList.toggle('on', k === cur)); $('#pos').textContent = (cur + 1) + ' / ' + nodes.length; try { sessionStorage.setItem('zbor.cur', String(cur)); } catch (e) {} };
+  // safety net: shrink a slide's content until it fits (long labels, many rows); never below 55 %
+  const fit = s => { const b = s.querySelector('.body'); if (!b) return; let f = 1; b.style.fontSize = ''; while (b.scrollHeight > b.clientHeight + 1 && f > 0.56) { f -= 0.05; b.style.fontSize = f + 'em'; } };
+  const fitAll = () => { nodes.forEach((s, k) => { nodes.forEach((x, j) => x.classList.toggle('on', j === k)); fit(s); }); nodes.forEach((s, k) => s.classList.toggle('on', k === cur)); };
+  addEventListener('resize', () => { if (nodes.length) fit(nodes[cur]); });
+  addEventListener('beforeprint', () => { if (nodes.length) fitAll(); });
+  const show = i => { cur = Math.max(0, Math.min(nodes.length - 1, i)); nodes.forEach((s, k) => s.classList.toggle('on', k === cur)); fit(nodes[cur]); $('#pos').textContent = (cur + 1) + ' / ' + nodes.length; try { sessionStorage.setItem('zbor.cur', String(cur)); } catch (e) {} };
   const full = () => { if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen().catch(() => {}); };
   document.addEventListener('keydown', e => {
     if (!nodes.length || e.altKey || e.ctrlKey || e.metaKey) return;
