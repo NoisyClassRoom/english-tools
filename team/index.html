@@ -121,7 +121,7 @@
     tile('📝', 'Opazovalni list', 'Po uri v eni minuti zabeležite, katero strategijo ste uvajali in kako je delovala.', 'opazovanje/');
     if (seesResults) tile('📊', 'Rezultati vprašalnika', team ? 'Kazalniki, trditve, strategije, razredi in napredek posameznega učenca iz pravih odgovorov.' : 'Pogled za vašo vlogo.', 'rezultati/?v=3', team ? 'začetno merjenje · zbiranje do 21. 11. 2026' : 'začetno merjenje');
     if (team) tile('🔗', 'Analiza', 'Opazovanja in vprašalnik: kaj smo uvajali in kako so se spremenili odgovori.', null, 'kmalu');
-    if (team) tile('🎤', 'Predstavitev za zbor', 'Izhodiščni rezultati za učiteljski zbor, samo skupne številke.', null, 'po 21. 11. 2026');
+    if (team) tile('🎤', 'Predstavitev za zbor', 'Izhodiščni rezultati za učiteljski zbor kot prosojnice: samo skupne številke, sproti iz odgovorov.', 'zbor/', 'celoten zaslon · tisk v PDF');
     if (has('szs')) tile('🗓️', 'Sestanki SZS', 'Skupina za samoevalvacijo: datum, tema, prisotni in trajanje sestankov; pregled vseh sestankov s skupnim časom in tisk.', 'sestanki/');
     if (j.admin) tile('🔐', 'Upravljanje dostopa', 'Kdo vidi kaj: člani skupine, razredniki, učitelji, ravnatelj. Povezave in datumi.', 'dostop/');
 
