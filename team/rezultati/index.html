@@ -191,7 +191,7 @@ select { font: inherit; color: var(--ink); background: var(--field); border: 1px
         <li>Vsak učenec šteje enkrat v posameznem merjenju: če je oddal večkrat, velja zadnja oddaja. Oddaje učiteljev (preizkusi obrazcev) niso upoštevane.</li>
         <li>Deleže računamo po triadah in razredih; lestvic 1. VIO in 2./3. VIO ne povprečimo skupaj, primerjamo deleže zgornjih odgovorov.</li>
         <li>Isti vprašalnik ponovimo spomladi; spremembe bodo v odstotnih točkah (o. t.).</li>
-        <li>Razred z manj kot 5 odgovori ni prikazan v primerjavi razredov. Imena učencev vidita samo razvojna skupina in razrednik svojega razreda (napredek posameznega učenca); e-naslovov stran ne pokaže.</li>
+        <li>Razred z manj kot 3 odgovori ni prikazan v primerjavi razredov. Imena učencev vidita samo razvojna skupina in razrednik svojega razreda (napredek posameznega učenca); e-naslovov stran ne pokaže.</li>
         <li>Rezultate najprej vidi razvojna skupina. Ko jih odpremo: razredniki vidijo celo šolo po triadah ter svoj razred, ravnatelj celo šolo in vse razrede brez imen, učitelji celo šolo po triadah.</li>
         <li>Pozneje: povezava z ocenami po predmetnih sklopih (2. in 3. VIO).</li>
       </ul>
@@ -207,6 +207,7 @@ select { font: inherit; color: var(--ink); background: var(--field); border: 1px
 
   // ---- the merged questionnaire: codes, labels, scales in ../vprasalnik.js (shared with team/zbor/) ----
   const { ST, STRAT, SCALE, TOP } = VPR;
+  const MIN_CLASS = 3;                // a class with fewer answers is not shown in the class comparison (teacher's decision, 18 Nov 2026; was 5)
   const top = (a, c) => a[c] != null && a[c] >= a._top;     // every answer set carries the top value of its own scale
   // ---- real answers (action rsresults): one entry per pupil, {v, c, r: {zacetno: {code: value}, koncno: {...}}}, no names ----
   let pupils = [], CLASSES = [], meta = {}, VIEW = {}, S1L = {};
@@ -315,7 +316,7 @@ select { font: inherit; color: var(--ink); background: var(--field); border: 1px
     CLASSES.filter(([c]) => tri === 'all' || Math.ceil(Number(c[0]) / 3) === Number(tri)).forEach(([c]) => {
       const L = pupils.filter(p => p.cls === c), k = late ? 'koncno' : 'zacetno', n = L.filter(p => p.r[k]).length, tr = el('tr');
       tr.append(el('td', '', c), el('td', '', String(n)));
-      if (n < 5) { const td = el('td', 'na', 'premalo odgovorov'); td.colSpan = COLS.length; tr.append(td); tb.append(tr); return; }
+      if (n < MIN_CLASS) { const td = el('td', 'na', 'premalo odgovorov'); td.colSpan = COLS.length; tr.append(td); tb.append(tr); return; }
       COLS.forEach(([code, lab, f]) => {
         const has = L.some(p => p.r[k] && (p.r[k][code] != null || p.r[k]['S5_' + code] != null));
         if (!has) { tr.append(el('td', 'na', '—')); return; }
@@ -325,7 +326,7 @@ select { font: inherit; color: var(--ink); background: var(--field); border: 1px
       });
       tb.append(tr);
     });
-    $('#clNote').textContent = (late ? 'Končni delež in v oklepaju sprememba od jeseni (o. t.). ' : 'Začetni delež. ') + 'Temnejša celica = večji delež. Razredi z manj kot 5 odgovori niso prikazani. »—« = vprašanja v tej triadi ni.'
+    $('#clNote').textContent = (late ? 'Končni delež in v oklepaju sprememba od jeseni (o. t.). ' : 'Začetni delež. ') + 'Temnejša celica = večji delež. Razredi z manj kot ' + MIN_CLASS + ' odgovori niso prikazani. »—« = vprašanja v tej triadi ni.'
       + (!VIEW.allClasses && VIEW.own && VIEW.own.length ? ' Prikazan je samo vaš razred.' : '');
     $('#clBox').classList.toggle('hide', !CLASSES.some(c => tri === 'all' || Math.ceil(Number(c[0][0]) / 3) === Number(tri)));
 

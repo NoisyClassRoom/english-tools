@@ -36,7 +36,7 @@ Grades (separate data, from eAsistent): per pupil and period (`1. ocenjevalno ob
 
 3. **Katere strategije učenci poznajo in uporabljajo** (2nd/3rd VIO): one 100 % stacked bar per strategy, with the parts poznam in uporabljam / poznam, ne uporabljam / ne poznam. There are two panels, Začetno and Končno, side by side. Sort by the "poznam in uporabljam" share. Strategies shown, with labels: ST02 Podčrtovanje ključnih besed · ST22 Zapisovanje ključnih besed · ST04 Miselni vzorec · ST03 Povzetek s svojimi besedami · ST05 Skica, slika, tabela · ST24 Kartice z vprašanji · ST06 Samopreverjanje brez zapiskov · ST21 Ponavljanje na glas · ST07 Razlaga drugi osebi · ST09 Samostojno reševanje nalog · ST10 Ponovno reševanje napak · ST08 Učenje v krajših obdobjih · ST11 Povezovanje s predznanjem · ST18 Pomnilni triki.
 
-4. **Primerjava razredov**: a heat map table, one row per class. Columns: N3 načrtuje, R1 pregleda napake, ST06 samopreverjanje, N7 zgodnji začetek. Each cell shows the spring share and, in brackets, the change since autumn. A darker cell means a higher share. Hide classes with fewer than 5 pupils ("premalo odgovorov").
+4. **Primerjava razredov**: a heat map table, one row per class. Columns: N3 načrtuje, R1 pregleda napake, ST06 samopreverjanje, N7 zgodnji začetek. Each cell shows the spring share and, in brackets, the change since autumn. A darker cell means a higher share. Hide classes with fewer than 3 pupils ("premalo odgovorov"; 5 until 18 Nov 2026).
 
 5. **Učne navade in ocene** (2nd/3rd VIO), with a **subject group filter**: Vsi predmeti / Jezikovni sklop / Matematika / Naravoslovni sklop / Družboslovni sklop / Tehnični sklop / Umetnostni in športni sklop. Always add the note "povezava, ne vzrok" (a link, not a cause).
    - **5a. Povprečna ocena ob koncu leta: z navado in brez nje**: grouped bars for four habits measured in spring:
@@ -62,7 +62,7 @@ Grades (separate data, from eAsistent): per pupil and period (`1. ocenjevalno ob
 
 - Shares, not averages, wherever the 1st VIO scale differs.
 - Percentage points for changes.
-- Minimum group size 5 for anything shown outside the team's named view.
+- Minimum group size 3 for anything shown outside the team's named view (decision of the teacher, 18 Nov 2026; the sample used 5, but some classes have only three pupils who answer).
 - Every chart shows n, and each chart has a one-line note on what it shows.
 - Grade views only for 2nd/3rd VIO.
 - Before the spring round there is no "končno" data: show the autumn values only, and hide the change and the pupil-progress parts.

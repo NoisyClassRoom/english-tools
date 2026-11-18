@@ -45,7 +45,7 @@ Draft for the school's data-protection officer (DPO). It describes what the tool
   - **principal**: shares per triad and for every class, **no names**;
   - **teacher**: shares per triad for the whole school only; the class is not sent.
 
-  Class teachers, the principal and teachers get their view only once the setting "rezultati_odprti" on the access-list page names their role; until then only the development team sees the results. In the class comparison a class with fewer than 5 answers is not shown.
+  Class teachers, the principal and teachers get their view only once the setting "rezultati_odprti" on the access-list page names their role; until then only the development team sees the results. In the class comparison a class with fewer than 3 answers is not shown (since 18 Nov 2026; before: 5).
 - since 17 Nov 2026, the **presentation for the teachers' meeting** ("Predstavitev za zbor") in the same section: slides that the development team opens and shows to the whole staff. They show only counts and shares per triad and per class, **no names**; in the class comparison a class with fewer than 3 answers is not shown. Nothing new is stored.
 - Not yet in use: the link between the questionnaire answers and **grades** by subject group. It will be described here before any grades are imported.
 
@@ -117,7 +117,7 @@ Draft for the school's data-protection officer (DPO). It describes what the tool
   - **ravnatelj**: deleže po triadah in za vsak razred, **brez imen**;
   - **učitelj**: samo deleže po triadah za celo šolo; razreda strežnik ne pošlje.
 
-  Razredniki, ravnatelj in učitelji dobijo svoj pogled šele, ko nastavitev »rezultati_odprti« na strani s seznamom dostopov navede njihovo vlogo; do takrat rezultate vidi samo razvojna skupina. V primerjavi razredov razred z manj kot 5 odgovori ni prikazan.
+  Razredniki, ravnatelj in učitelji dobijo svoj pogled šele, ko nastavitev »rezultati_odprti« na strani s seznamom dostopov navede njihovo vlogo; do takrat rezultate vidi samo razvojna skupina. V primerjavi razredov razred z manj kot 3 odgovori ni prikazan (od 18. 11. 2026; prej 5).
 - od 17. 11. 2026 **predstavitev za učiteljski zbor** (»Predstavitev za zbor«) v istem razdelku: prosojnice, ki jih razvojna skupina odpre in pokaže vsem zaposlenim. Prikazujejo samo število učencev in deleže po triadah in po razredih, **brez imen**; v primerjavi razredov razred z manj kot 3 odgovori ni prikazan. Nič novega se ne shrani.
 - Še ni v uporabi: povezava odgovorov vprašalnika z **ocenami** po predmetnih sklopih. Pred uvozom ocen bo opisana tukaj.
 

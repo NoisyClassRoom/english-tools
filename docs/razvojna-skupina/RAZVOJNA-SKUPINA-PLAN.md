@@ -119,7 +119,7 @@ Results are first seen by the team only. Later, class teachers, teachers and the
 - Start with the team role only. Add a switch (script property `RESULTS_OPEN_TO`, e.g. `team` → `team,razredniki` → `all`) so the team can open the views later without new code.
 - Pupils share the `@os-verzej.si` domain, so never grant access by domain. Every role is an explicit list.
 - Named views: the pupil's answers next to their own grades by subject group (JEZ, MAT, NAR, DRU, TEH, UMS), from eAsistent exports. The grades import is a separate step: ask how the teacher exports from eAsistent before building it.
-- Aggregated views: minimum group size 5.
+- Aggregated views: minimum group size 3 (decision of the teacher, 18 Nov 2026; was 5).
 
 ## Rules
 
