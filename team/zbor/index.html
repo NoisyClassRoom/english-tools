@@ -73,6 +73,19 @@ table { border-collapse: separate; border-spacing: .2em; width: 100%; font-size:
 th, td { padding: .32em .5em; text-align: center; font-variant-numeric: tabular-nums; border-radius: .25em; }
 th { color: var(--muted); font-weight: 600; } th:first-child, td:first-child { text-align: left; }
 td.w { color: #fff; } td.b { color: #0b0b0b; } td.na { color: var(--muted); background: var(--h0); }
+/* how-to slides for teachers (18 Nov 2026) */
+.howto { display: grid; grid-template-columns: 1fr auto; gap: 2.2em; align-items: start; }
+.howto ol, .howto ul { margin: 0; padding-left: 1.3em; display: grid; gap: .55em; font-size: 1.12em; }
+.howto li b { color: var(--accent); }
+.howto .side { text-align: center; }
+.howto .side .qr { width: 11em; height: 11em; background: #fff; padding: .5em; border-radius: .6em; border: 1px solid var(--line); }
+.howto .side .qr svg { width: 100%; height: 100%; display: block; }
+.howto .link { font-weight: 800; font-size: 1.1em; margin-top: .5em; word-break: break-all; }
+.howto .note { color: var(--muted); font-size: .9em; margin-top: .3em; }
+.cols2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1.4em; }
+.cols2 h3 { margin: 0 0 .4em; font-size: 1.25em; }
+.cols2 ul, .cols2 ol { margin: 0; padding-left: 1.2em; display: grid; gap: .4em; font-size: 1.02em; }
+.tip { margin-top: .9em; padding: .55em .9em; border-left: .3em solid var(--accent); background: var(--card); border-radius: .3em; font-size: 1em; }
 ul.next { font-size: 1.35em; display: grid; gap: .7em; padding-left: 1.2em; margin: .4em 0 0; }
 /* controls */
 #nav { position: fixed; right: 12px; bottom: 10px; display: none; gap: 6px; align-items: center; z-index: 5; opacity: .35; transition: opacity .2s; }
@@ -92,6 +105,8 @@ ul.next { font-size: 1.35em; display: grid; gap: .7em; padding-left: 1.2em; marg
 <body>
 <script src="../../exercises/tracking.js"></script>
 <script src="../vprasalnik.js?v=1"></script>
+<!-- QR code of https://noisy.splet.arnes.si/razvojna-skupina/ (made once with the npm package qrcode 1.5.4, 18 Nov 2026; nothing is loaded from outside) -->
+<script>window.QR_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 35 35" shape-rendering="crispEdges"><path fill="#ffffff" d="M0 0h35v35H0z"/><path stroke="#000000" d="M1 1.5h7m2 0h1m3 0h2m1 0h2m1 0h3m1 0h2m1 0h7M1 2.5h1m5 0h1m5 0h6m2 0h2m4 0h1m5 0h1M1 3.5h1m1 0h3m1 0h1m1 0h1m2 0h3m2 0h3m2 0h2m1 0h1m1 0h1m1 0h3m1 0h1M1 4.5h1m1 0h3m1 0h1m1 0h3m3 0h1m1 0h1m3 0h1m2 0h2m1 0h1m1 0h3m1 0h1M1 5.5h1m1 0h3m1 0h1m1 0h1m6 0h1m2 0h1m4 0h1m2 0h1m1 0h3m1 0h1M1 6.5h1m5 0h1m1 0h1m1 0h1m1 0h2m1 0h4m1 0h1m1 0h1m1 0h1m1 0h1m5 0h1M1 7.5h7m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h7M9 8.5h2m5 0h1m2 0h1m2 0h1m1 0h1M1 9.5h1m1 0h5m3 0h1m1 0h4m1 0h1m4 0h2m2 0h5M3 10.5h1m2 0h1m4 0h3m5 0h3m1 0h2m2 0h2m1 0h2m1 0h1M1 11.5h1m2 0h2m1 0h1m1 0h2m1 0h2m2 0h2m1 0h1m3 0h1m5 0h1m1 0h2M1 12.5h1m1 0h3m3 0h1m1 0h2m2 0h2m3 0h8m1 0h3m1 0h1M1 13.5h5m1 0h1m2 0h1m2 0h1m5 0h2m1 0h1m2 0h2m2 0h2m1 0h1M1 14.5h2m6 0h4m2 0h4m2 0h2m1 0h1m2 0h1m2 0h1m1 0h2M1 15.5h1m3 0h3m1 0h1m2 0h1m5 0h1m1 0h1m5 0h2m2 0h1m1 0h1M1 16.5h6m1 0h1m1 0h2m2 0h1m2 0h1m1 0h5m1 0h3m1 0h3M5 17.5h1m1 0h1m3 0h1m1 0h1m1 0h1m2 0h1m1 0h1m2 0h2m1 0h1m1 0h2m3 0h1M2 18.5h1m1 0h2m2 0h4m2 0h1m2 0h4m2 0h2m2 0h2m1 0h4M2 19.5h4m1 0h6m3 0h3m4 0h1m3 0h3m1 0h2M1 20.5h2m2 0h2m1 0h2m1 0h2m2 0h1m2 0h2m1 0h1m3 0h7m1 0h1M1 21.5h7m8 0h2m3 0h6m1 0h3m2 0h1M1 22.5h1m1 0h2m6 0h2m1 0h1m1 0h1m2 0h1m2 0h1m1 0h1m1 0h3m4 0h1M1 23.5h1m2 0h1m1 0h2m2 0h1m2 0h1m2 0h2m3 0h2m2 0h3m4 0h1M1 24.5h1m2 0h3m1 0h1m1 0h1m2 0h2m1 0h1m5 0h1m2 0h1m1 0h2m1 0h2m1 0h1M1 25.5h1m3 0h1m1 0h3m2 0h1m3 0h3m2 0h1m1 0h1m1 0h5m2 0h2M9 26.5h5m1 0h1m1 0h1m2 0h3m2 0h1m3 0h1m1 0h3M1 27.5h7m7 0h2m2 0h1m1 0h2m1 0h2m1 0h1m1 0h1m1 0h2M1 28.5h1m5 0h1m1 0h1m3 0h1m1 0h1m1 0h1m3 0h5m3 0h4M1 29.5h1m1 0h3m1 0h1m1 0h5m5 0h1m2 0h1m2 0h6M1 30.5h1m1 0h3m1 0h1m1 0h1m2 0h1m1 0h1m1 0h2m3 0h1m1 0h2m1 0h1m2 0h2m2 0h1M1 31.5h1m1 0h3m1 0h1m1 0h1m1 0h2m1 0h1m3 0h3m1 0h3m2 0h2M1 32.5h1m5 0h1m4 0h4m1 0h1m2 0h3m1 0h1m1 0h1m2 0h3M1 33.5h7m1 0h1m1 0h1m1 0h2m3 0h3m2 0h4m1 0h1m3 0h1"/></svg>';</script>
 <div id="login">
   <h2 style="margin-top:0">🎤 Kako se učimo – predstavitev za zbor</h2>
   <p id="loginMsg" class="muted">Stran je namenjena razvojni skupini. Prijavite se s šolskim Google računom.</p>
@@ -223,15 +238,67 @@ ul.next { font-size: 1.35em; display: grid; gap: .7em; padding-left: 1.2em; marg
     return slide('Primerjava razredov' + (parts > 1 ? ' (' + (pi + 1) + '/' + parts + ')' : ''), (late ? 'Končni delež, v oklepaju sprememba od jeseni. ' : 'Začetni delež zgornjih odgovorov. ') + 'Temnejša celica = večji delež. »—« = vprašanja v tej triadi ni. Razred z manj kot ' + MIN_CLASS + ' odgovori ni prikazan.', t);
     });
   };
+  // ---- for teachers: how to use the pages "Kako se učim" (18 Nov 2026). Text only, no data. ----
+  const LINK = 'noisy.splet.arnes.si/razvojna-skupina';
+  const li = (list, items) => { items.forEach(x => { const e = el('li'); if (Array.isArray(x)) { e.append(el('b', '', x[0]), document.createTextNode(x[1])); } else e.textContent = x; list.append(e); }); return list; };
+  const sAccess = () => {
+    const box = el('div', 'howto'), steps = li(el('ol'), [
+      ['Odprite ', 'spletno stran NoisyClassRoom, meni »Kako se učim« (povezava desno).'],
+      ['Prijavite se ', 's šolskim Google računom (ime.priimek@os-verzej.si) – z gumbom za prijavo z Googlom.'],
+      ['Na domači strani ', 'so kartice: priročnik, izbira strategije, opazovalni list, obvestila in strategija meseca.'],
+      'Če piše »Ta račun nima dostopa«, se obrnite na razvojno skupino – dostop dobi vsak učitelj šole.',
+      'Deluje na računalniku, tablici in telefonu.']);
+    const side = el('div', 'side');
+    if (window.QR_SVG) { const q = el('div', 'qr'); q.innerHTML = window.QR_SVG; side.append(q); }
+    side.append(el('div', 'link', LINK), el('div', 'note', window.QR_SVG ? 'Skenirajte s telefonom' : ''));
+    box.append(steps, side);
+    return slide('Kako se učim – za učitelje', 'Strani za uvajanje učnih strategij so na šolski spletni strani. Učenci jih ne vidijo.', box);
+  };
+  const sGuide = () => {
+    const c = el('div', 'cols2'), a = el('div'), b = el('div');
+    a.append(el('h3', '', '📘 Priročnik »Učne strategije v razredu«'), li(el('ul'), [
+      ['Štirje koraki uvajanja: ', '1 predstavim · 2 vodena vaja · 3 samostojno · 4 refleksija.'],
+      'Strategije po triadah in predmetnih sklopih, primeri za razred.',
+      'Pasti in kako spremljati, ali strategija deluje.',
+      'Strategija meseca je na domači strani.']));
+    b.append(el('h3', '', '🎯 Izbira strategije in priprava ure'), li(el('ol'), [
+      ['Vpišite ', 'razred (ali triado), predmet, vrsto snovi in korak uvajanja.'],
+      ['Dobite ', 'do tri predloge strategij; eno izberite za pripravo.'],
+      ['Natisnite ', 'pripravo ure na eno stran A4 ali kartico za tablo.'],
+      ['Po uri ', 'z gumbom »Vpiši opazovanje« odprete opazovalni list z že izpolnjenimi podatki.']]));
+    c.append(a, b);
+    return slide('Priročnik in izbira strategije', 'Pred uro: kaj izbrati in kako začeti.', c);
+  };
+  const sObs = () => {
+    const c = el('div', 'cols2'), a = el('div'), b = el('div');
+    a.append(el('h3', '', '📝 Po uri – v eni minuti'), li(el('ol'), [
+      ['Osnovno: ', 'datum, razred, predmet, strategija, korak uvajanja, čas za strategijo (5–45 min).'],
+      ['Kako je delovala: ', 'od »slabo« do »zelo dobro«.'],
+      ['Koliko učencev jo je uporabilo: ', 'nekaj · približno polovica · večina · skoraj vsi.'],
+      ['Odziv učencev: ', 'od »odpor« do »navdušenje«.'],
+      ['So jo pozneje uporabili sami? ', 'da · ne · še ne vem (lahko spremenite pozneje).'],
+      'Tema in opombe sta neobvezni – brez imen učencev.',
+      '»➕ Še ena strategija pri tej uri?« za drugo strategijo pri isti uri.']));
+    b.append(el('h3', '', '📂 Moja opazovanja'), li(el('ul'), [
+      'Seznam vaših zapisov s filtri (razred, predmet, strategija, mesec); vsak zapis lahko uredite ali izbrišete.',
+      ['»Kaj sem že uvedel«: ', 'koliko ur s posamezno strategijo po razredih in najvišji dosežen korak.'],
+      ['Vprašanja in predlogi: ', 'razvojni skupini – list še izboljšujemo.']]));
+    const t = el('div', 'tip', 'Svoja opazovanja vidite samo vi. Razvojna skupina bo pozneje videla skupne številke vseh učiteljev (kaj smo uvajali in kako je delovalo) – brez podatkov o učencih.');
+    b.append(t);
+    c.append(a, b);
+    return slide('Opazovalni list', 'Kratek zapis po uri, v kateri ste uvajali ali utrjevali učno strategijo.', c);
+  };
   const sNext = () => {
     const u = el('ul', 'next');
     (late ? ['Primerjava jesen–pomlad po razredih in triadah', 'Povezava navad z ocenami po predmetnih sklopih (2. in 3. VIO)', 'Izbor strategij za naslednje šolsko leto']
-      : ['Zbiranje odgovorov do 21. 11. 2026', 'Uvajanje učnih strategij pri pouku in opazovalni listi', 'Spomladi: ponovimo vprašalnik in primerjamo jesen in pomlad', 'Po 1. ocenjevalnem obdobju: povezava navad z ocenami po predmetnih sklopih (2. in 3. VIO)'])
+      : ['Zbiranje odgovorov do 21. 11. 2026', 'Uvajanje učnih strategij pri pouku in sprotni zapisi v opazovalni list',
+         'Razredniki, učitelji in ravnatelj dobijo svoj pogled rezultatov, ko jih razvojna skupina odpre (razrednik vidi svoj razred)',
+         'Spomladi: ponovimo vprašalnik in primerjamo jesen in pomlad', 'Povezava navad z ocenami po predmetnih sklopih (2. in 3. VIO) – vedno kot povezava, ne vzrok'])
       .forEach(x => u.append(el('li', '', x)));
     return slide('Kaj sledi', '', u);
   };
   // later: a grades slide (5a habits × end-of-year grade, 5b change in habits × change in grade) goes here once rsresults sends grades
-  const SLIDES = [sTitle, sWho, sKpi, sHabits, sStrat23, sStrat1, sClasses, sNext];
+  const SLIDES = [sTitle, sWho, sKpi, sHabits, sStrat23, sStrat1, sClasses, sAccess, sGuide, sObs, sNext];
 
   let cur = 0, nodes = [];
   try { cur = Number(sessionStorage.getItem('zbor.cur')) || 0; } catch (e) {}
