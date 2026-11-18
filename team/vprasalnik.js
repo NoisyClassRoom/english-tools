@@ -19,7 +19,7 @@ window.VPR = (() => {
   // the pupils of action rsresults, each answer set carrying the top value of its own scale
   const pupils = j => (j.pupils || []).filter(p => p.v >= 1 && p.v <= 3).map(p => {
     const r = {}; Object.keys(p.r || {}).forEach(k => { r[k] = Object.assign({ _top: TOP(p.v) }, p.r[k]); });
-    return { cls: p.c || '', vio: p.v, r, n: p.n || '' };
+    return { cls: p.c || '', vio: p.v, r, n: p.n || '', g: p.g || null };   // g: mean grade per subject group and period (2nd/3rd VIO, where the role may see it)
   });
   const TRIADS = [['1', '1. VIO', '1.–3. razred'], ['2', '2. VIO', '4.–6. razred'], ['3', '3. VIO', '7.–9. razred']];
   return { ST, STRAT, SCALE, TOP, pupils, TRIADS };

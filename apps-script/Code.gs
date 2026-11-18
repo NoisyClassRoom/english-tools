@@ -85,7 +85,7 @@ var UNITS = {
 
 // Change this text whenever the code of doPost changes: the health check compares it with what the published web app answers,
 // so it can tell you that the saved code has not been deployed as a new version yet.
-var CODE_VERSION = '2026-11-16.1';
+var CODE_VERSION = '2026-11-18.1';
 
 // ---------------------------------------------------------------- saving results
 
@@ -2868,6 +2868,31 @@ function rsResultsView_(d) {
   v.allClasses = v.team || v.principal;
   return v;
 }
+// {g: {email: {p1: {JEZ: 4.25, …, vsi: 4.1}, p2: …, konec: …}}, size: {class: pupils}, imported, periods} for one school year
+var RS_PERIODS = { '1. obdobje': 'p1', '2. obdobje': 'p2', 'konec leta': 'konec' };
+function rsGrades_(book, year) {
+  var res = { g: {}, size: {}, imported: '', periods: [] }, last = 0, acc = {};
+  var oc = book.getSheetByName('Ocene'), vs = book.getSheetByName('Velikost razredov');
+  if (vs && vs.getLastRow() > 1) vs.getRange(2, 1, vs.getLastRow() - 1, 3).getValues().forEach(function (r) {
+    if (String(r[0]).trim() === year && Number(r[2]) > 0) res.size[String(r[1]).trim().toUpperCase()] = Number(r[2]);
+  });
+  if (oc && oc.getLastRow() > 1) oc.getRange(2, 1, oc.getLastRow() - 1, 11).getValues().forEach(function (r) {
+    if (String(r[0]).trim() !== year) return;
+    var per = RS_PERIODS[String(r[1]).trim()], e = String(r[4]).trim().toLowerCase(), grp = String(r[6]).trim(), avg = Number(r[9]);
+    if (!per || !e || !grp || !(avg >= 1 && avg <= 5)) return;
+    var a = (acc[e] = acc[e] || {}), q = (a[per] = a[per] || {});
+    (q[grp] = q[grp] || []).push(avg); (q.vsi = q.vsi || []).push(avg);
+    if (res.periods.indexOf(per) < 0) res.periods.push(per);
+    var t = r[10] instanceof Date ? r[10].getTime() : 0; if (t > last) last = t;
+  });
+  var mean = function (xs) { return Math.round(xs.reduce(function (s, x) { return s + x; }, 0) / xs.length * 100) / 100; };
+  Object.keys(acc).forEach(function (e) {
+    var o = res.g[e] = {};
+    Object.keys(acc[e]).forEach(function (per) { var q = o[per] = {}; Object.keys(acc[e][per]).forEach(function (grp) { q[grp] = mean(acc[e][per][grp]); }); });
+  });
+  if (last) res.imported = Utilities.formatDate(new Date(last), TZ, 'd. M. yyyy');
+  return res;
+}
 function rsNameFromEmail_(e) {
   return String(e).split('@')[0].split(/[._]+/).filter(String).map(function (w) { return w.charAt(0).toUpperCase() + w.slice(1); }).join(' ');
 }
@@ -2912,13 +2937,26 @@ function rsResultsReply_(d) {
     p.r[s.k] = s.a; p.t[s.k] = s.t;
     if (!p.tc || s.t >= p.tc) { p.v = s.v; p.c = s.c; p.tc = s.t; p.n = s.nm || (s.email ? rsNameFromEmail_(s.email) : ''); }   // class and name of the latest submission
   });
+  // grades (18 Nov 2026, GRADES-IMPORT-PLAN.md): hidden tab Ocene, written by uvoziOcene of the questionnaire script; only
+  // 2nd/3rd VIO pupils who answered, compulsory subjects. Sent per pupil: the mean grade per subject group and period (mean of the
+  // subject means; vsi = all subjects), never single marks or subjects. Team, principal and the own class teacher; teachers none.
+  var gr = rsGrades_(book, year), canG = view.team || view.principal || view.own.length;
   var list = Object.keys(pupils).map(function (k) {
     var p = pupils[k], mine = view.own.indexOf(p.c) >= 0, o = { v: p.v, c: view.allClasses || mine ? p.c : '', r: p.r };
     if ((view.team || mine) && p.n) o.n = p.n;
+    if (p.v > 1 && gr.g[k] && (view.team || view.principal || mine)) o.g = gr.g[k];
     return o;
   });
+  // class sizes from the grades export (counts only): every class for team and principal, the own class for a class teacher,
+  // triad totals for everyone who sees the page
+  var sizes = { tri: {}, cls: {} };
+  Object.keys(gr.size).forEach(function (c) {
+    var t = Math.ceil(Number(c.charAt(0)) / 3); sizes.tri[t] = (sizes.tri[t] || 0) + gr.size[c];
+    if (view.allClasses || view.own.indexOf(c) >= 0) sizes.cls[c] = gr.size[c];
+  });
   list.sort(function (a, b) { return a.c < b.c ? -1 : a.c > b.c ? 1 : 0; });   // by class only: the order says nothing about who is who
-  return out_({ ok: true, year: year, pupils: list, s1: s1, submissions: order.length, repeats: repeats, staff: left,
+  return out_({ ok: true, year: year, pupils: list, s1: s1, submissions: order.length, repeats: repeats, staff: left, sizes: sizes,
+                grades: canG && gr.imported ? { imported: gr.imported, periods: gr.periods } : null,
                 view: { team: view.team, principal: view.principal, own: view.own, teacher: view.teacher, allClasses: view.allClasses },
                 last: last ? Utilities.formatDate(new Date(last), TZ, 'd. M. yyyy, HH:mm') : '' });
 }
