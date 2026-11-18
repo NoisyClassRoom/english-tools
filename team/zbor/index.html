@@ -269,17 +269,16 @@ ul.next { font-size: 1.35em; display: grid; gap: .7em; padding-left: 1.2em; marg
   const load = async () => {
     if (!Track.token() || loading || nodes.length) return;
     loading = true; $('#loginMsg').textContent = 'Nalagam …';
-    let h = null; try { h = await api('rshome'); } catch (e) {}
-    if (!h || !h.ok || !h.roles.includes('skupina')) {
-      loading = false;
-      $('#loginMsg').textContent = h && h.ok ? 'Predstavitev je samo za razvojno skupino.' : h && h.error === 'access' ? 'Ta račun nima dostopa. Obrnite se na razvojno skupino.'
-        : h && h.error === 'token' ? 'Prijava je potekla. Prijavite se znova.' : 'Strani trenutno ni mogoče naložiti.';
-      if (!h || h.error === 'token') Track.button($('#slot'));
-      return;
-    }
+    // one request only (18 Nov 2026, speed): rsresults checks the sign-in and the access list on the server; this page is for the
+    // development team, so it also needs view.team (other roles would only get what their own view allows anyway)
     let j = null; try { j = await api('rsresults'); } catch (e) {}
     loading = false;
-    if (!j || !j.ok) { $('#loginMsg').textContent = 'Rezultatov trenutno ni mogoče naložiti. Poskusite znova čez nekaj minut.'; return; }
+    if (!j || !j.ok || !(j.view && j.view.team)) {
+      $('#loginMsg').textContent = j && j.ok || j && j.error === 'closed' ? 'Predstavitev je samo za razvojno skupino.' : j && j.error === 'access' ? 'Ta račun nima dostopa. Obrnite se na razvojno skupino.'
+        : j && j.error === 'token' ? 'Prijava je potekla. Prijavite se znova.' : 'Rezultatov trenutno ni mogoče naložiti. Poskusite znova čez nekaj minut.';
+      if (!j || j.error === 'token') Track.button($('#slot'));
+      return;
+    }
     meta = j; S1L = j.s1 || {};
     P = VPR.pupils(j).map(p => ({ cls: p.cls, vio: p.vio, r: p.r }));      // names are dropped here: this page shows aggregates only
     late = P.some(p => p.r.koncno); K = late ? 'koncno' : 'zacetno';

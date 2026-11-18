@@ -415,18 +415,12 @@ select { font: inherit; color: var(--ink); background: var(--field); border: 1px
   const load = async () => {
     if (!Track.token() || loaded) return;
     loaded = true; $('#loginMsg').textContent = 'Nalagam …';
-    let h = null; try { h = await api('rshome'); } catch (e) {}
-    if (!h || !h.ok || !(h.roles.includes('skupina') || h.roles.some(r => (h.resultsOpen || []).includes(r)))) {
-      loaded = false;
-      $('#loginMsg').textContent = h && h.ok ? 'Rezultati so zaenkrat samo za razvojno skupino. Odprli jih bomo po koncu zbiranja odgovorov.' : h && h.error === 'access' ? 'Ta račun nima dostopa. Obrnite se na razvojno skupino.'
-        : h && h.error === 'token' ? 'Prijava je potekla. Prijavite se znova.' : 'Strani trenutno ni mogoče naložiti.';
-      if (!h || h.error === 'token') Track.button($('#slot'));
-      return;
-    }
+    // one request only (18 Nov 2026, speed): rsresults checks the sign-in, the access list and the switch rezultati_odprti on the server
     let j = null; try { j = await api('rsresults'); } catch (e) {}
     if (!j || !j.ok) {
       loaded = false;
-      $('#loginMsg').textContent = j && j.error === 'closed' ? 'Rezultati so zaenkrat samo za razvojno skupino.' : j && j.error === 'nosheet' ? 'Preglednica z odgovori vprašalnika ni nastavljena (SURVEY_SHEET_ID). Obvestite skrbnika.'
+      $('#loginMsg').textContent = j && j.error === 'closed' ? 'Rezultati so zaenkrat samo za razvojno skupino. Odprli jih bomo po koncu zbiranja odgovorov.'
+        : j && j.error === 'access' ? 'Ta račun nima dostopa. Obrnite se na razvojno skupino.' : j && j.error === 'nosheet' ? 'Preglednica z odgovori vprašalnika ni nastavljena (SURVEY_SHEET_ID). Obvestite skrbnika.'
         : j && j.error === 'token' ? 'Prijava je potekla. Prijavite se znova.' : 'Rezultatov trenutno ni mogoče naložiti. Poskusite znova čez nekaj minut.';
       if (!j || j.error === 'token') Track.button($('#slot'));
       return;
