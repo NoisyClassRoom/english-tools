@@ -73,6 +73,13 @@ table { border-collapse: separate; border-spacing: .2em; width: 100%; font-size:
 th, td { padding: .32em .5em; text-align: center; font-variant-numeric: tabular-nums; border-radius: .25em; }
 th { color: var(--muted); font-weight: 600; } th:first-child, td:first-child { text-align: left; }
 td.w { color: #fff; } td.b { color: #0b0b0b; } td.na { color: var(--muted); background: var(--h0); }
+table.turn { table-layout: fixed; border-spacing: .12em; font-size: .95em; }
+table.turn th, table.turn td { padding: .45em 0; white-space: nowrap; }
+table.turn th:first-child, table.turn td.rl { width: 10.5em; text-align: left; padding-left: .2em; white-space: normal; line-height: 1.15; }
+table.turn .sp { width: .5em; padding: 0; background: none; }
+table.turn td.rl .c { color: var(--muted); font-family: ui-monospace, Consolas, monospace; font-size: .85em; }
+table.turn td.n { color: var(--muted); font-size: .85em; }
+table.turn td small { display: block; font-size: .72em; font-weight: 700; opacity: .9; }
 /* how-to slides for teachers (18 Nov 2026) */
 .howto { display: grid; grid-template-columns: 1fr auto; gap: 2.2em; align-items: start; }
 .howto ol, .howto ul { margin: 0; padding-left: 1.3em; display: grid; gap: .55em; font-size: 1.12em; }
@@ -227,27 +234,37 @@ ul.next { font-size: 1.35em; display: grid; gap: .7em; padding-left: 1.2em; marg
     return slide('Kako se učijo učenci 1. VIO', 'Vprašanje »Kako se učiš?« (več odgovorov): delež učencev, ki so izbrali posamezen način' + (late ? ', spomladi in sprememba od jeseni' : '') + '. n = ' + L.length + '.', bars);
   };
   const sClasses = () => {
+    // one slide for all classes (decision of the teacher, 19 Nov 2026: a comparison split over slides loses its meaning):
+    // the table is turned – classes are columns (a small gap between the triads), the indicators are rows
     const cl = [...new Set(P.map(p => p.cls).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'sl', { numeric: true })); if (!cl.length) return null;
-    const COLS = [['N3 načrtuje', a => a.N3 != null, a => a.N3 >= a._top], ['M1 preverja, ali razume', a => a.M1 != null, a => a.M1 >= a._top], ['R1 pregleda napake', a => a.R1 != null, a => a.R1 >= a._top],
-      ['ST06 samopreverjanje', a => a.S5_ST06 != null, a => a.S5_ST06 === 3], ['N7 zgodnji začetek', a => a.N7 != null, a => a.N7 <= 3]];
+    const ROWS = [['N3', 'načrtuje čas', a => a.N3 != null, a => a.N3 >= a._top], ['M1', 'preverja, ali razume', a => a.M1 != null, a => a.M1 >= a._top], ['R1', 'pregleda napake', a => a.R1 != null, a => a.R1 >= a._top],
+      ['ST06', 'samopreverjanje', a => a.S5_ST06 != null, a => a.S5_ST06 === 3], ['N7', 'zgodnji začetek', a => a.N7 != null, a => a.N7 <= 3]];
     const heat = v => v < 0.2 ? 1 : v < 0.4 ? 2 : v < 0.6 ? 3 : v < 0.8 ? 4 : 5, dark = document.body.classList.contains('dark');
-    // at most PER_SLIDE classes on one slide (readable on a projector); more classes → more slides "Primerjava razredov (1/2)"
-    const PER_SLIDE = 8, parts = Math.ceil(cl.length / PER_SLIDE), per = Math.ceil(cl.length / parts);
-    return Array.from({ length: parts }, (_, pi) => {
-    const t = el('table'), hr = el('tr'); hr.append(el('th', '', 'Razred'), el('th', '', 'n')); COLS.forEach(c => hr.append(el('th', '', c[0]))); t.append(hr);
-    cl.slice(pi * per, (pi + 1) * per).forEach(c => {
-      const L = P.filter(p => p.cls === c), n = L.filter(p => p.r[K]).length, tr = el('tr'); tr.append(el('td', '', c), el('td', '', String(n)));
-      if (n < MIN_CLASS) { const td = el('td', 'na', 'premalo odgovorov'); td.colSpan = COLS.length; tr.append(td); t.append(tr); return; }
-      COLS.forEach(([, has, ok]) => {
-        const s = share(L, K, has, ok); if (!s.n) { tr.append(el('td', 'na', '—')); return; }
-        const a = share(L, 'zacetno', has, ok), h = heat(s.v), td = el('td', dark ? (h === 5 ? 'b' : 'w') : (h >= 4 ? 'w' : ''));
-        td.style.background = 'var(--h' + h + ')'; td.textContent = pct(s.v) + (late ? ' (' + pp(a.v, s.v).replace(' o. t.', '') + ')' : ''); tr.append(td);
+    const tri = c => Math.ceil(Number(c[0]) / 3), gapBefore = (c, i) => i > 0 && tri(c) !== tri(cl[i - 1]);
+    const t = el('table', 'turn'), hr = el('tr'), nr = el('tr');
+    hr.append(el('th', '', 'Razred')); nr.append(el('td', 'rl', 'odgovorov'));
+    const sp = row => row.append(el(row === hr ? 'th' : 'td', 'sp'));    // thin empty column between the triads
+    const N = {}; cl.forEach((c, i) => { N[c] = P.filter(p => p.cls === c && p.r[K]).length;
+      if (gapBefore(c, i)) { sp(hr); sp(nr); } hr.append(el('th', '', c)); nr.append(el('td', 'n', String(N[c]))); });
+    t.append(hr, nr);
+    ROWS.forEach(([code, lab, has, ok]) => {
+      const tr = el('tr'), rl = el('td', 'rl'); rl.append(el('span', 'c', code + ' '), document.createTextNode(lab)); tr.append(rl);
+      cl.forEach((c, i) => {
+        if (gapBefore(c, i)) sp(tr);
+        const g = '', L = P.filter(p => p.cls === c);
+        if (N[c] < MIN_CLASS) { tr.append(el('td', 'na' + g, '·')); return; }
+        const sh = share(L, K, has, ok); if (!sh.n) { tr.append(el('td', 'na' + g, '—')); return; }
+        const a = share(L, 'zacetno', has, ok), h = heat(sh.v), td = el('td', 'hc' + g + ' ' + (dark ? (h === 5 ? 'b' : 'w') : (h >= 4 ? 'w' : '')));
+        td.style.background = 'var(--h' + h + ')'; td.append(document.createTextNode(Math.round(sh.v * 100) + ' %'));
+        if (late) { const d = ppN(a.v, sh.v); td.append(el('small', '', (d > 0 ? '▲ ' : d < 0 ? '▼ ' : '± ') + Math.abs(d))); }
+        tr.append(td);
       });
       t.append(tr);
     });
-    return slide('Primerjava razredov' + (parts > 1 ? ' (' + (pi + 1) + '/' + parts + ')' : ''), (late ? 'Končni delež, v oklepaju sprememba od jeseni. ' : 'Začetni delež zgornjih odgovorov. ') + 'Temnejša celica = večji delež. »—« = vprašanja v tej triadi ni. Razred z manj kot ' + MIN_CLASS + ' odgovori ni prikazan.', t);
-    });
+    return slide('Primerjava razredov', (late ? 'Končni delež zgornjih odgovorov, pod njim sprememba od jeseni (odstotne točke). ' : 'Začetni delež zgornjih odgovorov. ') +
+      'Temnejša celica = večji delež. »—« = vprašanja v tej triadi ni. »·« = manj kot ' + MIN_CLASS + ' odgovori.', t);
   };
+
   // ---- why we do this, and what we analyse at the end of the year (19 Nov 2026; agreed by the team). Text only, no data. ----
   const sWhy = () => {
     const goal = el('p', 'goal', 'Cilj: učenci se naučijo, kako se učiti – da znajo načrtovati učenje, med učenjem preveriti, ali razumejo, pregledati napake in izbrati način učenja, ki jim pomaga.');
