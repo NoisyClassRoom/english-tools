@@ -54,6 +54,8 @@ body:not(.light) .g { color: #fff; }
 .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
 .th4 { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
 .th4 input { width: 4.2em; }
+.who { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 4px 10px; margin: 6px 0; }
+.who label { display: flex; gap: 6px; align-items: center; font-size: .92rem; }
 .save-bar { position: fixed; left: 0; right: 0; bottom: 0; background: var(--card); border-top: 1px solid var(--line); padding: 10px 16px; display: none; gap: 10px; align-items: center; justify-content: center; z-index: 5; }
 .save-bar.on { display: flex; }
 .pl { display: grid; gap: 6px; }
@@ -129,6 +131,7 @@ dialog::backdrop { background: rgba(0,0,0,.5); }
   const pupils = () => ((R.roster[year] || {})[cls] || []);
   const periods = () => R.periods.filter(p => p.year === year);
   const periodOf = d => (periods().find(p => d >= p.from && d <= p.to) || {}).p || '';
+  const assigned = t => t.pupils && t.pupils.length ? pupils().filter(p => t.pupils.includes(p.k)) : pupils();
   const curPeriod = () => periodOf(today()) || (periods()[0] || {}).p || '1';
 
   // ---------- load ----------
@@ -174,11 +177,12 @@ dialog::backdrop { background: rgba(0,0,0,.5); }
         const g = x.rows.filter(r => r.grade != null), tr = el('tr');
         const first = {}; x.rows.forEach(r => { if (r.att === 1) first[r.k] = r; });
         tr.append(el('td', '', fmtD(x.date)), el('td', '', x.title), el('td', 'num', x.period ? x.period + '.' : '—'), el('td', 'num', String(x.max)),
-          el('td', 'num', Object.values(first).filter(r => r.grade != null).length + ' / ' + pupils().length), el('td', 'num', f2(avg(g.filter(r => r.att === 1).map(r => r.grade)))));
+          el('td', 'num', Object.values(first).filter(r => r.grade != null).length + ' / ' + assigned(x).length + (assigned(x).length < pupils().length ? ' *' : '')), el('td', 'num', f2(avg(g.filter(r => r.att === 1).map(r => r.grade)))));
         const td = el('td'), o = el('button', 'btn sm primary', 'Points'), e = el('button', 'btn sm', 'Edit');
         o.onclick = () => { openTest = x.id; draw(); }; e.onclick = () => testForm(x); td.append(o, document.createTextNode(' '), e); tr.append(td); t.append(tr);
       });
       tw.append(t); b.append(tw);
+      if (list.some(x => assigned(x).length < pupils().length)) b.append(el('p', 'note', '* written by some pupils of the class only (chosen in the test).'));
     }
     box.append(b);
   };
@@ -198,13 +202,24 @@ dialog::backdrop { background: rgba(0,0,0,.5); }
     const th = el('div', 'th4'), ths = v.th.map(x => { const i = el('input'); i.type = 'number'; i.min = 1; i.max = 100; i.value = x; th.append(i); return i; }); dlg.append(th);
     const grp = el('label', '', ''), gc = el('input'); gc.type = 'checkbox'; gc.checked = !!v.groups; grp.append(gc, document.createTextNode(' two groups (A and B)')); grp.style.display = 'block'; grp.style.marginTop = '10px'; dlg.append(grp);
     const nl = el('label', 'f', 'Note (optional)'), note = el('input'); note.value = v.note || ''; note.maxLength = 300; nl.append(note); nl.style.marginTop = '8px'; dlg.append(nl);
+    // who writes the test: the whole class by default, any pupil can be left out (24 Nov 2026)
+    const chosen = new Set(v.pupils && v.pupils.length ? v.pupils : pupils().map(p => p.k));
+    const wh = el('h3', '', 'Pupils'), cnt = el('span', 'muted small'), who = el('div', 'who'), wb = el('div', 'bar');
+    const upd = () => { cnt.textContent = ' ' + chosen.size + ' of ' + pupils().length; };
+    pupils().forEach(p => { const l = el('label'), c = el('input'); c.type = 'checkbox'; c.checked = chosen.has(p.k); c.onchange = () => { c.checked ? chosen.add(p.k) : chosen.delete(p.k); upd(); }; l.append(c, document.createTextNode(p.n)); who.append(l); });
+    const all = el('button', 'btn sm', 'All'), none = el('button', 'btn sm', 'None');
+    all.onclick = () => { who.querySelectorAll('input').forEach((c, i) => { c.checked = true; chosen.add(pupils()[i].k); }); upd(); };
+    none.onclick = () => { who.querySelectorAll('input').forEach(c => { c.checked = false; }); chosen.clear(); upd(); };
+    wh.append(cnt); wb.append(all, none); upd(); dlg.append(wh, wb, who);
     const msg = el('p', 'muted small'), bar = el('div', 'bar'), sv = el('button', 'btn primary', 'Save test'), cc = el('button', 'btn', 'Cancel');
     cc.onclick = () => dlg.close();
     sv.onclick = async () => {
       const ps = [...parts.querySelectorAll('.row')].map(r => ({ n: r.children[0].value.trim(), m: Number(r.children[1].value) })).filter(p => p.n && p.m > 0);
       if (!title.value.trim() || !ps.length) { msg.textContent = 'Write a title and at least one part with points.'; return; }
+      if (!chosen.size) { msg.textContent = 'Choose at least one pupil.'; return; }
+      const whoKeys = chosen.size === pupils().length ? [] : pupils().filter(p => chosen.has(p.k)).map(p => p.k);
       sv.disabled = true; msg.textContent = 'Saving …';
-      try { const j = await api('gbtestsave', { test: { id: t && t.id, year, cls, date: date.value, title: title.value.trim(), parts: ps, th: ths.map(i => Number(i.value)), groups: gc.checked, note: note.value.trim() } });
+      try { const j = await api('gbtestsave', { test: { id: t && t.id, year, cls, date: date.value, title: title.value.trim(), parts: ps, th: ths.map(i => Number(i.value)), groups: gc.checked, note: note.value.trim(), pupils: whoKeys } });
         dlg.close(); if (imp) history.replaceState(null, '', location.pathname); await loadClass(); if (!t) { openTest = j.id; draw(); } }
       catch (e) { msg.textContent = 'Not saved: ' + e.message; sv.disabled = false; }
     };
@@ -215,9 +230,10 @@ dialog::backdrop { background: rgba(0,0,0,.5); }
   // entering points: one row per pupil and attempt
   const drawPoints = (box, t) => {
     const b = el('div', 'box'), back = el('button', 'btn sm', '← All tests'); back.onclick = () => { if (!leaveOk()) return; setDirty(null); openTest = null; draw(); };
-    b.append(back, el('h2', '', t.title), el('p', 'note', fmtD(t.date) + ' · ' + t.max + ' points · limits ' + t.th.join(' / ') + ' % · period ' + (t.period || '—') + (t.note ? ' · ' + t.note : '')));
+    b.append(back, el('h2', '', t.title), el('p', 'note', fmtD(t.date) + ' · ' + t.max + ' points · limits ' + t.th.join(' / ') + ' % · period ' + (t.period || '—') +
+      (assigned(t).length < pupils().length ? ' · ' + assigned(t).length + ' of ' + pupils().length + ' pupils' : '') + (t.note ? ' · ' + t.note : '')));
     const rows = []; const byK = {}; t.rows.forEach(r => { (byK[r.k] = byK[r.k] || []).push(r); });
-    pupils().forEach(p => { const have = (byK[p.k] || []).sort((a, b) => a.att - b.att); if (!have.length) rows.push({ k: p.k, n: p.n, att: 1, pts: t.parts.map(() => ''), status: '', grp: '' }); else have.forEach(r => rows.push(Object.assign({}, r, { n: p.n }))); });
+    pupils().filter(p => assigned(t).includes(p) || byK[p.k]).forEach(p => { const have = (byK[p.k] || []).sort((a, b) => a.att - b.att); if (!have.length) rows.push({ k: p.k, n: p.n, att: 1, pts: t.parts.map(() => ''), status: '', grp: '' }); else have.forEach(r => rows.push(Object.assign({}, r, { n: p.n }))); });
     Object.keys(byK).filter(k => !pupils().some(p => p.k === k)).forEach(k => byK[k].forEach(r => rows.push(Object.assign({}, r))));   // pupil no longer in the class list
     const tbl = el('table'), tw = el('div', 'tw'), hr = el('tr');
     hr.append(el('th', '', 'Pupil')); if (t.groups) hr.append(el('th', 'num', 'Gr.')); t.parts.forEach(p => { const h = el('th', 'num', p.n); h.title = p.m + ' points'; h.append(el('div', 'muted', '/' + p.m)); hr.append(h); });
@@ -324,7 +340,7 @@ dialog::backdrop { background: rgba(0,0,0,.5); }
     const rowsOf = p => {
       const w = []; D.tests.filter(inP).sort((a, b) => a.date.localeCompare(b.date)).forEach(t => {
         const rs = t.rows.filter(r => r.k === p.k).sort((a, b) => a.att - b.att);
-        if (!rs.length) { w.push({ t, miss: true }); return; }
+        if (!rs.length) { if (assigned(t).some(x => x.k === p.k)) w.push({ t, miss: true }); return; }
         rs.forEach(r => w.push({ t, r }));
       });
       const o = D.oral.filter(x => x.k === p.k && inP(x)).sort((a, b) => a.date.localeCompare(b.date));

@@ -85,7 +85,7 @@ var UNITS = {
 
 // Change this text whenever the code of doPost changes: the health check compares it with what the published web app answers,
 // so it can tell you that the saved code has not been deployed as a new version yet.
-var CODE_VERSION = '2026-11-24.1';
+var CODE_VERSION = '2026-11-24.2';
 
 // ---------------------------------------------------------------- saving results
 
@@ -3066,7 +3066,8 @@ function hcTeam_(add) {
 // created on the first save), never in the Results Sheet; DATA-PROTECTION.md describes it. Pupils: name and class from the Roster tab;
 // the key across school years is nameKey_(name). No e-mails. Every cell is text (dates 'yyyy-MM-dd'), so the Sheet never turns
 // anything into a date or number on its own.
-var GB_TESTS = ['ID', 'Šolsko leto', 'Razred', 'Datum', 'Obdobje', 'Naslov', 'Deli (JSON)', 'Meje 5/4/3/2 (%)', 'Skupaj točk', 'Skupini A/B', 'Opomba', 'Ustvarjeno', 'Spremenjeno'];
+// 'Učenci (JSON)': the name keys of the pupils who write the test (24 Nov 2026, the teacher chooses them individually); empty = the whole class
+var GB_TESTS = ['ID', 'Šolsko leto', 'Razred', 'Datum', 'Obdobje', 'Naslov', 'Deli (JSON)', 'Meje 5/4/3/2 (%)', 'Skupaj točk', 'Skupini A/B', 'Opomba', 'Ustvarjeno', 'Spremenjeno', 'Učenci (JSON)'];
 var GB_POINTS = ['Test ID', 'Šolsko leto', 'Razred', 'Ključ', 'Učenec', 'Poskus', 'Datum poskusa', 'Stanje', 'Skupina', 'Točke (JSON)', 'Skupaj', 'Odstotek', 'Ocena', 'Spremenjeno'];
 var GB_ORAL = ['ID', 'Šolsko leto', 'Razred', 'Obdobje', 'Datum', 'Ključ', 'Učenec', 'Ocena', 'Tema', 'Vprašanja', 'Opomba', 'Spremenjeno'];
 var GB_PERIODS = ['Šolsko leto', 'Obdobje', 'Od', 'Do'];
@@ -3140,7 +3141,8 @@ function gbClassReply_(d) {
 }
 function gbTestObj_(r) {
   var parts = []; try { parts = JSON.parse(r[6]); } catch (e) {}
-  return { id: r[0], year: r[1], cls: r[2], date: r[3], period: r[4], title: r[5], parts: parts, th: String(r[7]).split('/').map(Number), max: Number(r[8]), groups: r[9] === 'da', note: r[10] };
+  var who = []; try { who = r[13] ? JSON.parse(r[13]) : []; } catch (e) {}
+  return { id: r[0], year: r[1], cls: r[2], date: r[3], period: r[4], title: r[5], parts: parts, th: String(r[7]).split('/').map(Number), max: Number(r[8]), groups: r[9] === 'da', note: r[10], pupils: who };
 }
 function gbPointObj_(r) {
   var pts = []; try { pts = JSON.parse(r[9]); } catch (e) {}
@@ -3161,7 +3163,9 @@ function gbTestSaveReply_(d) {
     var rows = gbRows_(ss, 'Testi', GB_TESTS.length), idx = -1;
     if (t.id) rows.forEach(function (r, i) { if (r[0] === String(t.id)) idx = i; });
     var id = idx >= 0 ? String(t.id) : Utilities.getUuid().slice(0, 8);
-    var row = [id, String(t.year), String(t.cls), date, per, gbText_(t.title, 120), JSON.stringify(parts), th.join('/'), String(max), t.groups ? 'da' : 'ne', gbText_(t.note, 300), idx >= 0 ? rows[idx][11] : now, now];
+    var who = (t.pupils || []).map(function (k) { return gbText_(k, 120); }).filter(String).slice(0, 200);
+    var row = [id, String(t.year), String(t.cls), date, per, gbText_(t.title, 120), JSON.stringify(parts), th.join('/'), String(max), t.groups ? 'da' : 'ne', gbText_(t.note, 300), idx >= 0 ? rows[idx][11] : now, now, who.length ? JSON.stringify(who) : ''];
+    if (sh.getLastColumn() < GB_TESTS.length) sh.getRange(1, 1, 1, GB_TESTS.length).setValues([GB_TESTS]);   // a Sheet made before this column existed
     if (idx >= 0) sh.getRange(idx + 2, 1, 1, row.length).setValues([row]); else sh.appendRow(row);
     if (idx >= 0) gbRegrade_(ss, id, parts, max, th);              // parts or limits changed: totals and grades follow
     return out_({ ok: true, id: id });
