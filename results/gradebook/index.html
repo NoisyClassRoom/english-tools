@@ -76,6 +76,19 @@ dialog::backdrop { background: rgba(0,0,0,.5); }
 .hide { display: none !important; }
 .note { font-size: .85rem; color: var(--muted); margin: 4px 0 8px; }
 .q { border-left: 3px solid var(--line); padding: 2px 0 2px 10px; margin: 6px 0; font-size: .9rem; }
+.warnc { color: var(--bad); font-weight: 700; }
+tr.totr td { font-weight: 700; border-top: 2px solid var(--line); }
+label.chip { cursor: pointer; color: var(--ink); }
+label.chip input { margin: 0; vertical-align: -1px; }
+@media print {
+  body { background: #fff; color: #000; padding: 0; }
+  .top, .tabs, .noprint, #status, .save-bar, #login, .wrap > #app > .bar, #tests, #oral, #other { display: none !important; }
+  #over { display: block !important; }
+  .box { border: 0; padding: 0; margin: 0 0 10px; background: #fff; }
+  th, td { border-bottom: 1px solid #999; color: #000; }
+  .g { color: #000 !important; border: 1px solid #555; background: #fff !important; }
+  .chip { border-color: #777; color: #333; }
+}
 @media (max-width: 640px) { .anbar { grid-template-columns: 7em 1fr 3em; } th, td { padding: 5px 3px; } }
 </style>
 </head>
@@ -91,7 +104,7 @@ dialog::backdrop { background: rgba(0,0,0,.5); }
     <div id="slot" style="display:inline-block"></div>
   </div>
   <div id="app">
-    <p class="note">Your personal working gradebook. eAsistent stays the official record. Nobody else sees these pages.</p>
+    <p class="note noprint">Your personal working gradebook. eAsistent stays the official record. Nobody else sees these pages.</p>
     <div class="bar">
       <label class="f">School year <select id="year"></select></label>
       <label class="f">Class <select id="cls"></select></label>
@@ -141,6 +154,7 @@ dialog::backdrop { background: rgba(0,0,0,.5); }
   const loadClass = async () => {
     if (!cls) { D = { tests: [], oral: [] }; draw(); return; }
     status('Loading …');
+    Y = null;                                          // the overview loads the whole year again after any change
     try { D = await api('gbclass', { year, cls }); status(''); } catch (e) { status('Could not load: ' + e.message); D = { tests: [], oral: [] }; }
     draw();
   };
@@ -448,44 +462,94 @@ dialog::backdrop { background: rgba(0,0,0,.5); }
     box.append(b);
   };
 
-  // ---------- overview ----------
-  let overPer = '';
-  const drawOver = () => {
-    const box = $('#over'); box.innerHTML = '';
-    if (!overPer) overPer = curPeriod();
-    const b = el('div', 'box'), bar = el('div', 'bar'), ps = el('select');
-    [...periods().map(p => [p.p, p.p + '. period']), ['all', 'whole year']].forEach(([v, l]) => { const o = el('option', '', l); o.value = v; o.selected = v === overPer; ps.append(o); });
-    ps.onchange = () => { overPer = ps.value; drawOver(); };
-    const cp = el('button', 'btn', '📋 Copy for eAsistent'); bar.append(ps, cp); b.append(bar);
-    const inP = x => overPer === 'all' || x.period === overPer;
-    const rowsOf = p => {
-      const w = [], x2 = []; D.tests.filter(inP).sort((a, b) => a.date.localeCompare(b.date)).forEach(t => {
-        if (t.kind) { t.rows.filter(r => r.k === p.k).forEach(r => x2.push({ t, r })); return; }
-        const rs = t.rows.filter(r => r.k === p.k).sort((a, b) => a.att - b.att);
-        if (!rs.length) { if (assigned(t).some(x => x.k === p.k)) w.push({ t, miss: true }); return; }
-        rs.forEach(r => w.push({ t, r }));
-      });
-      const o = D.oral.filter(x => x.k === p.k && inP(x)).sort((a, b) => a.date.localeCompare(b.date));
-      return { w, o, x2 };
-    };
-    const t = el('table'), tw = el('div', 'tw'); t.innerHTML = '<tr><th>Pupil</th><th>Written</th><th>Oral</th><th>Other</th><th class="num">Grades</th><th class="num">Average</th><th></th></tr>';
-    const lines = [];
-    pupils().forEach(p => {
-      const { w, o, x2 } = rowsOf(p), tr = el('tr'), wt = el('td'), ot = el('td'), xt = el('td'), gs = [];
-      w.forEach(x => { if (x.miss) { wt.append(el('span', 'chip', x.t.title.slice(0, 14) + ': —')); return; }
-        const r = x.r; if (r.status) wt.append(el('span', 'chip', (r.status === 'manjkal' ? 'absent' : 'excused') + (r.att > 1 ? ' (retake)' : '')));
-        else if (r.grade != null) { wt.append(gchip(r.grade, x.t.title + ' · ' + fmtD(r.date || x.t.date) + ' · ' + r.total + '/' + x.t.max + (r.att > 1 ? ' · retake' : ''))); gs.push(r.grade); } });
-      o.forEach(x => { ot.append(gchip(x.grade, (x.topic || 'oral') + ' · ' + fmtD(x.date))); gs.push(x.grade); });
-      x2.forEach(x => { if (x.r.status) xt.append(el('span', 'chip', x.r.status === 'manjkal' ? 'absent' : 'excused')); else if (x.r.grade != null) { xt.append(gchip(x.r.grade, kindName(x.t.kind) + ': ' + x.t.title + ' · ' + fmtD(x.r.date || x.t.date))); gs.push(x.r.grade); } });
-      const pb = el('button', 'btn sm', 'Pupil'); pb.onclick = () => pupilCard(p);
-      const ptd = el('td'); ptd.append(pb);
-      tr.append(el('td', '', p.n), wt, ot, xt, el('td', 'num', String(gs.length)), el('td', 'num', f2(avg(gs))), ptd); t.append(tr);
-      lines.push(p.n + '\t' + gs.join(' '));
+  // ---------- overview with filters (24 Nov 2026): classes, time (period or any dates), kind of grade, pupil search; per-class summary; print ----------
+  // The data of the whole school year comes in one request (gbyear) and is kept until something is saved.
+  let Y = null, Yyear = '';
+  const ov = { cls: null, per: '', from: '', to: '', kinds: new Set(['w', 'o', 'x']), q: '' };
+  const KIND_COLS = [['w', 'Written'], ['o', 'Oral'], ['x', 'Other']];
+  const norm = s => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  const range = () => {
+    if (ov.per === 'custom') return [ov.from || '0000-00-00', ov.to || '9999-12-31'];
+    if (ov.per === 'all') return ['0000-00-00', '9999-12-31'];
+    const p = periods().find(x => x.p === ov.per); return p ? [p.from, p.to] : ['0000-00-00', '9999-12-31'];
+  };
+  const rangeText = () => ov.per === 'custom' ? (ov.from ? fmtD(ov.from) + ov.from.slice(0, 4) : '…') + ' – ' + (ov.to ? fmtD(ov.to) + ov.to.slice(0, 4) : '…') : ov.per === 'all' ? 'whole year' : ov.per + '. period';
+  // every grade entry of one pupil of class c in the chosen time and kinds: {kind w|o|x, grade|null, status, title, date, att, t}
+  const entriesOf = (c, p) => {
+    const [a, z] = range(), out = [];
+    Y.tests.filter(t => t.cls === c).forEach(t => {
+      const kind = t.kind ? 'x' : 'w'; if (!ov.kinds.has(kind)) return;
+      const rs = t.rows.filter(r => r.k === p.k);
+      if (!rs.length) { if (kind === 'w' && t.date >= a && t.date <= z && (t.pupils && t.pupils.length ? t.pupils.includes(p.k) : true)) out.push({ kind, miss: true, title: t.title, date: t.date, t }); return; }
+      rs.forEach(r => { const d = r.date || t.date; if (d >= a && d <= z) out.push({ kind, grade: r.grade, status: r.status, title: t.title, date: d, att: r.att, t, r }); });
     });
-    tw.append(t); b.append(el('h2', '', 'Overview · ' + cls + ' · ' + (overPer === 'all' ? 'whole year' : overPer + '. period')), tw,
-      el('p', 'note', 'All grades of the period, retakes included; hover (or tap) a grade for the test and date. “—” = test not written and no status set.'));
-    cp.onclick = async () => { try { await navigator.clipboard.writeText(lines.join('\n')); cp.textContent = '✓ Copied'; setTimeout(() => { cp.textContent = '📋 Copy for eAsistent'; }, 1500); } catch (e) { alert(lines.join('\n')); } };
-    box.append(b);
+    if (ov.kinds.has('o')) Y.oral.filter(o => o.cls === c && o.k === p.k && o.date >= a && o.date <= z).forEach(o => out.push({ kind: 'o', grade: o.grade, title: o.topic || 'oral', date: o.date, o }));
+    return out.sort((x, y) => x.date.localeCompare(y.date));
+  };
+  const drawOver = async () => {
+    const box = $('#over'); box.innerHTML = '';
+    if (!ov.cls) ov.cls = new Set([cls]);
+    if (!ov.per) ov.per = curPeriod();
+    if (!Y || Yyear !== year) { box.append(el('p', 'muted', 'Loading all classes …')); try { Y = await api('gbyear', { year }); Yyear = year; } catch (e) { box.innerHTML = ''; box.append(el('p', 'muted', 'Could not load: ' + e.message)); return; } box.innerHTML = ''; }
+    const allCls = Object.keys(R.roster[year] || {}).sort((a, b) => a.localeCompare(b, 'sl', { numeric: true }));
+    [...ov.cls].forEach(c => { if (!allCls.includes(c)) ov.cls.delete(c); }); if (!ov.cls.size && allCls.length) ov.cls.add(allCls[0]);
+    // filters
+    const f = el('div', 'box noprint');
+    const cr = el('div', 'bar'); cr.style.marginTop = '0'; cr.append(el('b', '', 'Classes'));
+    allCls.forEach(c => { const l = el('label', 'chip'), x = el('input'); x.type = 'checkbox'; x.checked = ov.cls.has(c); x.onchange = () => { x.checked ? ov.cls.add(c) : ov.cls.delete(c); drawOver(); }; l.append(x, document.createTextNode(' ' + c)); cr.append(l); });
+    const ca = el('button', 'btn sm', 'All'), cn = el('button', 'btn sm', 'Only ' + cls); ca.onclick = () => { allCls.forEach(c => ov.cls.add(c)); drawOver(); }; cn.onclick = () => { ov.cls = new Set([cls]); drawOver(); }; cr.append(ca, cn);
+    const tr = el('div', 'bar'), ps = el('select');
+    [...periods().map(p => [p.p, p.p + '. period']), ['all', 'whole year'], ['custom', 'from – to …']].forEach(([v, l]) => { const o = el('option', '', l); o.value = v; o.selected = v === ov.per; ps.append(o); });
+    ps.onchange = () => { ov.per = ps.value; if (ov.per === 'custom' && !ov.from) { const r0 = periods().find(p => p.p === curPeriod()); ov.from = r0 ? r0.from : ''; ov.to = today(); } drawOver(); };
+    tr.append(el('b', '', 'Time'), ps);
+    if (ov.per === 'custom') { const a = el('input'), z = el('input'); a.type = z.type = 'date'; a.value = ov.from; z.value = ov.to; a.onchange = () => { ov.from = a.value; drawOver(); }; z.onchange = () => { ov.to = z.value; drawOver(); }; tr.append(a, el('span', '', '–'), z); }
+    tr.append(el('b', '', ' Kind'));
+    KIND_COLS.forEach(([k, l]) => { const lb = el('label', 'chip'), x = el('input'); x.type = 'checkbox'; x.checked = ov.kinds.has(k); x.onchange = () => { x.checked ? ov.kinds.add(k) : ov.kinds.delete(k); drawOver(); }; lb.append(x, document.createTextNode(' ' + l)); tr.append(lb); });
+    const sr = el('div', 'bar'), q = el('input'); q.type = 'search'; q.placeholder = 'Find a pupil (all classes) …'; q.value = ov.q; q.style.minWidth = '220px';
+    let qt = null; q.oninput = () => { clearTimeout(qt); qt = setTimeout(() => { ov.q = q.value; drawOver(); setTimeout(() => { const n = $('#over input[type=search]'); if (n) { n.focus(); n.setSelectionRange(n.value.length, n.value.length); } }, 0); }, 300); };
+    const pr = el('button', 'btn', '🖨 Print / PDF'); pr.onclick = () => window.print();
+    sr.append(q, pr); f.append(cr, tr, sr); box.append(f);
+    const chosen = allCls.filter(c => ov.cls.has(c)), kindsTxt = KIND_COLS.filter(([k]) => ov.kinds.has(k)).map(x => x[1].toLowerCase()).join(', ') || 'no kind';
+    const head = el('div', 'box'); head.append(el('h2', '', 'Overview · ' + year.replace('-', '/') + ' · ' + rangeText()), el('p', 'note', 'Classes: ' + (chosen.join(', ') || '—') + ' · grades: ' + kindsTxt + (ov.q ? ' · search: “' + ov.q + '”' : '')));
+    // per-class summary
+    const st = el('table'), sw = el('div', 'tw'); st.innerHTML = '<tr><th>Class</th><th class="num">Pupils</th><th class="num">Grades</th><th class="num">Average</th><th class="num">5</th><th class="num">4</th><th class="num">3</th><th class="num">2</th><th class="num">1</th><th class="num">No grade yet</th></tr>';
+    const tot = { n: 0, gs: [], none: 0 };
+    chosen.forEach(c => {
+      const P = (R.roster[year] || {})[c] || [], gs = []; let none = 0;
+      P.forEach(p => { const g = entriesOf(c, p).filter(e => e.grade != null && !e.status).map(e => e.grade); if (!g.length) none++; gs.push(...g); });
+      const row = el('tr'); row.append(el('td', '', c), el('td', 'num', String(P.length)), el('td', 'num', String(gs.length)), el('td', 'num', f2(avg(gs))));
+      [5, 4, 3, 2, 1].forEach(g => row.append(el('td', 'num', String(gs.filter(x => x === g).length || ''))));
+      row.append(el('td', 'num' + (none ? ' warnc' : ''), String(none))); st.append(row);
+      tot.n += P.length; tot.gs.push(...gs); tot.none += none;
+    });
+    if (chosen.length > 1) { const row = el('tr', 'totr'); row.append(el('td', '', 'Together'), el('td', 'num', String(tot.n)), el('td', 'num', String(tot.gs.length)), el('td', 'num', f2(avg(tot.gs)))); [5, 4, 3, 2, 1].forEach(g => row.append(el('td', 'num', String(tot.gs.filter(x => x === g).length || '')))); row.append(el('td', 'num', String(tot.none))); st.append(row); }
+    sw.append(st); head.append(sw); box.append(head);
+    // pupils: one class chosen → that class; a search → matching pupils of the chosen classes (or of all classes when none match there)
+    let list = [];
+    if (ov.q.trim()) { const n = norm(ov.q.trim()); (chosen.length ? chosen : allCls).forEach(c => (R.roster[year][c] || []).forEach(p => { if (norm(p.n).includes(n)) list.push([c, p]); })); }
+    else if (chosen.length === 1) list = (R.roster[year][chosen[0]] || []).map(p => [chosen[0], p]);
+    if (list.length || ov.q.trim()) {
+      const b = el('div', 'box'), cols = KIND_COLS.filter(([k]) => ov.kinds.has(k)), multi = new Set(list.map(x => x[0])).size > 1 || ov.q.trim();
+      const t = el('table'), tw = el('div', 'tw'), hr = el('tr'); if (multi) hr.append(el('th', '', 'Class')); hr.append(el('th', '', 'Pupil')); cols.forEach(([, l]) => hr.append(el('th', '', l))); hr.append(el('th', 'num', 'Grades'), el('th', 'num', 'Average'), el('th', 'noprint', '')); t.append(hr);
+      const lines = [];
+      list.forEach(([c, p]) => {
+        const E = entriesOf(c, p), row = el('tr'), gs = []; if (multi) row.append(el('td', '', c)); row.append(el('td', '', p.n));
+        cols.forEach(([k]) => { const td = el('td'); E.filter(e => e.kind === k).forEach(e => {
+          if (e.miss) td.append(el('span', 'chip', e.title.slice(0, 14) + ': —'));
+          else if (e.status) td.append(el('span', 'chip', e.status === 'manjkal' ? 'absent' : 'excused'));
+          else if (e.grade != null) { td.append(gchip(e.grade, (k === 'x' ? kindName(e.t.kind) + ': ' : '') + e.title + ' · ' + fmtD(e.date) + (e.att > 1 ? ' · retake' : '') + (k === 'w' && e.r ? ' · ' + e.r.total + '/' + e.t.max : ''))); gs.push(e.grade); } });
+          row.append(td); });
+        const pb = el('button', 'btn sm', 'Pupil'), pt = el('td', 'noprint'); pb.onclick = () => pupilCard(p); pt.append(pb);
+        row.append(el('td', 'num', String(gs.length)), el('td', 'num', f2(avg(gs))), pt); t.append(row);
+        lines.push(p.n + '\t' + gs.join(' '));
+      });
+      tw.append(t);
+      const bar = el('div', 'bar noprint'), cp = el('button', 'btn', '📋 Copy for eAsistent'); bar.append(cp);
+      cp.onclick = async () => { try { await navigator.clipboard.writeText(lines.join('\n')); cp.textContent = '✓ Copied'; setTimeout(() => { cp.textContent = '📋 Copy for eAsistent'; }, 1500); } catch (e) { alert(lines.join('\n')); } };
+      b.append(el('h3', '', ov.q.trim() ? 'Pupils found: ' + list.length : 'Pupils · ' + chosen[0]), tw, bar,
+        el('p', 'note', 'Hover (or tap) a grade for the test and date. “—” = written test not written and no status set. Retakes count as grades.'));
+      box.append(b);
+    } else box.append(el('p', 'note noprint', 'Choose one class, or search for a pupil, to see the pupils with their grades.'));
   };
   // one pupil in every school year
   const pupilCard = async p => {

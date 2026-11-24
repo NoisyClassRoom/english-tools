@@ -85,7 +85,7 @@ var UNITS = {
 
 // Change this text whenever the code of doPost changes: the health check compares it with what the published web app answers,
 // so it can tell you that the saved code has not been deployed as a new version yet.
-var CODE_VERSION = '2026-11-24.4';
+var CODE_VERSION = '2026-11-24.5';
 
 // ---------------------------------------------------------------- saving results
 
@@ -133,6 +133,7 @@ function doPost(e) {
     if (d.action === 'rsmeetsave') return rsMeetSaveReply_(d);         // add or edit one meeting (any SZS member)
     if (d.action === 'rsmeetdelete') return rsMeetDeleteReply_(d);     // delete one meeting (any SZS member)
     if (d.action === 'gbinit') return gbInitReply_(d);                 // teacher-only gradebook results/gradebook/: classes and pupils of every school year, periods
+    if (d.action === 'gbyear') return gbClassReply_(d, true);         // teacher-only: the same for EVERY class of one school year (overview with filters)
     if (d.action === 'gbclass') return gbClassReply_(d);               // teacher-only: tests with points and oral grades of one class and school year
     if (d.action === 'gbtestsave') return gbTestSaveReply_(d);         // teacher-only: new or changed test (parts, points, grade limits)
     if (d.action === 'gbtestdelete') return gbTestDeleteReply_(d);     // teacher-only: delete a test with its points
@@ -3133,14 +3134,15 @@ function gbInitReply_(d) {
   return out_({ ok: true, current: cur, roster: years, periods: gbPeriods_(ss), ready: !!ss });
 }
 // everything of one class in one school year: tests with their point rows, oral grades
-function gbClassReply_(d) {
+// allClasses (action gbyear, 24 Nov 2026): every class of the school year, for the overview with filters
+function gbClassReply_(d, allClasses) {
   if (!gbTeacher_(d)) return out_({ ok: false, error: 'token' });
   var ss = gbBook_(false), y = String(d.year || ''), c = String(d.cls || '');
   if (!ss) return out_({ ok: true, tests: [], oral: [] });
-  var tests = gbRows_(ss, 'Testi', GB_TESTS.length).filter(function (r) { return r[1] === y && r[2] === c; }).map(gbTestObj_);
+  var tests = gbRows_(ss, 'Testi', GB_TESTS.length).filter(function (r) { return r[1] === y && (allClasses || r[2] === c); }).map(gbTestObj_);
   var ids = {}; tests.forEach(function (t) { ids[t.id] = t; t.rows = []; });
   gbRows_(ss, 'Tockovanje', GB_POINTS.length).forEach(function (r) { if (ids[r[0]]) ids[r[0]].rows.push(gbPointObj_(r)); });
-  var oral = gbRows_(ss, 'Ustno', GB_ORAL.length).filter(function (r) { return r[1] === y && r[2] === c; }).map(gbOralObj_);
+  var oral = gbRows_(ss, 'Ustno', GB_ORAL.length).filter(function (r) { return r[1] === y && (allClasses || r[2] === c); }).map(gbOralObj_);
   return out_({ ok: true, tests: tests, oral: oral });
 }
 function gbTestObj_(r) {
