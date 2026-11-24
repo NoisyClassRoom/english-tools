@@ -98,10 +98,11 @@ dialog::backdrop { background: rgba(0,0,0,.5); }
       <span class="muted small" id="status"></span>
     </div>
     <div class="tabs" role="tablist">
-      <button class="btn" data-tab="tests">Tests</button><button class="btn" data-tab="oral">Oral</button><button class="btn" data-tab="over">Overview</button>
+      <button class="btn" data-tab="tests">Tests</button><button class="btn" data-tab="oral">Oral</button><button class="btn" data-tab="other">Other</button><button class="btn" data-tab="over">Overview</button>
     </div>
     <div id="tests"></div>
     <div id="oral" class="hide"></div>
+    <div id="other" class="hide"></div>
     <div id="over" class="hide"></div>
   </div>
 </div>
@@ -131,6 +132,8 @@ dialog::backdrop { background: rgba(0,0,0,.5); }
   const pupils = () => ((R.roster[year] || {})[cls] || []);
   const periods = () => R.periods.filter(p => p.year === year);
   const periodOf = d => (periods().find(p => d >= p.from && d <= p.to) || {}).p || '';
+  const KINDS = [['projekt', 'Project'], ['predstavitev', 'Presentation'], ['domača naloga', 'Homework'], ['branje', 'Reading'], ['drugo', 'Other']];
+  const kindName = k => (KINDS.find(x => x[0] === k) || [k, k])[1];
   const assigned = t => t.pupils && t.pupils.length ? pupils().filter(p => t.pupils.includes(p.k)) : pupils();
   const curPeriod = () => periodOf(today()) || (periods()[0] || {}).p || '1';
 
@@ -158,18 +161,18 @@ dialog::backdrop { background: rgba(0,0,0,.5); }
 
   const draw = () => {
     document.querySelectorAll('.tabs .btn').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.tab === tab)));
-    ['tests', 'oral', 'over'].forEach(t => $('#' + t).classList.toggle('hide', t !== tab));
-    if (tab === 'tests') drawTests(); else if (tab === 'oral') drawOral(); else drawOver();
+    ['tests', 'oral', 'other', 'over'].forEach(t => $('#' + t).classList.toggle('hide', t !== tab));
+    if (tab === 'tests') drawTests(); else if (tab === 'oral') drawOral(); else if (tab === 'other') drawOther(); else drawOver();
   };
 
   // ---------- tests ----------
   let openTest = null;
   const drawTests = () => {
     const box = $('#tests'); box.innerHTML = '';
-    if (openTest) { const t = D.tests.find(x => x.id === openTest); if (t) return drawPoints(box, t); openTest = null; }
+    if (openTest) { const t = D.tests.find(x => x.id === openTest && !x.kind); if (t) return drawPoints(box, t); openTest = null; }
     const b = el('div', 'box'), bar = el('div', 'bar'), nb = el('button', 'btn primary', '+ New test'); nb.onclick = () => testForm(null);
     bar.append(nb, el('span', 'muted small', 'Tests made with the test maker can be sent here with “Save to gradebook”.')); b.append(bar);
-    const list = D.tests.slice().sort((a, b) => b.date.localeCompare(a.date));
+    const list = D.tests.filter(x => !x.kind).sort((a, b) => b.date.localeCompare(a.date));
     if (!list.length) b.append(el('p', 'muted', 'No tests for ' + cls + ' yet.'));
     else {
       const t = el('table'), tw = el('div', 'tw'); t.innerHTML = '<tr><th>Date</th><th>Test</th><th class="num">Period</th><th class="num">Points</th><th class="num">Graded</th><th class="num">Average</th><th></th></tr>';
@@ -327,6 +330,83 @@ dialog::backdrop { background: rgba(0,0,0,.5); }
     bar.append(msg); f.append(gs, g2, ql, nl, bar); return f;
   };
 
+  // ---------- other grades (24 Nov 2026): project, presentation, homework, reading … – a grade given directly, no points ----------
+  let openOther = null;
+  const drawOther = () => {
+    const box = $('#other'); box.innerHTML = '';
+    if (openOther) { const t = D.tests.find(x => x.id === openOther && x.kind); if (t) return drawOtherGrades(box, t); openOther = null; }
+    const b = el('div', 'box'), bar = el('div', 'bar'), nb = el('button', 'btn primary', '+ New grade');
+    nb.onclick = () => otherForm(null); bar.append(nb, el('span', 'muted small', 'Projects, presentations, homework, reading … graded directly (1–5), without points.')); b.append(bar);
+    const list = D.tests.filter(x => x.kind).sort((a, b) => b.date.localeCompare(a.date));
+    if (!list.length) b.append(el('p', 'muted', 'No other grades for ' + cls + ' yet.'));
+    else {
+      const t = el('table'), tw = el('div', 'tw'); t.innerHTML = '<tr><th>Date</th><th>What</th><th>Kind</th><th class="num">Period</th><th class="num">Graded</th><th class="num">Average</th><th></th></tr>';
+      list.forEach(x => {
+        const g = x.rows.filter(r => r.grade != null && r.att === 1), tr = el('tr'), td = el('td'), o = el('button', 'btn sm primary', 'Grades'), e = el('button', 'btn sm', 'Edit');
+        o.onclick = () => { openOther = x.id; draw(); }; e.onclick = () => otherForm(x); td.append(o, document.createTextNode(' '), e);
+        tr.append(el('td', '', fmtD(x.date)), el('td', '', x.title), el('td', '', kindName(x.kind)), el('td', 'num', x.period ? x.period + '.' : '—'),
+          el('td', 'num', g.length + ' / ' + assigned(x).length + (assigned(x).length < pupils().length ? ' *' : '')), el('td', 'num', f2(avg(g.map(r => r.grade)))), td);
+        t.append(tr);
+      });
+      tw.append(t); b.append(tw);
+    }
+    box.append(b);
+  };
+  const otherForm = t => {
+    const dlg = $('#dlg'); dlg.innerHTML = '';
+    const v = t || { title: '', kind: 'projekt', date: today(), note: '', pupils: [] };
+    dlg.append(el('h2', '', t ? 'Edit grade' : 'New grade for ' + cls));
+    const g = el('div', 'grid2'), title = el('input'), kind = el('select'), date = el('input');
+    title.value = v.title; title.maxLength = 120; title.placeholder = 'e.g. My town – poster'; date.type = 'date'; date.value = v.date;
+    KINDS.forEach(([k, l]) => { const o = el('option', '', l); o.value = k; o.selected = k === v.kind; kind.append(o); });
+    const l1 = el('label', 'f', 'What'), l2 = el('label', 'f', 'Kind'), l3 = el('label', 'f', 'Date'); l1.append(title); l2.append(kind); l3.append(date); g.append(l1, l2, l3); dlg.append(g);
+    const nl = el('label', 'f', 'Note (optional)'), note = el('input'); note.value = v.note || ''; note.maxLength = 300; nl.append(note); nl.style.marginTop = '8px'; dlg.append(nl);
+    const chosen = new Set(v.pupils && v.pupils.length ? v.pupils : pupils().map(p => p.k));
+    const wh = el('h3', '', 'Pupils'), cnt = el('span', 'muted small'), who = el('div', 'who'), wb = el('div', 'bar');
+    const upd = () => { cnt.textContent = ' ' + chosen.size + ' of ' + pupils().length; };
+    pupils().forEach(p => { const l = el('label'), c = el('input'); c.type = 'checkbox'; c.checked = chosen.has(p.k); c.onchange = () => { c.checked ? chosen.add(p.k) : chosen.delete(p.k); upd(); }; l.append(c, document.createTextNode(p.n)); who.append(l); });
+    const all = el('button', 'btn sm', 'All'), none = el('button', 'btn sm', 'None');
+    all.onclick = () => { who.querySelectorAll('input').forEach((c, i) => { c.checked = true; chosen.add(pupils()[i].k); }); upd(); };
+    none.onclick = () => { who.querySelectorAll('input').forEach(c => { c.checked = false; }); chosen.clear(); upd(); };
+    wh.append(cnt); wb.append(all, none); upd(); dlg.append(wh, wb, who);
+    const msg = el('p', 'muted small'), bar = el('div', 'bar'), sv = el('button', 'btn primary', 'Save'), cc = el('button', 'btn', 'Cancel');
+    cc.onclick = () => dlg.close();
+    sv.onclick = async () => {
+      if (!title.value.trim()) { msg.textContent = 'Write what is graded.'; return; }
+      if (!chosen.size) { msg.textContent = 'Choose at least one pupil.'; return; }
+      const whoKeys = chosen.size === pupils().length ? [] : pupils().filter(p => chosen.has(p.k)).map(p => p.k);
+      sv.disabled = true; msg.textContent = 'Saving …';
+      try { const j = await api('gbtestsave', { test: { id: t && t.id, year, cls, date: date.value, title: title.value.trim(), kind: kind.value, parts: [], note: note.value.trim(), pupils: whoKeys } });
+        dlg.close(); await loadClass(); if (!t) { openOther = j.id; draw(); } }
+      catch (e) { msg.textContent = 'Not saved: ' + e.message; sv.disabled = false; }
+    };
+    bar.append(sv, cc);
+    if (t) { const del = el('button', 'btn danger', 'Delete'); del.onclick = async () => { if (!confirm('Delete “' + t.title + '” with all its grades?')) return; try { await api('gbtestdelete', { id: t.id }); dlg.close(); openOther = null; await loadClass(); } catch (e) { msg.textContent = e.message; } }; bar.append(del); }
+    dlg.append(bar, msg); dlg.showModal();
+  };
+  const drawOtherGrades = (box, t) => {
+    const b = el('div', 'box'), back = el('button', 'btn sm', '← All other grades'); back.onclick = () => { if (!leaveOk()) return; setDirty(null); openOther = null; draw(); };
+    b.append(back, el('h2', '', t.title), el('p', 'note', kindName(t.kind) + ' · ' + fmtD(t.date) + ' · period ' + (t.period || '—') +
+      (assigned(t).length < pupils().length ? ' · ' + assigned(t).length + ' of ' + pupils().length + ' pupils' : '') + (t.note ? ' · ' + t.note : '')));
+    const byK = {}; t.rows.forEach(r => { byK[r.k] = r; });
+    const rows = pupils().filter(p => assigned(t).includes(p) || byK[p.k]).map(p => Object.assign({ k: p.k, n: p.n, att: 1, grade: null, status: '' }, byK[p.k] || {}, { n: p.n }));
+    const mark = () => setDirty(() => api('gbpointssave', { id: t.id, rows: rows.map(r => ({ k: r.k, n: r.n, att: 1, date: r.date, status: r.status, grade: r.grade })) }));
+    const pl = el('div', 'pl');
+    rows.forEach(r => {
+      const line = el('div', 'box'); line.style.margin = '0'; line.style.padding = '10px';
+      const head = el('div', 'bar'); head.style.marginTop = '0'; head.append(el('b', '', r.n));
+      const st = el('select'); [['', '—'], ['manjkal', 'absent'], ['opravičen', 'excused']].forEach(([v, l]) => { const o = el('option', '', l); o.value = v; o.selected = r.status === v; st.append(o); });
+      const gs = el('div', 'grades');
+      const paint = () => [...gs.children].forEach(x => x.setAttribute('aria-pressed', String(!r.status && Number(x.textContent) === r.grade)));
+      [1, 2, 3, 4, 5].forEach(g => { const bt = el('button', '', String(g)); bt.onclick = () => { r.grade = r.grade === g ? null : g; r.status = ''; st.value = ''; paint(); mark(); }; gs.append(bt); });
+      st.onchange = () => { r.status = st.value; if (r.status) r.grade = null; paint(); mark(); };
+      head.append(el('span', 'sp'), st); head.querySelector('.sp').style.flex = '1';
+      gs.style.marginTop = '6px'; paint(); line.append(head, gs); pl.append(line);
+    });
+    b.append(pl, el('p', 'note', 'Tap a grade (tap it again to clear it). Save with the button at the bottom.'));
+    box.append(b);
+  };
+
   // ---------- overview ----------
   let overPer = '';
   const drawOver = () => {
@@ -338,25 +418,27 @@ dialog::backdrop { background: rgba(0,0,0,.5); }
     const cp = el('button', 'btn', '📋 Copy for eAsistent'); bar.append(ps, cp); b.append(bar);
     const inP = x => overPer === 'all' || x.period === overPer;
     const rowsOf = p => {
-      const w = []; D.tests.filter(inP).sort((a, b) => a.date.localeCompare(b.date)).forEach(t => {
+      const w = [], x2 = []; D.tests.filter(inP).sort((a, b) => a.date.localeCompare(b.date)).forEach(t => {
+        if (t.kind) { t.rows.filter(r => r.k === p.k).forEach(r => x2.push({ t, r })); return; }
         const rs = t.rows.filter(r => r.k === p.k).sort((a, b) => a.att - b.att);
         if (!rs.length) { if (assigned(t).some(x => x.k === p.k)) w.push({ t, miss: true }); return; }
         rs.forEach(r => w.push({ t, r }));
       });
       const o = D.oral.filter(x => x.k === p.k && inP(x)).sort((a, b) => a.date.localeCompare(b.date));
-      return { w, o };
+      return { w, o, x2 };
     };
-    const t = el('table'), tw = el('div', 'tw'); t.innerHTML = '<tr><th>Pupil</th><th>Written</th><th>Oral</th><th class="num">Grades</th><th class="num">Average</th><th></th></tr>';
+    const t = el('table'), tw = el('div', 'tw'); t.innerHTML = '<tr><th>Pupil</th><th>Written</th><th>Oral</th><th>Other</th><th class="num">Grades</th><th class="num">Average</th><th></th></tr>';
     const lines = [];
     pupils().forEach(p => {
-      const { w, o } = rowsOf(p), tr = el('tr'), wt = el('td'), ot = el('td'), gs = [];
+      const { w, o, x2 } = rowsOf(p), tr = el('tr'), wt = el('td'), ot = el('td'), xt = el('td'), gs = [];
       w.forEach(x => { if (x.miss) { wt.append(el('span', 'chip', x.t.title.slice(0, 14) + ': —')); return; }
         const r = x.r; if (r.status) wt.append(el('span', 'chip', (r.status === 'manjkal' ? 'absent' : 'excused') + (r.att > 1 ? ' (retake)' : '')));
         else if (r.grade != null) { wt.append(gchip(r.grade, x.t.title + ' · ' + fmtD(r.date || x.t.date) + ' · ' + r.total + '/' + x.t.max + (r.att > 1 ? ' · retake' : ''))); gs.push(r.grade); } });
       o.forEach(x => { ot.append(gchip(x.grade, (x.topic || 'oral') + ' · ' + fmtD(x.date))); gs.push(x.grade); });
+      x2.forEach(x => { if (x.r.status) xt.append(el('span', 'chip', x.r.status === 'manjkal' ? 'absent' : 'excused')); else if (x.r.grade != null) { xt.append(gchip(x.r.grade, kindName(x.t.kind) + ': ' + x.t.title + ' · ' + fmtD(x.r.date || x.t.date))); gs.push(x.r.grade); } });
       const pb = el('button', 'btn sm', 'Pupil'); pb.onclick = () => pupilCard(p);
       const ptd = el('td'); ptd.append(pb);
-      tr.append(el('td', '', p.n), wt, ot, el('td', 'num', String(gs.length)), el('td', 'num', f2(avg(gs))), ptd); t.append(tr);
+      tr.append(el('td', '', p.n), wt, ot, xt, el('td', 'num', String(gs.length)), el('td', 'num', f2(avg(gs))), ptd); t.append(tr);
       lines.push(p.n + '\t' + gs.join(' '));
     });
     tw.append(t); b.append(el('h2', '', 'Overview · ' + cls + ' · ' + (overPer === 'all' ? 'whole year' : overPer + '. period')), tw,
@@ -377,7 +459,7 @@ dialog::backdrop { background: rgba(0,0,0,.5); }
         const t = el('table'); t.innerHTML = '<tr><th>Date</th><th>What</th><th class="num">Grade</th></tr>';
         W.concat(O.map(o => ({ date: o.date, title: 'Oral: ' + (o.topic || '—') + (o.q ? ' – ' + o.q : ''), grade: o.grade }))).sort((a, b) => a.date.localeCompare(b.date)).forEach(x => {
           const tr = el('tr'), g = el('td', 'num'); if (x.grade != null) g.append(gchip(x.grade)); else g.textContent = x.status ? (x.status === 'manjkal' ? 'absent' : 'excused') : '—';
-          tr.append(el('td', '', fmtD(x.date)), el('td', '', x.title + (x.att > 1 ? ' (retake)' : '') + (x.pct != null ? ' · ' + Math.round(x.pct) + ' %' : '')), g); t.append(tr); });
+          tr.append(el('td', '', fmtD(x.date)), el('td', '', (x.kind ? kindName(x.kind) + ': ' : '') + x.title + (x.att > 1 ? ' (retake)' : '') + (x.pct != null ? ' · ' + Math.round(x.pct) + ' %' : '')), g); t.append(tr); });
         dlg.append(t);
         const gs = W.filter(x => x.grade != null).map(x => x.grade).concat(O.map(x => x.grade)); dlg.append(el('p', 'note', 'Average ' + f2(avg(gs)) + ' (' + gs.length + (gs.length === 1 ? ' grade)' : ' grades)')));
       });

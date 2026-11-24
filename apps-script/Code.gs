@@ -85,7 +85,7 @@ var UNITS = {
 
 // Change this text whenever the code of doPost changes: the health check compares it with what the published web app answers,
 // so it can tell you that the saved code has not been deployed as a new version yet.
-var CODE_VERSION = '2026-11-24.2';
+var CODE_VERSION = '2026-11-24.3';
 
 // ---------------------------------------------------------------- saving results
 
@@ -3067,7 +3067,10 @@ function hcTeam_(add) {
 // the key across school years is nameKey_(name). No e-mails. Every cell is text (dates 'yyyy-MM-dd'), so the Sheet never turns
 // anything into a date or number on its own.
 // 'Učenci (JSON)': the name keys of the pupils who write the test (24 Nov 2026, the teacher chooses them individually); empty = the whole class
-var GB_TESTS = ['ID', 'Šolsko leto', 'Razred', 'Datum', 'Obdobje', 'Naslov', 'Deli (JSON)', 'Meje 5/4/3/2 (%)', 'Skupaj točk', 'Skupini A/B', 'Opomba', 'Ustvarjeno', 'Spremenjeno', 'Učenci (JSON)'];
+// 'Vrsta' (24 Nov 2026): '' = written test by points; otherwise a grade given directly, without points: projekt, predstavitev,
+// domača naloga, branje, drugo (the teacher's "other grades")
+var GB_TESTS = ['ID', 'Šolsko leto', 'Razred', 'Datum', 'Obdobje', 'Naslov', 'Deli (JSON)', 'Meje 5/4/3/2 (%)', 'Skupaj točk', 'Skupini A/B', 'Opomba', 'Ustvarjeno', 'Spremenjeno', 'Učenci (JSON)', 'Vrsta'];
+var GB_KINDS = ['projekt', 'predstavitev', 'domača naloga', 'branje', 'drugo'];
 var GB_POINTS = ['Test ID', 'Šolsko leto', 'Razred', 'Ključ', 'Učenec', 'Poskus', 'Datum poskusa', 'Stanje', 'Skupina', 'Točke (JSON)', 'Skupaj', 'Odstotek', 'Ocena', 'Spremenjeno'];
 var GB_ORAL = ['ID', 'Šolsko leto', 'Razred', 'Obdobje', 'Datum', 'Ključ', 'Učenec', 'Ocena', 'Tema', 'Vprašanja', 'Opomba', 'Spremenjeno'];
 var GB_PERIODS = ['Šolsko leto', 'Obdobje', 'Od', 'Do'];
@@ -3142,7 +3145,7 @@ function gbClassReply_(d) {
 function gbTestObj_(r) {
   var parts = []; try { parts = JSON.parse(r[6]); } catch (e) {}
   var who = []; try { who = r[13] ? JSON.parse(r[13]) : []; } catch (e) {}
-  return { id: r[0], year: r[1], cls: r[2], date: r[3], period: r[4], title: r[5], parts: parts, th: String(r[7]).split('/').map(Number), max: Number(r[8]), groups: r[9] === 'da', note: r[10], pupils: who };
+  return { id: r[0], year: r[1], cls: r[2], date: r[3], period: r[4], title: r[5], parts: parts, th: String(r[7]).split('/').map(Number), max: Number(r[8]), groups: r[9] === 'da', note: r[10], pupils: who, kind: r[14] || '' };
 }
 function gbPointObj_(r) {
   var pts = []; try { pts = JSON.parse(r[9]); } catch (e) {}
@@ -3154,8 +3157,9 @@ function gbOralObj_(r) { return { id: r[0], year: r[1], cls: r[2], period: r[3],
 function gbTestSaveReply_(d) {
   if (!gbTeacher_(d)) return out_({ ok: false, error: 'token' });
   var t = d.test || {}, parts = (t.parts || []).map(function (x) { return { n: gbText_(x.n, 40), m: Math.max(0, Math.min(500, Number(x.m) || 0)) }; }).filter(function (x) { return x.n && x.m > 0; }).slice(0, 20);
-  var th = (t.th || [90, 80, 65, 40]).map(Number);
-  if (!t.year || !t.cls || !gbText_(t.title, 120) || !parts.length || th.length !== 4 || th.some(function (x) { return !(x > 0 && x <= 100); })) return out_({ ok: false, error: 'data' });
+  var th = (t.th || [90, 80, 65, 40]).map(Number), kind = GB_KINDS.indexOf(t.kind) >= 0 ? t.kind : '';
+  if (kind) parts = [];                                              // an "other grade" has no parts and no points
+  if (!t.year || !t.cls || !gbText_(t.title, 120) || (!kind && !parts.length) || th.length !== 4 || th.some(function (x) { return !(x > 0 && x <= 100); })) return out_({ ok: false, error: 'data' });
   var ss = gbBook_(true), sh = ss.getSheetByName('Testi'), now = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd HH:mm'), date = gbDate_(t.date);
   var max = parts.reduce(function (s, x) { return s + x.m; }, 0), per = gbPeriodOf_(gbPeriods_(ss), String(t.year), date);
   var lock = LockService.getScriptLock(); lock.waitLock(20000);
@@ -3164,10 +3168,10 @@ function gbTestSaveReply_(d) {
     if (t.id) rows.forEach(function (r, i) { if (r[0] === String(t.id)) idx = i; });
     var id = idx >= 0 ? String(t.id) : Utilities.getUuid().slice(0, 8);
     var who = (t.pupils || []).map(function (k) { return gbText_(k, 120); }).filter(String).slice(0, 200);
-    var row = [id, String(t.year), String(t.cls), date, per, gbText_(t.title, 120), JSON.stringify(parts), th.join('/'), String(max), t.groups ? 'da' : 'ne', gbText_(t.note, 300), idx >= 0 ? rows[idx][11] : now, now, who.length ? JSON.stringify(who) : ''];
-    if (sh.getLastColumn() < GB_TESTS.length) sh.getRange(1, 1, 1, GB_TESTS.length).setValues([GB_TESTS]);   // a Sheet made before this column existed
+    var row = [id, String(t.year), String(t.cls), date, per, gbText_(t.title, 120), JSON.stringify(parts), th.join('/'), String(max), t.groups ? 'da' : 'ne', gbText_(t.note, 300), idx >= 0 ? rows[idx][11] : now, now, who.length ? JSON.stringify(who) : '', kind];
+    if (sh.getLastColumn() < GB_TESTS.length) sh.getRange(1, 1, 1, GB_TESTS.length).setValues([GB_TESTS]);   // a Sheet made before these columns existed
     if (idx >= 0) sh.getRange(idx + 2, 1, 1, row.length).setValues([row]); else sh.appendRow(row);
-    if (idx >= 0) gbRegrade_(ss, id, parts, max, th);              // parts or limits changed: totals and grades follow
+    if (idx >= 0 && !kind) gbRegrade_(ss, id, parts, max, th);              // parts or limits changed: totals and grades follow
     return out_({ ok: true, id: id });
   } finally { lock.releaseLock(); }
 }
@@ -3210,10 +3214,14 @@ function gbPointsSaveReply_(d) {
     var pts = t.parts.map(function (p, i) { var v = x.pts && x.pts[i]; if (v === '' || v == null || isNaN(Number(v))) return ''; return Math.max(0, Math.min(p.m, Number(v))); });
     var status = ['manjkal', 'opravičen'].indexOf(x.status) >= 0 ? x.status : '', has = pts.some(function (v) { return v !== ''; });
     var sum = pts.reduce(function (s, v) { return s + (Number(v) || 0); }, 0), graded = has && !status;
+    if (t.kind) {                                                    // other grade: the grade itself, no points
+      var g = Number(x.grade), ok = g >= 1 && g <= 5 && !status;
+      return [t.id, t.year, t.cls, gbText_(x.k, 120), gbText_(x.n, 120), String(Math.max(1, Math.min(5, Number(x.att) || 1))), gbDate_(x.date || t.date), status, '', '[]', '', '', ok ? String(g) : '', now];
+    }
     return [t.id, t.year, t.cls, gbText_(x.k, 120), gbText_(x.n, 120), String(Math.max(1, Math.min(5, Number(x.att) || 1))), gbDate_(x.date || t.date), status,
             /^[AB]$/.test(x.grp) ? x.grp : '', JSON.stringify(pts), graded ? String(sum) : '', graded ? String(Math.round(sum / t.max * 1000) / 10) : '',
             graded ? String(gbGrade_(sum, t.max, t.th)) : '', now];
-  }).filter(function (r) { return r[3] && (r[7] || r[9] !== JSON.stringify(t.parts.map(function () { return ''; }))); });
+  }).filter(function (r) { return r[3] && (r[7] || (t.kind ? r[12] !== '' : r[9] !== JSON.stringify(t.parts.map(function () { return ''; })))); });
   var lock = LockService.getScriptLock(); lock.waitLock(20000);
   try {
     var sh = ss.getSheetByName('Tockovanje');
@@ -3252,7 +3260,7 @@ function gbPupilReply_(d) {
   var ss = gbBook_(false), k = String(d.k || ''); if (!ss || !k) return out_({ ok: true, written: [], oral: [] });
   var tests = {}; gbRows_(ss, 'Testi', GB_TESTS.length).forEach(function (r) { tests[r[0]] = gbTestObj_(r); });
   var written = gbRows_(ss, 'Tockovanje', GB_POINTS.length).filter(function (r) { return r[3] === k && tests[r[0]]; }).map(function (r) {
-    var o = gbPointObj_(r), t = tests[r[0]]; return { year: t.year, cls: t.cls, period: t.period, title: t.title, date: o.date, att: o.att, status: o.status, pct: o.pct, grade: o.grade };
+    var o = gbPointObj_(r), t = tests[r[0]]; return { year: t.year, cls: t.cls, period: t.period, title: t.title, kind: t.kind, date: o.date, att: o.att, status: o.status, pct: o.pct, grade: o.grade };
   });
   var oral = gbRows_(ss, 'Ustno', GB_ORAL.length).filter(function (r) { return r[5] === k; }).map(gbOralObj_);
   return out_({ ok: true, written: written, oral: oral });
