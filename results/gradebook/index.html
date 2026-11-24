@@ -284,7 +284,7 @@ dialog::backdrop { background: rgba(0,0,0,.5); }
   };
 
   // ---------- oral ----------
-  let oralPick = null, oralEdit = null;
+  let oralPick = null, oralEdit = null, oralBulk = false;
   const drawOral = () => {
     const box = $('#oral'); box.innerHTML = '';
     const per = curPeriod(), O = D.oral.filter(o => o.period === per), cnt = {}, last = {};
@@ -294,7 +294,9 @@ dialog::backdrop { background: rgba(0,0,0,.5); }
     const notYet = L.filter(p => !cnt[p.k]);
     const bar = el('div', 'bar'), rnd = el('button', 'btn', '🎲 Random (not examined yet)'); rnd.disabled = !notYet.length;
     rnd.onclick = () => { oralPick = notYet[Math.floor(Math.random() * notYet.length)].k; oralEdit = null; drawOral(); };
-    bar.append(rnd, el('span', 'muted small', notYet.length + ' of ' + L.length + ' not examined yet this period')); b.append(bar);
+    const bk = el('button', 'btn' + (oralBulk ? ' primary' : ''), '👥 Several pupils at once'); bk.onclick = () => { oralBulk = !oralBulk; oralPick = null; oralEdit = null; drawOral(); };
+    bar.append(rnd, bk, el('span', 'muted small', notYet.length + ' of ' + L.length + ' not examined yet this period')); b.append(bar);
+    if (oralBulk) { b.append(oralBulkPanel(L, cnt, last)); box.append(b); return; }
     const pl = el('div', 'pl'); pl.style.marginTop = '10px';
     L.forEach(p => { const bt = el('button', 'p' + (cnt[p.k] ? '' : ' none') + (oralPick === p.k ? ' sel' : '')), r = el('span', 'small muted');
       bt.append(el('span', '', p.n)); const ls = last[p.k]; if (ls) { r.append(gchip(ls.grade), document.createTextNode(' ' + fmtD(ls.date) + (cnt[p.k] > 1 ? ' · ' + cnt[p.k] + '×' : ''))); } else r.textContent = 'not yet';
@@ -306,9 +308,48 @@ dialog::backdrop { background: rgba(0,0,0,.5); }
     const qb = el('div', 'box'); qb.append(el('h3', '', 'Asked in ' + cls + ' this period'));
     const QS = O.filter(o => o.topic || o.q).sort((a, b) => b.date.localeCompare(a.date));
     if (!QS.length) qb.append(el('p', 'muted small', 'Nothing yet.'));
-    QS.forEach(o => { const d = el('div', 'q'); d.append(el('b', '', (o.topic || '—') + ' '), el('span', 'muted small', fmtD(o.date) + ' · ' + o.n + ' · '), gchip(o.grade)); if (o.q) d.append(el('div', 'small', o.q));
-      const e = el('button', 'btn sm', 'Edit'); e.onclick = () => { oralPick = o.k; oralEdit = o; drawOral(); }; d.append(document.createTextNode(' '), e); qb.append(d); });
+    // one entry per round (same date, topic and questions), with every pupil of that round and their grade
+    const rounds = []; QS.forEach(o => { const key = o.date + '|' + o.topic + '|' + o.q; let g = rounds.find(x => x.key === key); if (!g) rounds.push(g = { key, o, list: [] }); g.list.push(o); });
+    rounds.forEach(({ o, list }) => {
+      const d = el('div', 'q'); d.append(el('b', '', (o.topic || '—') + ' '), el('span', 'muted small', fmtD(o.date) + (list.length > 1 ? ' · ' + list.length + ' pupils' : '')));
+      if (o.q) d.append(el('div', 'small', o.q));
+      const who = el('div', 'small'); who.style.marginTop = '2px';
+      list.forEach(x => { const e = el('button', 'btn sm', 'Edit'); e.onclick = () => { oralPick = x.k; oralEdit = x; drawOral(); };
+        const sp = el('span'); sp.style.marginRight = '12px'; sp.style.whiteSpace = 'nowrap'; sp.append(document.createTextNode(x.n + ' '), gchip(x.grade), document.createTextNode(x.note ? ' 📝 ' : ' '), e); who.append(sp); });
+      d.append(who); qb.append(d);
+    });
     box.append(qb);
+  };
+  // several pupils at once (24 Nov 2026): one date, topic and questions for all, each chosen pupil gets their own grade; notes later via Edit
+  const oralBulkPanel = (L, cnt, last) => {
+    const f = el('div', 'box'), chosen = {};
+    f.append(el('b', '', 'Oral grades for several pupils'), el('p', 'note', 'Give a grade to each pupil you examined (tap again to clear). The date, topic and questions are saved for all of them; add a note to one pupil later with “Edit”.'));
+    const g2 = el('div', 'grid2'), dl = el('label', 'f', 'Date'), di = el('input'), tl = el('label', 'f', 'Topic'), ti = el('input');
+    di.type = 'date'; di.value = today(); ti.maxLength = 120; ti.placeholder = 'e.g. My family'; dl.append(di); tl.append(ti); g2.append(dl, tl);
+    const ql = el('label', 'f', 'Questions asked (optional, the same for all)'), qi = el('textarea'); qi.maxLength = 600; ql.append(qi);
+    f.append(g2, ql);
+    const count = el('span', 'muted small'), upd = () => { const n = Object.keys(chosen).length; count.textContent = n ? n + (n === 1 ? ' pupil' : ' pupils') + ' graded' : 'No pupil graded yet'; };
+    const list = el('div', 'pl'); list.style.marginTop = '10px';
+    L.forEach(p => {
+      const line = el('div', 'box' + (cnt[p.k] ? '' : ' none')); line.style.margin = '0'; line.style.padding = '8px 10px'; if (!cnt[p.k]) line.style.borderLeft = '4px solid var(--accent)';
+      const head = el('div'); head.append(el('b', '', p.n + ' '), el('span', 'muted small', last[p.k] ? 'last ' + last[p.k].grade + ' · ' + fmtD(last[p.k].date) + (cnt[p.k] > 1 ? ' · ' + cnt[p.k] + '×' : '') : 'not yet this period'));
+      const gs = el('div', 'grades'); gs.style.marginTop = '6px';
+      [1, 2, 3, 4, 5].forEach(g => { const bt = el('button', '', String(g)); bt.setAttribute('aria-pressed', 'false');
+        bt.onclick = () => { if (chosen[p.k] === g) delete chosen[p.k]; else chosen[p.k] = g; [...gs.children].forEach(x => x.setAttribute('aria-pressed', String(chosen[p.k] === Number(x.textContent)))); upd(); };
+        gs.append(bt); });
+      line.append(head, gs); list.append(line);
+    });
+    const msg = el('span', 'muted small'), bar = el('div', 'bar'), sv = el('button', 'btn primary', 'Save all'), cc = el('button', 'btn', 'Cancel');
+    cc.onclick = () => { if (Object.keys(chosen).length && !confirm('Leave without saving these grades?')) return; oralBulk = false; drawOral(); };
+    sv.onclick = async () => {
+      const rows = L.filter(p => chosen[p.k]).map(p => ({ k: p.k, n: p.n, grade: chosen[p.k] }));
+      if (!rows.length) { msg.textContent = 'Give at least one pupil a grade.'; return; }
+      sv.disabled = true; msg.textContent = 'Saving …';
+      try { const j = await api('gboralbulk', { year, cls, date: di.value, topic: ti.value.trim(), q: qi.value.trim(), rows }); oralBulk = false; await loadClass(); status('Saved ' + j.saved + ' oral grades.'); }
+      catch (e) { msg.textContent = 'Not saved: ' + e.message; sv.disabled = false; }
+    };
+    bar.append(sv, cc, count, msg); upd();
+    f.append(list, bar); return f;
   };
   const oralForm = p => {
     const o = oralEdit && oralEdit.k === p.k ? oralEdit : { date: today(), grade: 0, topic: '', q: '', note: '' };

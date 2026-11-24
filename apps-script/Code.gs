@@ -85,7 +85,7 @@ var UNITS = {
 
 // Change this text whenever the code of doPost changes: the health check compares it with what the published web app answers,
 // so it can tell you that the saved code has not been deployed as a new version yet.
-var CODE_VERSION = '2026-11-24.3';
+var CODE_VERSION = '2026-11-24.4';
 
 // ---------------------------------------------------------------- saving results
 
@@ -139,6 +139,7 @@ function doPost(e) {
     if (d.action === 'gbpointssave') return gbPointsSaveReply_(d);     // teacher-only: the points of one test (every pupil and attempt)
     if (d.action === 'gboralsave') return gbOralSaveReply_(d);         // teacher-only: one oral grade
     if (d.action === 'gboraldelete') return gbOralDeleteReply_(d);     // teacher-only: delete one oral grade
+    if (d.action === 'gboralbulk') return gbOralBulkReply_(d);         // teacher-only: oral grades of several pupils at once (one topic and date)
     if (d.action === 'gbpupil') return gbPupilReply_(d);               // teacher-only: one pupil's grades in every school year
     if (d.action === 'ping') return out_({ ok: true, v: CODE_VERSION });   // no data; used by "Check that everything works" in the Sheet menu
     var who = verify_(d.token);
@@ -3246,6 +3247,19 @@ function gbOralSaveReply_(d) {
     if (idx >= 0) sh.getRange(idx + 2, 1, 1, row.length).setValues([row]); else sh.appendRow(row);
     return out_({ ok: true, id: id });
   } finally { lock.releaseLock(); }
+}
+// several oral grades in one go (24 Nov 2026, the teacher's "bulk" input): {year, cls, date, topic, q, rows: [{k, n, grade}]}; each pupil
+// gets their own grade, the topic, questions and date are shared; notes are added later one by one ("Edit")
+function gbOralBulkReply_(d) {
+  if (!gbTeacher_(d)) return out_({ ok: false, error: 'token' });
+  var rows = (d.rows || []).filter(function (x) { var g = Number(x.grade); return x && x.k && g >= 1 && g <= 5; }).slice(0, 60);
+  if (!d.year || !d.cls || !rows.length) return out_({ ok: false, error: 'data' });
+  var ss = gbBook_(true), sh = ss.getSheetByName('Ustno'), now = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd HH:mm'), date = gbDate_(d.date);
+  var per = gbPeriodOf_(gbPeriods_(ss), String(d.year), date), topic = gbText_(d.topic, 120), q = gbText_(d.q, 600);
+  var out = rows.map(function (x) { return [Utilities.getUuid().slice(0, 8), String(d.year), String(d.cls), per, date, gbText_(x.k, 120), gbText_(x.n, 120), String(Number(x.grade)), topic, q, '', now]; });
+  var lock = LockService.getScriptLock(); lock.waitLock(20000);
+  try { sh.getRange(Math.max(2, sh.getLastRow() + 1), 1, out.length, GB_ORAL.length).setValues(out); return out_({ ok: true, saved: out.length }); }
+  finally { lock.releaseLock(); }
 }
 function gbOralDeleteReply_(d) {
   if (!gbTeacher_(d)) return out_({ ok: false, error: 'token' });
