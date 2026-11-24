@@ -153,9 +153,13 @@
   const cache = {};
   const toTest = ([q, a, ...w]) => ({ q, options: [a, ...w], answer: a });
   const toGap = ([text, answer, ...alt]) => alt.length ? { text, answer, alt } : { text, answer };
-  const loadSource = async (book, level) => {
+  // one book at a time: the unit files fill shared globals (window.CLASS_SETS …), so two loads at once would clear each other's data
+  // (24 Nov 2026: Project 1 showed "Nothing found" after such a clash, and the empty list stayed cached)
+  let srcQueue = Promise.resolve();
+  const loadSource = (book, level) => (srcQueue = srcQueue.catch(() => {}).then(() => loadSourceNow(book, level)));
+  const loadSourceNow = async (book, level) => {
     const key = book + '|' + (book === 'extra' ? level : '');
-    if (cache[key]) return cache[key];
+    if (cache[key] && cache[key].length) return cache[key];
     let list = [];
     if (book === 'extra') {
       await loadScript('../exercises/sets.js'); for (const f of ['levels-1', 'levels-2', 'levels-3', 'levels-4', 'levels-5', 'levels-6']) await loadScript('../exercises/' + f + '.js');
@@ -179,12 +183,16 @@
           mcHard: ((window.HARD_TESTS || {})[s.id] || []).map(toTest).concat(...mores.map(m => (m.hard || []).map(toTest))) };
       });
     }
-    return cache[key] = list;
+    if (list.length) cache[key] = list;                // an empty list is never kept: the next try loads the files again
+    return list;
   };
+  let fillReq = 0;
   const fillUnits = async () => {
     const box = $('#units'); box.textContent = 'Loading…'; $('#msg').textContent = '';
-    const book = $('#src').value; $('#lvlWrap').style.display = book === 'extra' ? '' : 'none';
-    current = await loadSource(book, $('#lvl').value); box.innerHTML = '';
+    const book = $('#src').value, req = ++fillReq; $('#lvlWrap').style.display = book === 'extra' ? '' : 'none';
+    const list = await loadSource(book, $('#lvl').value);
+    if (req !== fillReq) return;                       // the teacher has already chosen another book: an older answer must not overwrite it
+    current = list; box.innerHTML = '';
     current.forEach((u, i) => { const l = el('label'), c = el('input'); c.type = 'checkbox'; c.value = i; l.append(c, document.createTextNode(' ' + u.label + ' (' + u.words.length + ' words, ' + u.sentences.length + ' sentences, ' + (u.mcEasy.length + u.mcHard.length) + ' test questions' + (u.reading && u.reading.length ? ', ' + u.reading.length + ' reading texts' : '') + ')')); box.append(l); });
     if (!current.length) box.textContent = 'Nothing found.';
   };
@@ -376,9 +384,11 @@
     $('#msg').textContent = 'Total ' + groups[0].total + ' marks' + (o.groups ? ' per group' : '') + '.' + (short.length ? ' Note: ' + short.join(', ') + ' (some questions may repeat or be missing).' : '') + (bk ? ' A3 booklet: ' + bk.pages + ' A4 pages = ' + bk.sheets + ' A3 sheet' + (bk.sheets > 1 ? 's' : '') + ' per group. Print on A3, double-sided, flip on the SHORT edge, then fold in half (the answer key stays on A4).' : '') + ' Press Print; choose "Save as PDF" for a file.';
   };
 
+  let starting = false;
   const load = async () => {
-    if (!Track.token()) return;
-    const j = await api('boardmarks').catch(() => null);          // a teacher-only action: only the teacher account gets an answer
+    if (!Track.token() || loaded || starting) return;  // Track.init and Track.onChange can both call this right after sign-in
+    starting = true;
+    const j = await api('boardmarks').catch(() => null); starting = false;          // a teacher-only action: only the teacher account gets an answer
     if (!j || !j.ok) { $('#login').style.display = 'block'; $('#app').style.display = 'none'; $('#loginMsg').textContent = 'This Google account is not allowed to open this page.'; return; }
     loaded = true; $('#login').style.display = 'none'; $('#app').style.display = 'block'; $('#who').textContent = Track.email || '';
     const s = $('#src'); Object.keys(BOOKS).forEach(k => { const o = el('option', '', BOOKS[k]); o.value = k; s.append(o); });
