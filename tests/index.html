@@ -127,7 +127,7 @@
       <div>Grades (minimum % for 5 / 4 / 3 / 2):
         <input type="number" id="g5" value="90" min="1" max="100" style="width:64px"> <input type="number" id="g4" value="80" min="1" max="100" style="width:64px">
         <input type="number" id="g3" value="65" min="1" max="100" style="width:64px"> <input type="number" id="g2" value="40" min="1" max="100" style="width:64px"> <label style="margin:0"><input type="checkbox" id="gradeBox" checked> print the grade table</label></div>
-      <div style="margin-top:8px"><button class="btn primary" id="make">Make the test</button> <button class="btn" id="print" style="display:none">🖨 Print</button>
+      <div style="margin-top:8px"><button class="btn primary" id="make">Make the test</button> <button class="btn" id="print" style="display:none">🖨 Print</button> <a class="btn" id="toGb" style="display:none" target="_blank" rel="noopener" title="Opens the teacher's gradebook with this test's parts, points and grade limits (you choose the class there)">📒 Save to gradebook</a>
         <span class="muted" id="msg" style="margin-left:8px"></span></div>
     </div>
     <div id="sheets"></div>
@@ -328,7 +328,7 @@
     stage.remove(); return { nodes: out, sheets: n / 4, pages: real };
   };
   const make = () => {
-    const units = [...document.querySelectorAll('#units input:checked')].map(c => current[Number(c.value)]), box = $('#sheets'); box.innerHTML = ''; $('#print').style.display = 'none';
+    const units = [...document.querySelectorAll('#units input:checked')].map(c => current[Number(c.value)]), box = $('#sheets'); box.innerHTML = ''; $('#print').style.display = 'none'; $('#toGb').style.display = 'none';
     if (!units.length) { $('#msg').textContent = 'Tick at least one unit first.'; return; }
     const num = id => Math.max(0, Math.min(Number($(id).max), Math.floor(Number($(id).value) || 0)));
     const o = { nSl2En: num('#nSl2En'), nEn2Sl: num('#nEn2Sl'), nMatch: num('#nMatch'), nMc: num('#nMc'), nGap: num('#nGap'), nTf: num('#nTf'), nRq: num('#nRq'),
@@ -363,6 +363,11 @@
     groups.forEach(g => { const sh = renderGroup(g, o, false); if ($('#layout').value === 'booklet') { box.append(sh); const r = bookletOf(sh); sh.replaceWith(...r.nodes); bk = r; } else box.append(sh); });
     if (o.key) groups.forEach(g => box.append(renderGroup(g, o, true)));
     $('#print').style.display = '';
+    // gradebook (results/gradebook/): the parts, points and grade limits go in the link (#new=…), nothing is sent anywhere; the
+    // teacher picks the class and date there. Group B has the same parts and points as group A.
+    const gbData = { title: o.title, parts: groups[0].secs.map(s => ({ n: s.letter + ' ' + s.name, m: s.pts })), th: [o.g5, o.g4, o.g3, o.g2], groups: o.groups, note: o.sub };
+    $('#toGb').href = '../results/gradebook/#new=' + btoa(unescape(encodeURIComponent(JSON.stringify(gbData)))).replace(/[+]/g, '-').replace(/[/]/g, '_').replace(/=+$/, '');
+    $('#toGb').style.display = '';
     const short = [];
     if (o.nMc && mcPool.length < o.nMc) short.push('only ' + mcPool.length + ' circle-the-answer questions exist in these units');
     if ((o.nTf || o.nRq) && !readPool.length) short.push('these units have no reading texts yet (C is left out)');

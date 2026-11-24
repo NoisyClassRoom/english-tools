@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Gradebook</title>
+<style>
+/* The teacher's personal working gradebook for English (docs/GRADEBOOK-PLAN.md, 24 Nov 2026). Teacher only: every request is checked
+   on the server (TEACHER_EMAILS). Data in a separate private Sheet; eAsistent stays the official record. Phone first: oral grades are
+   entered in class. Grade rule = the grade table printed by tests/ (limit = ceil(% × total)). */
+body {
+  --bg: #141418; --card: #1f1f26; --ink: #f2efe9; --muted: #a39f95; --line: #34343e; --field: #14141a;
+  --accent: #ff8a1f; --accent-ink: #17171c; --accent-soft: #3a2a18; --good: #34c06d; --warn: #f5b301; --bad: #ff5a5a;
+  --g5: #1f7a3f; --g4: #3c8f2f; --g3: #8a7a12; --g2: #9a5a10; --g1: #9b2c2c;
+}
+body.light {
+  --bg: #f6f4ef; --card: #ffffff; --ink: #1f2a37; --muted: #6b7280; --line: #e5e1d8; --field: #ffffff;
+  --accent: #e8710a; --accent-ink: #ffffff; --accent-soft: #fdeedd; --good: #1f9d55; --warn: #e0a100; --bad: #d64545;
+  --g5: #d6f0de; --g4: #e3f2d6; --g3: #f6efc9; --g2: #fbe3c8; --g1: #f8d3d3;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; padding: 0 16px 90px; }
+.wrap { max-width: 1100px; margin: 0 auto; }
+.top { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 14px 0 6px; }
+.top h1 { font-size: 1.4rem; margin: 0 8px 0 0; }
+.top .sp { flex: 1; }
+.muted { color: var(--muted); } .small { font-size: .85rem; }
+.btn { background: var(--field); color: var(--ink); border: 1px solid var(--line); border-radius: 10px; padding: 7px 12px; font: inherit; cursor: pointer; text-decoration: none; display: inline-block; }
+.btn:hover { border-color: var(--accent); }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
+.btn.danger { color: var(--bad); }
+.btn.sm { padding: 3px 9px; font-size: .85rem; }
+.box { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px; margin-top: 12px; }
+.bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 8px; }
+select, input, textarea { font: inherit; font-size: 16px; color: var(--ink); background: var(--field); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; }
+textarea { width: 100%; min-height: 70px; }
+label.f { display: grid; gap: 3px; font-size: .88rem; color: var(--muted); }
+label.f > input, label.f > select, label.f > textarea { color: var(--ink); }
+.tabs { display: flex; gap: 6px; margin-top: 12px; }
+.tabs .btn[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
+table { border-collapse: collapse; width: 100%; font-size: .92rem; }
+th, td { padding: 6px 6px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: middle; }
+th { color: var(--muted); font-weight: 600; font-size: .82rem; }
+td.num, th.num { text-align: center; font-variant-numeric: tabular-nums; }
+.tw { overflow-x: auto; }
+input.pt { width: 3.6em; text-align: center; padding: 5px 2px; }
+.g { display: inline-block; min-width: 1.7em; text-align: center; border-radius: 6px; padding: 1px 5px; font-weight: 700; margin: 1px 2px 1px 0; color: var(--ink); }
+.g5 { background: var(--g5); } .g4 { background: var(--g4); } .g3 { background: var(--g3); } .g2 { background: var(--g2); } .g1 { background: var(--g1); }
+body:not(.light) .g { color: #fff; }
+.chip { display: inline-block; border: 1px solid var(--line); border-radius: 999px; padding: 1px 8px; font-size: .8rem; color: var(--muted); }
+.parts { display: grid; gap: 6px; }
+.parts .row { display: grid; grid-template-columns: 1fr 5.5em auto; gap: 6px; }
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
+.th4 { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.th4 input { width: 4.2em; }
+.save-bar { position: fixed; left: 0; right: 0; bottom: 0; background: var(--card); border-top: 1px solid var(--line); padding: 10px 16px; display: none; gap: 10px; align-items: center; justify-content: center; z-index: 5; }
+.save-bar.on { display: flex; }
+.pl { display: grid; gap: 6px; }
+.pl button.p { display: grid; grid-template-columns: 1fr auto; gap: 6px; text-align: left; width: 100%; background: var(--field); color: var(--ink); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; font: inherit; cursor: pointer; }
+.pl button.p.none { border-left: 4px solid var(--accent); }
+.pl button.p.sel { border-color: var(--accent); background: var(--accent-soft); }
+.grades { display: flex; gap: 6px; }
+.grades button { flex: 1; font: inherit; font-size: 1.3rem; font-weight: 800; padding: 10px 0; border-radius: 10px; border: 1px solid var(--line); background: var(--field); color: var(--ink); cursor: pointer; }
+.grades button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.anbar { display: grid; grid-template-columns: 11em 1fr 3.5em; gap: 8px; align-items: center; font-size: .9rem; margin: 4px 0; }
+.anbar .tr { height: 14px; background: var(--line); border-radius: 4px; overflow: hidden; }
+.anbar .tr i { display: block; height: 100%; background: var(--accent); }
+.anbar .tr i.b { background: #5598e7; }
+dialog { border: 1px solid var(--line); border-radius: 14px; background: var(--card); color: var(--ink); max-width: min(720px, 96vw); width: 100%; padding: 16px; }
+dialog::backdrop { background: rgba(0,0,0,.5); }
+#login { text-align: center; padding: 40px 14px; }
+#app { display: none; }
+.hide { display: none !important; }
+.note { font-size: .85rem; color: var(--muted); margin: 4px 0 8px; }
+.q { border-left: 3px solid var(--line); padding: 2px 0 2px 10px; margin: 6px 0; font-size: .9rem; }
+@media (max-width: 640px) { .anbar { grid-template-columns: 7em 1fr 3em; } th, td { padding: 5px 3px; } }
+</style>
+</head>
+<body>
+<script src="../../exercises/tracking.js"></script>
+<div class="wrap">
+  <div class="top">
+    <h1>📒 Gradebook</h1><span class="muted small" id="who"></span><span class="sp"></span>
+    <a class="btn" href="../">← Results</a> <button class="btn" id="theme">Light / dark</button>
+  </div>
+  <div id="login" class="box">
+    <p id="loginMsg" class="muted">Teacher only. Sign in with the school Google account.</p>
+    <div id="slot" style="display:inline-block"></div>
+  </div>
+  <div id="app">
+    <p class="note">Your personal working gradebook. eAsistent stays the official record. Nobody else sees these pages.</p>
+    <div class="bar">
+      <label class="f">School year <select id="year"></select></label>
+      <label class="f">Class <select id="cls"></select></label>
+      <span class="muted small" id="status"></span>
+    </div>
+    <div class="tabs" role="tablist">
+      <button class="btn" data-tab="tests">Tests</button><button class="btn" data-tab="oral">Oral</button><button class="btn" data-tab="over">Overview</button>
+    </div>
+    <div id="tests"></div>
+    <div id="oral" class="hide"></div>
+    <div id="over" class="hide"></div>
+  </div>
+</div>
+<div class="save-bar" id="saveBar"><span class="muted small" id="saveMsg">Unsaved changes</span><button class="btn primary" id="saveBtn">Save</button></div>
+<dialog id="dlg"></dialog>
+<script>
+(() => {
+  'use strict';
+  const $ = s => document.querySelector(s);
+  const el = (t, c, x) => { const e = document.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e; };
+  const today = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+  const fmtD = s => s ? s.slice(8, 10).replace(/^0/, '') + '. ' + s.slice(5, 7).replace(/^0/, '') + '.' : '';
+  const gchip = (g, title) => { const s = el('span', 'g g' + g, String(g)); if (title) s.title = title; return s; };
+  // grade rule exactly as the grade table printed by tests/
+  const gradeOf = (total, max, th) => { const lim = p => Math.ceil(p / 100 * max - 1e-9); return total >= lim(th[0]) ? 5 : total >= lim(th[1]) ? 4 : total >= lim(th[2]) ? 3 : total >= lim(th[3]) ? 2 : 1; };
+  const avg = xs => xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null;
+  const f2 = x => x == null ? '—' : x.toFixed(2).replace('.', ',');
+
+  let R = null, D = { tests: [], oral: [] }, year = '', cls = '', tab = 'tests', dirty = null;
+  try { tab = localStorage.getItem('gb.tab') || 'tests'; } catch (e) {}
+  const api = async (action, extra) => {
+    const token = Track.token(); if (!token) throw new Error('token');
+    const r = await fetch(Track.config.endpoint, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(Object.assign({ action, token }, extra || {})) });
+    const j = await r.json(); if (!j.ok) throw new Error(j.error || 'error'); return j;
+  };
+  const status = t => { $('#status').textContent = t || ''; };
+  const pupils = () => ((R.roster[year] || {})[cls] || []);
+  const periods = () => R.periods.filter(p => p.year === year);
+  const periodOf = d => (periods().find(p => d >= p.from && d <= p.to) || {}).p || '';
+  const curPeriod = () => periodOf(today()) || (periods()[0] || {}).p || '1';
+
+  // ---------- load ----------
+  const loadClass = async () => {
+    if (!cls) { D = { tests: [], oral: [] }; draw(); return; }
+    status('Loading …');
+    try { D = await api('gbclass', { year, cls }); status(''); } catch (e) { status('Could not load: ' + e.message); D = { tests: [], oral: [] }; }
+    draw();
+  };
+  const fillSelects = () => {
+    const ys = Object.keys(R.roster).sort().reverse(); if (!ys.includes(year)) year = ys.includes(R.current) ? R.current : ys[0] || '';
+    $('#year').innerHTML = ''; ys.forEach(y => { const o = el('option', '', y.replace('-', '/')); o.value = y; o.selected = y === year; $('#year').append(o); });
+    const cs = Object.keys(R.roster[year] || {}).sort((a, b) => a.localeCompare(b, 'sl', { numeric: true }));
+    if (!cs.includes(cls)) { let c = ''; try { c = localStorage.getItem('gb.cls') || ''; } catch (e) {} cls = cs.includes(c) ? c : cs[0] || ''; }
+    $('#cls').innerHTML = ''; cs.forEach(c => { const o = el('option', '', c + ' (' + R.roster[year][c].length + ')'); o.value = c; o.selected = c === cls; $('#cls').append(o); });
+  };
+  const leaveOk = () => !dirty || confirm('You have unsaved points. Leave without saving?');
+  $('#year').onchange = e => { if (!leaveOk()) { e.target.value = year; return; } setDirty(null); year = e.target.value; fillSelects(); loadClass(); };
+  $('#cls').onchange = e => { if (!leaveOk()) { e.target.value = cls; return; } setDirty(null); cls = e.target.value; try { localStorage.setItem('gb.cls', cls); } catch (x) {} loadClass(); };
+  document.querySelectorAll('.tabs .btn').forEach(b => b.onclick = () => { if (!leaveOk()) return; setDirty(null); tab = b.dataset.tab; try { localStorage.setItem('gb.tab', tab); } catch (e) {} draw(); });
+  const setDirty = fn => { dirty = fn; $('#saveBar').classList.toggle('on', !!fn); $('#saveMsg').textContent = 'Unsaved changes'; };
+  $('#saveBtn').onclick = async () => { if (!dirty) return; $('#saveBtn').disabled = true; $('#saveMsg').textContent = 'Saving …'; try { await dirty(); setDirty(null); await loadClass(); } catch (e) { $('#saveMsg').textContent = 'Not saved: ' + e.message; } $('#saveBtn').disabled = false; };
+  addEventListener('beforeunload', e => { if (dirty) { e.preventDefault(); e.returnValue = ''; } });
+
+  const draw = () => {
+    document.querySelectorAll('.tabs .btn').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.tab === tab)));
+    ['tests', 'oral', 'over'].forEach(t => $('#' + t).classList.toggle('hide', t !== tab));
+    if (tab === 'tests') drawTests(); else if (tab === 'oral') drawOral(); else drawOver();
+  };
+
+  // ---------- tests ----------
+  let openTest = null;
+  const drawTests = () => {
+    const box = $('#tests'); box.innerHTML = '';
+    if (openTest) { const t = D.tests.find(x => x.id === openTest); if (t) return drawPoints(box, t); openTest = null; }
+    const b = el('div', 'box'), bar = el('div', 'bar'), nb = el('button', 'btn primary', '+ New test'); nb.onclick = () => testForm(null);
+    bar.append(nb, el('span', 'muted small', 'Tests made with the test maker can be sent here with “Save to gradebook”.')); b.append(bar);
+    const list = D.tests.slice().sort((a, b) => b.date.localeCompare(a.date));
+    if (!list.length) b.append(el('p', 'muted', 'No tests for ' + cls + ' yet.'));
+    else {
+      const t = el('table'), tw = el('div', 'tw'); t.innerHTML = '<tr><th>Date</th><th>Test</th><th class="num">Period</th><th class="num">Points</th><th class="num">Graded</th><th class="num">Average</th><th></th></tr>';
+      list.forEach(x => {
+        const g = x.rows.filter(r => r.grade != null), tr = el('tr');
+        const first = {}; x.rows.forEach(r => { if (r.att === 1) first[r.k] = r; });
+        tr.append(el('td', '', fmtD(x.date)), el('td', '', x.title), el('td', 'num', x.period ? x.period + '.' : '—'), el('td', 'num', String(x.max)),
+          el('td', 'num', Object.values(first).filter(r => r.grade != null).length + ' / ' + pupils().length), el('td', 'num', f2(avg(g.filter(r => r.att === 1).map(r => r.grade)))));
+        const td = el('td'), o = el('button', 'btn sm primary', 'Points'), e = el('button', 'btn sm', 'Edit');
+        o.onclick = () => { openTest = x.id; draw(); }; e.onclick = () => testForm(x); td.append(o, document.createTextNode(' '), e); tr.append(td); t.append(tr);
+      });
+      tw.append(t); b.append(tw);
+    }
+    box.append(b);
+  };
+  // new or edit test (dialog); pre = test or an import from the test maker
+  const testForm = (t, imp) => {
+    const dlg = $('#dlg'); dlg.innerHTML = '';
+    const v = t || Object.assign({ title: '', date: today(), parts: [{ n: 'A', m: 10 }], th: [90, 80, 65, 40], groups: false, note: '' }, imp || {});
+    dlg.append(el('h2', '', t ? 'Edit test' : 'New test for ' + cls));
+    if (imp) dlg.append(el('p', 'note', 'From the test maker: parts, points and grade limits are filled in. Check the class and the date.'));
+    const g = el('div', 'grid2'), title = el('input'), date = el('input'); title.value = v.title; title.maxLength = 120; date.type = 'date'; date.value = v.date;
+    const l1 = el('label', 'f', 'Title'), l2 = el('label', 'f', 'Date'); l1.append(title); l2.append(date); g.append(l1, l2); dlg.append(g);
+    dlg.append(el('h3', '', 'Parts and points'));
+    const parts = el('div', 'parts'), addRow = (n, m) => { const r = el('div', 'row'), a = el('input'), b = el('input'), x = el('button', 'btn sm', '✕'); a.value = n; a.placeholder = 'e.g. A Vocabulary'; b.type = 'number'; b.min = 0; b.step = '0.5'; b.value = m; x.onclick = () => r.remove(); r.append(a, b, x); parts.append(r); };
+    v.parts.forEach(p => addRow(p.n, p.m)); dlg.append(parts);
+    const add = el('button', 'btn sm', '+ part'); add.onclick = () => addRow('', ''); dlg.append(add);
+    dlg.append(el('h3', '', 'Grade limits (minimum % for 5 / 4 / 3 / 2)'));
+    const th = el('div', 'th4'), ths = v.th.map(x => { const i = el('input'); i.type = 'number'; i.min = 1; i.max = 100; i.value = x; th.append(i); return i; }); dlg.append(th);
+    const grp = el('label', '', ''), gc = el('input'); gc.type = 'checkbox'; gc.checked = !!v.groups; grp.append(gc, document.createTextNode(' two groups (A and B)')); grp.style.display = 'block'; grp.style.marginTop = '10px'; dlg.append(grp);
+    const nl = el('label', 'f', 'Note (optional)'), note = el('input'); note.value = v.note || ''; note.maxLength = 300; nl.append(note); nl.style.marginTop = '8px'; dlg.append(nl);
+    const msg = el('p', 'muted small'), bar = el('div', 'bar'), sv = el('button', 'btn primary', 'Save test'), cc = el('button', 'btn', 'Cancel');
+    cc.onclick = () => dlg.close();
+    sv.onclick = async () => {
+      const ps = [...parts.querySelectorAll('.row')].map(r => ({ n: r.children[0].value.trim(), m: Number(r.children[1].value) })).filter(p => p.n && p.m > 0);
+      if (!title.value.trim() || !ps.length) { msg.textContent = 'Write a title and at least one part with points.'; return; }
+      sv.disabled = true; msg.textContent = 'Saving …';
+      try { const j = await api('gbtestsave', { test: { id: t && t.id, year, cls, date: date.value, title: title.value.trim(), parts: ps, th: ths.map(i => Number(i.value)), groups: gc.checked, note: note.value.trim() } });
+        dlg.close(); if (imp) history.replaceState(null, '', location.pathname); await loadClass(); if (!t) { openTest = j.id; draw(); } }
+      catch (e) { msg.textContent = 'Not saved: ' + e.message; sv.disabled = false; }
+    };
+    bar.append(sv, cc);
+    if (t) { const del = el('button', 'btn danger', 'Delete test'); del.onclick = async () => { if (!confirm('Delete “' + t.title + '” with all its points?')) return; try { await api('gbtestdelete', { id: t.id }); dlg.close(); openTest = null; await loadClass(); } catch (e) { msg.textContent = e.message; } }; bar.append(del); }
+    dlg.append(bar, msg); dlg.showModal();
+  };
+  // entering points: one row per pupil and attempt
+  const drawPoints = (box, t) => {
+    const b = el('div', 'box'), back = el('button', 'btn sm', '← All tests'); back.onclick = () => { if (!leaveOk()) return; setDirty(null); openTest = null; draw(); };
+    b.append(back, el('h2', '', t.title), el('p', 'note', fmtD(t.date) + ' · ' + t.max + ' points · limits ' + t.th.join(' / ') + ' % · period ' + (t.period || '—') + (t.note ? ' · ' + t.note : '')));
+    const rows = []; const byK = {}; t.rows.forEach(r => { (byK[r.k] = byK[r.k] || []).push(r); });
+    pupils().forEach(p => { const have = (byK[p.k] || []).sort((a, b) => a.att - b.att); if (!have.length) rows.push({ k: p.k, n: p.n, att: 1, pts: t.parts.map(() => ''), status: '', grp: '' }); else have.forEach(r => rows.push(Object.assign({}, r, { n: p.n }))); });
+    Object.keys(byK).filter(k => !pupils().some(p => p.k === k)).forEach(k => byK[k].forEach(r => rows.push(Object.assign({}, r))));   // pupil no longer in the class list
+    const tbl = el('table'), tw = el('div', 'tw'), hr = el('tr');
+    hr.append(el('th', '', 'Pupil')); if (t.groups) hr.append(el('th', 'num', 'Gr.')); t.parts.forEach(p => { const h = el('th', 'num', p.n); h.title = p.m + ' points'; h.append(el('div', 'muted', '/' + p.m)); hr.append(h); });
+    hr.append(el('th', 'num', 'Total'), el('th', 'num', '%'), el('th', 'num', 'Grade'), el('th', '', 'Status'), el('th', '')); tbl.append(hr);
+    const collect = () => rows.map(r => ({ k: r.k, n: r.n, att: r.att, date: r.date, status: r.status, grp: r.grp, pts: r.pts }));
+    const mark = () => setDirty(() => api('gbpointssave', { id: t.id, rows: collect() }));
+    const render = () => {
+      while (tbl.rows.length > 1) tbl.deleteRow(1);
+      rows.forEach((r, i) => {
+        const tr = el('tr'), name = el('td'); name.append(document.createTextNode(r.n)); if (r.att > 1) name.append(el('span', 'chip', ' retake ' + (r.att - 1) + (r.date ? ' · ' + fmtD(r.date) : '')));
+        tr.append(name);
+        if (t.groups) { const td = el('td', 'num'), s = el('select'); ['', 'A', 'B'].forEach(x => { const o = el('option', '', x || '–'); o.value = x; o.selected = r.grp === x; s.append(o); }); s.onchange = () => { r.grp = s.value; mark(); }; td.append(s); tr.append(td); }
+        const tot = el('td', 'num'), pc = el('td', 'num'), gr = el('td', 'num');
+        const upd = () => { const has = r.pts.some(v => v !== '' && v != null); const sum = r.pts.reduce((s, v) => s + (Number(v) || 0), 0);
+          tot.textContent = has ? String(sum) : ''; pc.textContent = has && !r.status ? Math.round(sum / t.max * 100) + ' %' : ''; gr.innerHTML = ''; if (has && !r.status) gr.append(gchip(gradeOf(sum, t.max, t.th))); };
+        t.parts.forEach((p, j) => { const td = el('td', 'num'), inp = el('input', 'pt'); inp.type = 'number'; inp.inputMode = 'decimal'; inp.min = 0; inp.max = p.m; inp.step = '0.5'; inp.value = r.pts[j] == null ? '' : r.pts[j];
+          inp.oninput = () => { const v = inp.value === '' ? '' : Math.max(0, Math.min(p.m, Number(inp.value))); r.pts[j] = v; inp.classList.toggle('bad', inp.value !== '' && Number(inp.value) > p.m); upd(); mark(); };
+          td.append(inp); tr.append(td); });
+        const st = el('td'), ss = el('select'); [['', '—'], ['manjkal', 'absent'], ['opravičen', 'excused']].forEach(([v, l]) => { const o = el('option', '', l); o.value = v; o.selected = r.status === v; ss.append(o); });
+        ss.onchange = () => { r.status = ss.value; upd(); mark(); }; st.append(ss);
+        const act = el('td'), rt = el('button', 'btn sm', '+ retake'); rt.title = 'Add a retake (a new attempt) for this pupil';
+        rt.onclick = () => { const n = Math.max(...rows.filter(x => x.k === r.k).map(x => x.att)) + 1; const d = prompt('Date of the retake (yyyy-mm-dd):', today()); if (d === null) return;
+          rows.splice(rows.indexOf(rows.filter(x => x.k === r.k).pop()) + 1, 0, { k: r.k, n: r.n, att: n, date: d, pts: t.parts.map(() => ''), status: '', grp: r.grp }); render(); mark(); };
+        if (r.att === Math.max(...rows.filter(x => x.k === r.k).map(x => x.att))) act.append(rt);
+        tr.append(tot, pc, gr, st, act); upd(); tbl.append(tr);
+      });
+    };
+    render(); tw.append(tbl); b.append(tw);
+    b.append(el('p', 'note', 'Points are checked against the maximum of each part. Grades follow the limits of this test, like the grade table on the sheet. Save with the button at the bottom.'));
+    box.append(b);
+    // analysis: share of points per part (all, and A/B), grade distribution – first attempts only
+    const A = t.rows.filter(r => r.att === 1 && r.grade != null);
+    if (A.length) {
+      const an = el('div', 'box'); an.append(el('h3', '', 'Test analysis'), el('p', 'note', 'Saved first attempts (n = ' + A.length + '). The part with the shortest bar was the hardest.'));
+      t.parts.forEach((p, j) => {
+        const sh = L => L.length ? avg(L.map(r => (Number(r.pts[j]) || 0) / p.m)) : null;
+        const line = (lab, v, cl) => { if (v == null) return; const r = el('div', 'anbar'), tr = el('div', 'tr'), i = el('i', cl || ''); i.style.width = v * 100 + '%'; tr.append(i); r.append(el('div', '', lab), tr, el('div', 'num', Math.round(v * 100) + ' %')); an.append(r); };
+        line(p.n, sh(A));
+        if (t.groups) { line('  group A', sh(A.filter(r => r.grp === 'A')), 'b'); line('  group B', sh(A.filter(r => r.grp === 'B')), 'b'); }
+      });
+      const dist = el('p'); dist.append(document.createTextNode('Grades: ')); [5, 4, 3, 2, 1].forEach(g => { const n = A.filter(r => r.grade === g).length; dist.append(gchip(g), document.createTextNode('×' + n + '  ')); });
+      dist.append(document.createTextNode(' average ' + f2(avg(A.map(r => r.grade)))));
+      an.append(dist); box.append(an);
+    }
+  };
+
+  // ---------- oral ----------
+  let oralPick = null, oralEdit = null;
+  const drawOral = () => {
+    const box = $('#oral'); box.innerHTML = '';
+    const per = curPeriod(), O = D.oral.filter(o => o.period === per), cnt = {}, last = {};
+    O.forEach(o => { cnt[o.k] = (cnt[o.k] || 0) + 1; if (!last[o.k] || o.date > last[o.k].date) last[o.k] = o; });
+    const L = pupils().slice().sort((a, b) => (cnt[a.k] || 0) - (cnt[b.k] || 0) || ((last[a.k] || {}).date || '').localeCompare((last[b.k] || {}).date || '') || a.n.localeCompare(b.n, 'sl'));
+    const b = el('div', 'box'); b.append(el('h2', '', 'Oral grades · ' + cls + ' · ' + per + '. period'));
+    const notYet = L.filter(p => !cnt[p.k]);
+    const bar = el('div', 'bar'), rnd = el('button', 'btn', '🎲 Random (not examined yet)'); rnd.disabled = !notYet.length;
+    rnd.onclick = () => { oralPick = notYet[Math.floor(Math.random() * notYet.length)].k; oralEdit = null; drawOral(); };
+    bar.append(rnd, el('span', 'muted small', notYet.length + ' of ' + L.length + ' not examined yet this period')); b.append(bar);
+    const pl = el('div', 'pl'); pl.style.marginTop = '10px';
+    L.forEach(p => { const bt = el('button', 'p' + (cnt[p.k] ? '' : ' none') + (oralPick === p.k ? ' sel' : '')), r = el('span', 'small muted');
+      bt.append(el('span', '', p.n)); const ls = last[p.k]; if (ls) { r.append(gchip(ls.grade), document.createTextNode(' ' + fmtD(ls.date) + (cnt[p.k] > 1 ? ' · ' + cnt[p.k] + '×' : ''))); } else r.textContent = 'not yet';
+      bt.append(r); bt.onclick = () => { oralPick = p.k; oralEdit = null; drawOral(); }; pl.append(bt);
+      if (oralPick === p.k) pl.append(oralForm(p));
+    });
+    b.append(pl); box.append(b);
+    // questions asked in this class this period (to avoid repeats)
+    const qb = el('div', 'box'); qb.append(el('h3', '', 'Asked in ' + cls + ' this period'));
+    const QS = O.filter(o => o.topic || o.q).sort((a, b) => b.date.localeCompare(a.date));
+    if (!QS.length) qb.append(el('p', 'muted small', 'Nothing yet.'));
+    QS.forEach(o => { const d = el('div', 'q'); d.append(el('b', '', (o.topic || '—') + ' '), el('span', 'muted small', fmtD(o.date) + ' · ' + o.n + ' · '), gchip(o.grade)); if (o.q) d.append(el('div', 'small', o.q));
+      const e = el('button', 'btn sm', 'Edit'); e.onclick = () => { oralPick = o.k; oralEdit = o; drawOral(); }; d.append(document.createTextNode(' '), e); qb.append(d); });
+    box.append(qb);
+  };
+  const oralForm = p => {
+    const o = oralEdit && oralEdit.k === p.k ? oralEdit : { date: today(), grade: 0, topic: '', q: '', note: '' };
+    const f = el('div', 'box'); f.style.marginTop = '0';
+    f.append(el('b', '', (oralEdit ? 'Edit oral grade · ' : 'New oral grade · ') + p.n));
+    const gs = el('div', 'grades'); let grade = o.grade; [1, 2, 3, 4, 5].forEach(g => { const bt = el('button', '', String(g)); bt.setAttribute('aria-pressed', String(g === grade)); bt.onclick = () => { grade = g; [...gs.children].forEach(x => x.setAttribute('aria-pressed', String(Number(x.textContent) === g))); }; gs.append(bt); });
+    gs.style.margin = '8px 0';
+    const g2 = el('div', 'grid2'), dl = el('label', 'f', 'Date'), di = el('input'), tl = el('label', 'f', 'Topic'), ti = el('input');
+    di.type = 'date'; di.value = o.date; ti.value = o.topic; ti.maxLength = 120; ti.placeholder = 'e.g. My family'; dl.append(di); tl.append(ti); g2.append(dl, tl);
+    const ql = el('label', 'f', 'Questions asked'), qi = el('textarea'); qi.value = o.q; qi.maxLength = 600; ql.append(qi);
+    const nl = el('label', 'f', 'Note (optional)'), ni = el('input'); ni.value = o.note || ''; ni.maxLength = 300; nl.append(ni);
+    const msg = el('span', 'muted small'), bar = el('div', 'bar'), sv = el('button', 'btn primary', 'Save'), cc = el('button', 'btn', 'Cancel');
+    cc.onclick = () => { oralPick = null; oralEdit = null; drawOral(); };
+    sv.onclick = async () => { if (!grade) { msg.textContent = 'Choose a grade.'; return; } sv.disabled = true; msg.textContent = 'Saving …';
+      try { await api('gboralsave', { row: { id: oralEdit && oralEdit.id, year, cls, date: di.value, k: p.k, n: p.n, grade, topic: ti.value.trim(), q: qi.value.trim(), note: ni.value.trim() } }); oralPick = null; oralEdit = null; await loadClass(); }
+      catch (e) { msg.textContent = 'Not saved: ' + e.message; sv.disabled = false; } };
+    bar.append(sv, cc);
+    if (oralEdit) { const del = el('button', 'btn danger', 'Delete'); del.onclick = async () => { if (!confirm('Delete this oral grade?')) return; try { await api('gboraldelete', { id: oralEdit.id }); oralPick = null; oralEdit = null; await loadClass(); } catch (e) { msg.textContent = e.message; } }; bar.append(del); }
+    bar.append(msg); f.append(gs, g2, ql, nl, bar); return f;
+  };
+
+  // ---------- overview ----------
+  let overPer = '';
+  const drawOver = () => {
+    const box = $('#over'); box.innerHTML = '';
+    if (!overPer) overPer = curPeriod();
+    const b = el('div', 'box'), bar = el('div', 'bar'), ps = el('select');
+    [...periods().map(p => [p.p, p.p + '. period']), ['all', 'whole year']].forEach(([v, l]) => { const o = el('option', '', l); o.value = v; o.selected = v === overPer; ps.append(o); });
+    ps.onchange = () => { overPer = ps.value; drawOver(); };
+    const cp = el('button', 'btn', '📋 Copy for eAsistent'); bar.append(ps, cp); b.append(bar);
+    const inP = x => overPer === 'all' || x.period === overPer;
+    const rowsOf = p => {
+      const w = []; D.tests.filter(inP).sort((a, b) => a.date.localeCompare(b.date)).forEach(t => {
+        const rs = t.rows.filter(r => r.k === p.k).sort((a, b) => a.att - b.att);
+        if (!rs.length) { w.push({ t, miss: true }); return; }
+        rs.forEach(r => w.push({ t, r }));
+      });
+      const o = D.oral.filter(x => x.k === p.k && inP(x)).sort((a, b) => a.date.localeCompare(b.date));
+      return { w, o };
+    };
+    const t = el('table'), tw = el('div', 'tw'); t.innerHTML = '<tr><th>Pupil</th><th>Written</th><th>Oral</th><th class="num">Grades</th><th class="num">Average</th><th></th></tr>';
+    const lines = [];
+    pupils().forEach(p => {
+      const { w, o } = rowsOf(p), tr = el('tr'), wt = el('td'), ot = el('td'), gs = [];
+      w.forEach(x => { if (x.miss) { wt.append(el('span', 'chip', x.t.title.slice(0, 14) + ': —')); return; }
+        const r = x.r; if (r.status) wt.append(el('span', 'chip', (r.status === 'manjkal' ? 'absent' : 'excused') + (r.att > 1 ? ' (retake)' : '')));
+        else if (r.grade != null) { wt.append(gchip(r.grade, x.t.title + ' · ' + fmtD(r.date || x.t.date) + ' · ' + r.total + '/' + x.t.max + (r.att > 1 ? ' · retake' : ''))); gs.push(r.grade); } });
+      o.forEach(x => { ot.append(gchip(x.grade, (x.topic || 'oral') + ' · ' + fmtD(x.date))); gs.push(x.grade); });
+      const pb = el('button', 'btn sm', 'Pupil'); pb.onclick = () => pupilCard(p);
+      const ptd = el('td'); ptd.append(pb);
+      tr.append(el('td', '', p.n), wt, ot, el('td', 'num', String(gs.length)), el('td', 'num', f2(avg(gs))), ptd); t.append(tr);
+      lines.push(p.n + '\t' + gs.join(' '));
+    });
+    tw.append(t); b.append(el('h2', '', 'Overview · ' + cls + ' · ' + (overPer === 'all' ? 'whole year' : overPer + '. period')), tw,
+      el('p', 'note', 'All grades of the period, retakes included; hover (or tap) a grade for the test and date. “—” = test not written and no status set.'));
+    cp.onclick = async () => { try { await navigator.clipboard.writeText(lines.join('\n')); cp.textContent = '✓ Copied'; setTimeout(() => { cp.textContent = '📋 Copy for eAsistent'; }, 1500); } catch (e) { alert(lines.join('\n')); } };
+    box.append(b);
+  };
+  // one pupil in every school year
+  const pupilCard = async p => {
+    const dlg = $('#dlg'); dlg.innerHTML = ''; dlg.append(el('h2', '', p.n), el('p', 'muted', 'Loading …')); dlg.showModal();
+    try {
+      const j = await api('gbpupil', { k: p.k }); dlg.innerHTML = ''; dlg.append(el('h2', '', p.n));
+      const ys = [...new Set(j.written.map(x => x.year).concat(j.oral.map(x => x.year)))].sort().reverse();
+      if (!ys.length) dlg.append(el('p', 'muted', 'No grades yet.'));
+      ys.forEach(y => {
+        const W = j.written.filter(x => x.year === y), O = j.oral.filter(x => x.year === y), c = (W[0] || O[0]).cls;
+        dlg.append(el('h3', '', y.replace('-', '/') + ' · ' + c));
+        const t = el('table'); t.innerHTML = '<tr><th>Date</th><th>What</th><th class="num">Grade</th></tr>';
+        W.concat(O.map(o => ({ date: o.date, title: 'Oral: ' + (o.topic || '—') + (o.q ? ' – ' + o.q : ''), grade: o.grade }))).sort((a, b) => a.date.localeCompare(b.date)).forEach(x => {
+          const tr = el('tr'), g = el('td', 'num'); if (x.grade != null) g.append(gchip(x.grade)); else g.textContent = x.status ? (x.status === 'manjkal' ? 'absent' : 'excused') : '—';
+          tr.append(el('td', '', fmtD(x.date)), el('td', '', x.title + (x.att > 1 ? ' (retake)' : '') + (x.pct != null ? ' · ' + Math.round(x.pct) + ' %' : '')), g); t.append(tr); });
+        dlg.append(t);
+        const gs = W.filter(x => x.grade != null).map(x => x.grade).concat(O.map(x => x.grade)); dlg.append(el('p', 'note', 'Average ' + f2(avg(gs)) + ' (' + gs.length + (gs.length === 1 ? ' grade)' : ' grades)')));
+      });
+    } catch (e) { dlg.append(el('p', 'muted', 'Could not load: ' + e.message)); }
+    const c = el('button', 'btn', 'Close'); c.onclick = () => dlg.close(); dlg.append(c);
+  };
+
+  // ---------- start ----------
+  const importFromHash = () => { const m = /^#new=(.+)$/.exec(location.hash); if (!m) return null; try { return JSON.parse(decodeURIComponent(escape(atob(m[1].replace(/-/g, '+').replace(/_/g, '/'))))); } catch (e) { return null; } };
+  let loading = false;
+  const load = async () => {
+    if (!Track.token() || loading || R) return; loading = true; $('#loginMsg').textContent = 'Loading …';
+    try { R = await api('gbinit'); } catch (e) { loading = false; $('#loginMsg').textContent = e.message === 'token' ? 'This page is for the teacher only (or the sign-in has run out – sign in again).' : 'Could not load: ' + e.message; Track.button($('#slot')); return; }
+    $('#login').style.display = 'none'; $('#app').style.display = 'block'; $('#who').textContent = Track.email || '';
+    fillSelects(); await loadClass();
+    const imp = importFromHash(); if (imp) { tab = 'tests'; draw(); testForm(null, { title: String(imp.title || '').slice(0, 120), parts: (imp.parts || []).map(p => ({ n: String(p.n || ''), m: Number(p.m) || 0 })), th: (imp.th || [90, 80, 65, 40]).map(Number), groups: !!imp.groups, note: imp.note || '' }); }
+  };
+  $('#theme').onclick = () => { document.body.classList.toggle('light'); try { localStorage.setItem('res.light', document.body.classList.contains('light') ? '1' : ''); } catch (e) {} };
+  try { if (localStorage.getItem('res.light')) document.body.classList.add('light'); } catch (e) {}
+  if (window.Track && Track.enabled) {
+    Track.onChange(() => { if (Track.token()) load(); });
+    Track.init(() => { if (Track.token()) load(); else Track.button($('#slot')); });
+  } else $('#loginMsg').textContent = 'Sign-in is not set up.';
+})();
+</script>
+</body>
+</html>
