@@ -584,7 +584,8 @@
       strong: 'Strongest units', weakH: 'Units that need more practice', noWeak: 'No unit with an average below 80 %. Well done.',
       hUnit: 'Unit', hAct: 'Activities', hAvg: 'Average', compH: 'Unit completion', loadU: 'Loading the units…',
       hwH: 'Homework', hwErr: 'The homework could not be loaded.', hwLoad: 'Loading the homework… (the report updates by itself)',
-      hwLine: h => h.assigned + ' assigned: ' + h.onTime + ' on time, ' + h.late + ' late, ' + h.missing + ' missing.', hwNone: 'No homework was assigned to this pupil (or it could not be matched to the Roster).',
+      hwLine: h => h.assigned + ' assigned: ' + h.onTime + ' on time, ' + h.late + ' late, ' + h.missing + ' missing.',
+      swLine: h => 'Schoolwork in the ICT room: ' + h.assigned + ' assigned, ' + (h.onTime + h.late) + ' finished in the lesson.', hwNone: 'No homework was assigned to this pupil (or it could not be matched to the Roster).',
       foot: 'Confidential: this report is about one pupil. Results are the finished activities saved in NoisyClassRoom (Flashcards and Grammar texts are not recorded).',
       noBooks: 'No coursebook units yet (Extra practice topics are optional and not counted).',
       bookLine: (b, full, total, st, no) => b + ': ' + full + ' of ' + total + ' units fully done · ' + st + ' started · ' + no + ' not started.',
@@ -602,7 +603,8 @@
       strong: 'Najboljše enote', weakH: 'Enote, ki potrebujejo več vaje', noWeak: 'Nobena enota nima povprečja pod 80 %. Odlično.',
       hUnit: 'Enota', hAct: 'Dejavnosti', hAvg: 'Povprečje', compH: 'Opravljene enote', loadU: 'Nalagam enote …',
       hwH: 'Domače naloge', hwErr: 'Domačih nalog ni bilo mogoče naložiti.', hwLoad: 'Nalagam domače naloge … (poročilo se samo osveži)',
-      hwLine: h => 'Določenih: ' + h.assigned + ' · pravočasno oddanih: ' + h.onTime + ' · z zamudo: ' + h.late + ' · manjkajočih: ' + h.missing + '.', hwNone: 'Domače naloge niso bile določene.',
+      hwLine: h => 'Določenih: ' + h.assigned + ' · pravočasno oddanih: ' + h.onTime + ' · z zamudo: ' + h.late + ' · manjkajočih: ' + h.missing + '.',
+      swLine: h => 'Delo v računalniški učilnici: določenih ' + h.assigned + ', pri uri dokončanih ' + (h.onTime + h.late) + '.', hwNone: 'Domače naloge niso bile določene.',
       foot: 'Zaupno: poročilo se nanaša na enega učenca. Rezultati so opravljene dejavnosti, shranjene v NoisyClassRoom (kartice in slovnična besedila se ne beležijo).',
       noBooks: 'Še ni enot iz učbenika (dodatne vaje niso obvezne in se ne štejejo).',
       bookLine: (b, full, total, st, no) => b + ': ' + full + ' od ' + total + ' enot v celoti opravljenih · ' + st + ' začetih · ' + no + ' nezačetih.',
@@ -670,6 +672,8 @@
     else {
       const sums = hwItems().map(hwSummary), h = sums.length ? hwByPupil(sums).get(nk(p.name)) : null;
       card.append(el('p', 'note', h ? R.hwLine(h) : R.hwNone));
+      const swS = swItems().map(hwSummary), w = swS.length ? hwByPupil(swS).get(nk(p.name)) : null;
+      if (w) card.append(el('p', 'note', R.swLine(w)));
     }
     card.append(el('p', 'foot', R.foot));
   };
@@ -1024,7 +1028,7 @@
   const loadHw = async () => {
     if (hwState === 'loading') return; hwState = 'loading';
     try { const j = await api('hwlist'); if (j.ok) { hwData = j; hwState = 'ok'; } else hwState = 'error'; } catch (e) { hwState = 'error'; }
-    if (tab === 'homework' || tab === 'report') render();
+    if (['homework', 'report', 'pupils', 'preport'].includes(tab)) render();
   };
   // the units of a book come from the public exercise files (no pupil data in them)
   const loadScript = src => new Promise(res => { const s = document.createElement('script'); s.src = src; s.onload = s.onerror = res; document.head.append(s); });
@@ -1356,6 +1360,10 @@
                hard: a.filter(r => r.lvl === 3).length, last, rows: a, na: a.length + z.n, lastA: Math.max(last, z.last) }; });
     Object.keys(pz).filter(k => !by[k]).forEach(k => { const z = pz[k];   // pupils who only did puzzles
       list.push({ key: k, name: z.lastName + ' ' + z.first, cls: z.cls, n: 0, q: 0, p: null, lv: null, hard: 0, last: 0, rows: [], na: z.n, lastA: z.last }); });
+    // assigned work (25 Nov 2026): homework done / assigned per pupil (homework only, like every homework statistic)
+    if (hwState === '') loadHw();
+    const hwBy = hwState === 'ok' ? hwByPupil(hwData.items.filter(it => it.kind !== 'school').map(hwSummary)) : null;
+    list.forEach(x => { const h = hwBy && hwBy.get(nk(x.name)); x.hw = h ? { done: h.onTime + h.late, n: h.assigned, missing: h.missing } : null; });
     const card = el('div', 'card');
     const s = el('input'); s.type = 'search'; s.placeholder = 'Find a pupil…'; s.style.marginBottom = '8px';
     const holder = el('div');
@@ -1371,12 +1379,20 @@
         { h: 'Average', k: x => x.p == null ? -1 : x.p, v: x => x.p == null ? '—' : badge(x.p), num: true },
         { h: 'Avg level', k: x => x.lv == null ? -1 : x.lv, v: x => x.lv == null ? '—' : x.lv.toFixed(1), num: true },
         { h: 'Hard tests', k: x => x.hard, v: x => x.hard, num: true },
-        { h: 'Last practised', k: x => x.lastA, v: x => fmtDate(x.lastA), num: true }], items, 'Activities', x => { if (x.rows.length) { selPupil = x.key; render(); } }));
+        { h: 'Last practised', k: x => x.lastA, v: x => fmtDate(x.lastA), num: true },
+        { h: 'Homework', k: x => x.hw ? x.hw.done / x.hw.n : -1, num: true, v: x => !hwBy ? '…' : !x.hw ? '—' : el('span', 'pct' + (x.hw.missing ? ' lo' : x.hw.done === x.hw.n ? ' hi' : ''), x.hw.done + ' / ' + x.hw.n + (x.hw.missing ? ' · ' + x.hw.missing + ' missing' : '')) }],
+        items, 'Activities', x => { if (x.rows.length) { selPupil = x.key; render(); } }));
     };
     s.oninput = draw;
-    card.append(el('p', 'note', list.length + ' pupils. Click a column to sort, click a pupil for the details. ' + PZ_NOTE), s, holder);
+    card.append(el('p', 'note', list.length + ' pupils. Click a column to sort, click a pupil for the details. ' + PZ_NOTE + ' Homework = done (on time or late) / assigned this school year; schoolwork is shown in the pupil details.'), s, holder);
     view.append(card); draw();
-    if (selPupil && by[selPupil]) pupilDetail(view, list.find(x => x.key === selPupil));
+    if (selPupil && by[selPupil]) {
+      const sel0 = list.find(x => x.key === selPupil);
+      pupilDetail(view, sel0);
+      if (hwState === 'ok') { const all = hwData.items, c = pupilHwCard(nk(sel0.name), all.filter(it => it.kind !== 'school'), all.filter(it => it.kind === 'school'));
+        c.querySelector('h2').textContent = '📚 Assigned work · ' + sel0.name; view.append(c); }
+      else view.append(el('div', 'card', hwState === 'error' ? 'The homework could not be loaded.' : 'Loading the assigned work …'));
+    }
   };
 
   // the five activities that make a unit "done" (only those the unit really has): Match, Quiz, Fill the gap, Unit test, Unit test 2
