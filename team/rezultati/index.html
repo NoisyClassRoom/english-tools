@@ -129,7 +129,7 @@ table.co .chance { color: var(--muted); }
 </head>
 <body>
 <script src="../../exercises/tracking.js"></script>
-<script src="../vprasalnik.js?v=1"></script>
+<script src="../vprasalnik.js?v=2"></script>
 <div class="wrap">
   <div class="shellbar">
     <a class="btn" href="../">← Samouravnavanje učenja</a><span class="sp"></span>
@@ -383,25 +383,7 @@ table.co .chance { color: var(--muted); }
     drawCorr(P, late);
     drawPupilPicker();
   };
-  // ---- correlations (team only, 25 Nov 2026): pairs chosen in advance by the teacher; Spearman's rho with average ranks for ties ----
-  const rankOf = xs => { const idx = xs.map((v, i) => [v, i]).sort((a, b) => a[0] - b[0]), r = new Array(xs.length);
-    for (let i = 0; i < idx.length;) { let j = i; while (j + 1 < idx.length && idx[j + 1][0] === idx[i][0]) j++; const avgR = (i + j) / 2 + 1; for (let k = i; k <= j; k++) r[idx[k][1]] = avgR; i = j + 1; } return r; };
-  const spearman = pairs => { const n = pairs.length; if (n < 3) return null; const a = rankOf(pairs.map(x => x[0])), b = rankOf(pairs.map(x => x[1]));
-    const ma = a.reduce((s, v) => s + v, 0) / n, mb = b.reduce((s, v) => s + v, 0) / n; let num = 0, da = 0, db = 0;
-    for (let i = 0; i < n; i++) { num += (a[i] - ma) * (b[i] - mb); da += (a[i] - ma) ** 2; db += (b[i] - mb) ** 2; } return da && db ? num / Math.sqrt(da * db) : null; };
-  const nStrat = a => STRAT.filter(([c]) => a['S5_' + c] === 3).length;
-  const HAB6 = ['N2', 'N3', 'M1', 'R1', 'R3', 'D2'];
-  const CORR = {
-    23: [['N3 načrtuje čas učenja', a => a.N3, 'N7 zgodnji začetek učenja za test', a => a.N7 == null ? null : -a.N7],
-         ['Število strategij, ki jih uporablja (S5)', a => Object.keys(a).some(k => k.startsWith('S5_')) ? nStrat(a) : null, 'M1 preverja, ali razume', a => a.M1],
-         ['Število strategij, ki jih uporablja (S5)', a => Object.keys(a).some(k => k.startsWith('S5_')) ? nStrat(a) : null, 'R1 pregleda napake', a => a.R1],
-         ['P1 podpora staršev', a => a.P1, 'D1 domače naloge redno', a => a.D1],
-         ['N2 postavi si cilj', a => a.N2, 'D3 izpelje, kar si zada', a => a.D3],
-         ['Vsota šestih navad (N2, N3, M1, R1, R3, D2)', a => HAB6.every(c => a[c] != null) ? HAB6.reduce((s, c) => s + a[c], 0) : null, 'Povprečna ocena (vsi predmeti)', (a, p) => p.__grade],
-         ['S0 pozna več strategij', a => a.S0, 'Število strategij, ki jih uporablja (S5)', a => Object.keys(a).some(k => k.startsWith('S5_')) ? nStrat(a) : null]],
-    1: [['M1 preverja, ali razume', a => a.M1, 'R1 pregleda napake', a => a.R1],
-        ['P1 podpora staršev', a => a.P1, 'D1 domače naloge redno', a => a.D1]]
-  };
+  // ---- correlations (team only, 25 Nov 2026): pairs and maths in ../vprasalnik.js (shared with team/zbor/) ----
   const drawCorr = (P, late) => {
     const box = $('#coBox'); box.classList.toggle('hide', !VIEW.team); if (!VIEW.team) return;
     const k = late ? 'koncno' : 'zacetno', per = lastPer(), t = $('#co'); t.innerHTML = '';
@@ -410,15 +392,12 @@ table.co .chance { color: var(--muted); }
     groups.forEach(([g, label]) => {
       const L = (g === '1' ? P.filter(p => p.vio === 1) : P.filter(p => p.vio > 1)).filter(p => p.r[k]);
       const nn = L.length, sec = el('tr'), th = el('th', '', label + ' · ' + nn + (nn % 100 === 1 ? ' učenec' : nn % 100 === 2 ? ' učenca' : nn % 100 === 3 || nn % 100 === 4 ? ' učenci' : ' učencev')); th.colSpan = 5; sec.append(th); t.append(sec);
-      CORR[g === '1' ? 1 : 23].forEach(([la, fa, lb, fb]) => {
-        const pairs = []; L.forEach(p => { const pp = Object.assign({ __grade: per && p.g && p.g[per[0]] ? p.g[per[0]].vsi : null }, p); const a = fa(p.r[k], pp), b = fb(p.r[k], pp); if (a != null && b != null && !isNaN(a) && !isNaN(b)) pairs.push([a, b]); });
-        const rho = spearman(pairs), n = pairs.length, lim = n > 1 ? 1.96 / Math.sqrt(n - 1) : 1, tr = el('tr');
-        const lab = el('td'); lab.append(document.createTextNode(la), el('br'), el('span', 'small muted', '× ' + lb)); tr.append(lab, el('td', 'n', String(n)));
-        if (rho == null || n < 10) { const td = el('td', 'chance', n < 10 ? 'premalo odgovorov (n < 10)' : '—'); td.colSpan = 3; tr.append(td); t.append(tr); return; }
-        const a = Math.abs(rho), strength = a < 0.1 ? 'ni povezave' : a < 0.3 ? 'šibka' : a < 0.5 ? 'zmerna' : 'močna';
+      VPR.corrRows(L, g, k, per && per[0]).forEach(({ la, lb, n, rho, lim, chance, strength }) => {
+        const tr = el('tr'), lab = el('td'); lab.append(document.createTextNode(la), el('br'), el('span', 'small muted', '× ' + lb)); tr.append(lab, el('td', 'n', String(n)));
+        if (rho == null) { const td = el('td', 'chance', n < 10 ? 'premalo odgovorov (n < 10)' : '—'); td.colSpan = 3; tr.append(td); t.append(tr); return; }
         tr.append(el('td', 'r', (rho >= 0 ? '+' : '−') + Math.abs(rho).toFixed(2).replace('.', ',')));
         const bc = el('td'), cb = el('div', 'cb'), i = el('i', rho < 0 ? 'neg' : ''); i.style.left = (rho < 0 ? 50 + rho * 50 : 50) + '%'; i.style.width = Math.abs(rho) * 50 + '%'; cb.append(i); bc.append(cb); tr.append(bc);
-        const st = el('td', a < lim ? 'chance' : '', strength + (a < lim ? ' · lahko naključje' : '')); hover(st, 'meja za n = ' + n + ': ±' + lim.toFixed(2).replace('.', ',')); tr.append(st);
+        const st = el('td', chance ? 'chance' : '', strength + (chance ? ' · lahko naključje' : '')); hover(st, 'meja za n = ' + n + ': ±' + lim.toFixed(2).replace('.', ',')); tr.append(st);
         t.append(tr);
       });
     });
