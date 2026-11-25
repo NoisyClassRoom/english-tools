@@ -54,6 +54,19 @@ input, select { font: inherit; color: var(--ink); background: var(--field); bord
 input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
 @media (max-width: 760px) { .form { grid-template-columns: 1fr 1fr; } .form .wide { grid-column: span 2; } }
 @media (max-width: 480px) { .form { grid-template-columns: 1fr; } .form .wide { grid-column: auto; } }
+/* all strategies, grouped by area (25 Nov 2026, wish of the 1st VIO teachers) */
+details.all { margin-top: 14px; }
+details.all summary { cursor: pointer; font-weight: 700; }
+.areas { display: grid; gap: 10px; margin-top: 10px; }
+.areas h4 { margin: 0 0 4px; font-size: .9rem; color: var(--muted); }
+.areas .row { display: flex; flex-wrap: wrap; gap: 6px; }
+.areas button { font: inherit; font-size: .88rem; text-align: left; background: var(--field); color: var(--ink); border: 1px solid var(--line); border-radius: 10px; padding: 5px 10px; cursor: pointer; }
+.areas button:hover { border-color: var(--accent); }
+.areas button.on { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.areas button .cd { color: var(--muted); font-size: .8rem; margin-right: 4px; }
+.areas button.off { opacity: .72; }
+.areas button small { display: block; color: var(--muted); font-size: .75rem; }
+.alltag { justify-self: start; font-size: .8rem; font-weight: 700; padding: 1px 9px; border-radius: 999px; border: 1px solid var(--accent); color: var(--accent); }
 .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 12px; margin-top: 12px; }
 .card { background: var(--paper); border: 1px solid var(--line); border-radius: 12px; padding: 14px; display: grid; gap: 8px; align-content: start; }
 .card.on { border: 2px solid var(--accent); }
@@ -140,6 +153,8 @@ input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: 1p
       </div>
     </div>
     <div id="result"></div>
+    <details class="all box noprint" id="allBox"><summary>Vse strategije – izberite katero koli</summary><div class="areas" id="areas"></div>
+      <p class="small muted" style="margin-top:8px">Predlogi zgoraj so izbrani po razredu, predmetu in vrsti snovi. Tu lahko izberete katero koli strategijo; tiste, ki niso namenjene izbrani triadi, so označene.</p></details>
     <div class="actions noprint" id="acts" style="display:none">
       <button class="btn main" id="print">🖨 Natisni pripravo</button>
       <button class="btn" id="printCard">🖨 Kartica za tablo</button>
@@ -157,19 +172,23 @@ input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: 1p
   // subjects per subject group, as in the guide's table "Po predmetnih sklopih"
   const SUBJ = [['JEZ', ['SLJ', 'TJA', 'TJN']], ['MAT', ['MAT']], ['NAR', ['NIT', 'NAR', 'BIO', 'KEM', 'FIZ']], ['DRU', ['SPO', 'DRU', 'ZGO', 'GEO', 'DKE']],
                 ['TEH', ['TIT', 'RAČ', 'izbirni predmet']], ['UMS', ['LUM', 'GUM', 'ŠPO']]];
+  // all strategies grouped by area for the fold-out list "Vse strategije" (proposal accepted by the teacher, 25 Nov 2026); a code that is
+  // not listed here goes to "Drugo"
+  const AREAS = [['Priklic in ponavljanje', ['ST06', 'ST24', 'ST08', 'ST10', 'ST21']], ['Vaja', ['ST09']], ['Razumevanje', ['ST07', 'ST11', 'ST03']],
+    ['Urejanje snovi', ['ST04', 'ST05', 'ST02', 'ST22', 'ST18']], ['Načrtovanje in pomoč', ['ST13', 'ST14']]];
   const SELF_TEST = ['ST06', 'ST24'];           // self-testing strategies: a weak strategy is suggested only together with one of them
   // minutes of a 45-minute lesson for each step of introduction: uvod, prikaz, vodena vaja, samostojno delo, refleksija
   const MIN = { 1: [5, 15, 10, 10, 5], 2: [5, 5, 20, 10, 5], 3: [5, 0, 5, 30, 5], 4: [5, 0, 5, 20, 15] };
   const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
   const rich = s => esc(s).replace(/&lt;(\/?)(i|b)&gt;/g, '<$1$2>');
-  let D = null, chosen = '', loaded = false, mins = [], minsKey = '';
+  let D = null, chosen = '', fromAll = '', loaded = false, mins = [], minsKey = '';
 
   const api = async (action, extra) => {
     const token = Track.token(); if (!token) throw new Error('token');
     const r = await fetch(Track.config.endpoint, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(Object.assign({ action, token }, extra || {})) });
     return r.json();
   };
-  const save = () => { try { localStorage.setItem('izbira.last', JSON.stringify({ cls: $('#cls').value, vio: $('#vio').value, subj: $('#subj').value, type: $('#type').value, step: $('#step').value, chosen })); } catch (e) {} };
+  const save = () => { try { localStorage.setItem('izbira.last', JSON.stringify({ cls: $('#cls').value, vio: $('#vio').value, subj: $('#subj').value, type: $('#type').value, step: $('#step').value, chosen, fromAll })); } catch (e) {} };
   const normCls = v => String(v).replace(/\s+/g, '').toUpperCase().replace(/^(\d)\.?([A-Z])$/, '$1.$2');
   const sklopOf = subj => (SUBJ.find(([, l]) => l.includes(subj)) || [''])[0];
   const extra = c => (D.pick && D.pick[c]) || { v: [], s: [], g: '', r: '', ok: false };
@@ -205,6 +224,9 @@ input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: 1p
       const x = extra(mc.c);
       list.push({ s: mc, x, tm: !!type && x.v.includes(type), sm: !!sklop && x.s.includes(sklop), extraMonth: true });
     }
+    // a strategy chosen from "Vse strategije" stays chosen and is shown as one more card (also when it is not meant for this triad)
+    const any = chosen && !list.some(r => r.s.c === chosen) && D.strat.find(s => s.c === chosen && s.c !== '' && fromAll === s.c);
+    if (any) { const x = extra(any.c); list.push({ s: any, x, tm: !!type && x.v.includes(type), sm: !!sklop && x.s.includes(sklop), fromAll: true, offTriad: !(any.t || []).includes(vio) }); }
     if (!list.some(r => r.s.c === chosen)) chosen = list.length ? list[0].s.c : '';
     const selfName = (list.find(r => SELF_TEST.includes(r.s.c)) || {}).s;
     const mAny = D.month && D.strat.find(s => s.c === D.month);
@@ -213,6 +235,8 @@ input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: 1p
       const s = r.s, why = [r.tm ? type : '', r.sm ? sklop : '', EV[s.e]].filter(String).join(' · ');
       return `<article class="card${s.c === chosen ? ' on' : ''}${r.extraMonth ? ' month' : ''}" data-c="${esc(s.c)}">
         ${s.c === D.month ? `<span class="monthtag">🎯 Strategija meseca${r.extraMonth ? ' · dodatni predlog' : ''}</span>` : ''}
+        ${r.fromAll ? `<span class="alltag">📋 Izbrana iz vseh strategij</span>` : ''}
+        ${r.offTriad ? `<p class="warn">Ni namenjena ${vio}. VIO (namenjena ${esc((s.t || []).join('. in '))}. VIO). Prilagodite jo starosti učencev.</p>` : ''}
         <div class="head"><h3>${esc(s.n)}</h3><span class="code">${esc(s.c)}</span></div>
         <p class="why">${esc(why.slice(0, -EV[s.e].length))}<span class="ev ${esc(s.e)}">${esc(EV[s.e] || '')}</span></p>
         <ol>${(s.k || []).map(x => `<li>${esc(x)}</li>`).join('')}</ol>
@@ -223,9 +247,28 @@ input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: 1p
         <button class="btn${s.c === chosen ? ' main' : ''}" data-pick="${esc(s.c)}">${s.c === chosen ? '✓ Izbrana za pripravo' : 'Izberi za pripravo'}</button>
       </article>`;
     }).join('') + '</div>');
-    $('#result').querySelectorAll('[data-pick]').forEach(b => b.onclick = () => { chosen = b.dataset.pick; render(); });
+    $('#result').querySelectorAll('[data-pick]').forEach(b => b.onclick = () => { chosen = b.dataset.pick; if (!list.some(r => r.s.c === chosen && !r.fromAll)) fromAll = chosen; else fromAll = ''; render(); });
+    drawAll(list, vio);
     plan(list.find(r => r.s.c === chosen), c, vio, subj, selfName);
     save();
+  };
+
+  // "Vse strategije": every strategy by area; the suggested ones are marked, the ones not meant for the triad show their triads
+  const drawAll = (list, vio) => {
+    const box = $('#areas'); if (!box) return; box.innerHTML = '';
+    const known = new Set(AREAS.flatMap(a => a[1])), groups = AREAS.concat([['Drugo', D.strat.map(s => s.c).filter(c => !known.has(c))]]);
+    groups.forEach(([name, codes]) => {
+      const ss = codes.map(c => D.strat.find(s => s.c === c)).filter(Boolean); if (!ss.length) return;
+      const g = document.createElement('div'), h = document.createElement('h4'), row = document.createElement('div'); h.textContent = name; row.className = 'row';
+      ss.forEach(st => {
+        const b = document.createElement('button'), fits = (st.t || []).includes(vio), sug = list.some(r => r.s.c === st.c && !r.fromAll);
+        b.className = (st.c === chosen ? 'on' : '') + (fits ? '' : ' off');
+        b.innerHTML = '<span class="cd">' + esc(st.c) + '</span>' + esc(st.n) + '<small>' + (st.c === chosen ? '✓ izbrana za pripravo' : sug ? 'predlog zgoraj' : fits ? '' : 'za ' + esc((st.t || []).join('. in ')) + '. VIO') + '</small>';
+        b.onclick = () => { chosen = st.c; fromAll = sug ? '' : st.c; render(); const c = $('#result .card.on'); if (c) c.scrollIntoView({ behavior: 'smooth', block: 'center' }); };
+        row.append(b);
+      });
+      g.append(h, row); box.append(g);
+    });
   };
 
   // the one-page lesson plan (the strategy texts are the guide's, not rewritten)
@@ -268,7 +311,7 @@ input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: 1p
     $('#type').innerHTML = (D.types || []).map(t => `<option>${esc(t)}</option>`).join('');
     let last = {}; try { last = JSON.parse(localStorage.getItem('izbira.last') || '{}') || {}; } catch (e) {}
     ['cls', 'vio', 'subj', 'type', 'step'].forEach(k => { if (last[k] != null && last[k] !== '') { $('#' + k).value = last[k]; if (!$('#' + k).value) $('#' + k).selectedIndex = 0; } });
-    chosen = last.chosen || '';
+    chosen = last.chosen || ''; fromAll = last.fromAll || '';
     const t = new Date(); $('#date').value = t.getFullYear() + '-' + String(t.getMonth() + 1).padStart(2, '0') + '-' + String(t.getDate()).padStart(2, '0');
     const codes = D.strat.map(s => s.c), done = codes.filter(c => D.pick[c] && D.pick[c].ok).length;
     if (done < codes.length) {
