@@ -109,6 +109,13 @@ td.na { color: var(--muted); background: var(--h0); }
 @media (max-width: 700px) { .gbr { grid-template-columns: 120px 1fr; } .chg { grid-template-columns: 110px 1fr 1fr 96px; } }
 /* pupil */
 select { font: inherit; color: var(--ink); background: var(--field); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; max-width: 100%; }
+table.co td, table.co th { text-align: left; }
+table.co td.n, table.co td.r { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+table.co .cb { position: relative; height: 12px; min-width: 120px; background: var(--h0); border-radius: 3px; }
+table.co .cb::after { content: ''; position: absolute; left: 50%; top: -2px; bottom: -2px; width: 1px; background: var(--muted); }
+table.co .cb i { position: absolute; top: 0; bottom: 0; border-radius: 3px; background: var(--spring); }
+table.co .cb i.neg { background: var(--neg); }
+table.co .chance { color: var(--muted); }
 .pt-table td, .pt-table th { text-align: right; } .pt-table td:first-child, .pt-table th:first-child { text-align: left; }
 .pt-table tr td { border-bottom: 1px solid var(--line); border-radius: 0; }
 .pu-pick { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 10px; }
@@ -181,6 +188,14 @@ select { font: inherit; color: var(--ink); background: var(--field); border: 1px
       <div class="filters" id="grF" role="group" aria-label="Predmetni sklop" style="margin:0 0 10px"></div>
       <div class="legend"><span><i class="da"></i>z navado</span><span><i class="ne"></i>brez navade</span></div>
       <div class="gb" id="gr"></div>
+    </div>
+
+    <!-- correlations, team only (25 Nov 2026) -->
+    <div class="box" id="coBox">
+      <h2>Povezave</h2>
+      <p class="note" id="coNote"></p>
+      <div class="tablewrap"><table class="co" id="co"></table></div>
+      <p class="note" style="margin-top:8px">Kako brati: ρ (Spearman) je med −1 in +1. Pozitivna vrednost pomeni, da učenci z višjim odgovorom pri prvem tudi pri drugem pogosteje odgovorijo višje; negativna obratno. Moč: pod 0,1 ni povezave, do 0,3 šibka, do 0,5 zmerna, nad 0,5 močna. »Lahko naključje« pomeni, da je |ρ| pod približno 5-odstotno mejo za ta n (1,96 / √(n − 1)). Pari so izbrani vnaprej (25. 11. 2026), da ne iščemo vzorcev za nazaj. Povezava ni vzrok; odgovori so samoocena učencev.</p>
     </div>
 
     <!-- 6. one pupil -->
@@ -259,7 +274,7 @@ select { font: inherit; color: var(--ink); background: var(--field); border: 1px
       (meta.repeats ? ' (ponovnih oddaj ' + meta.repeats + ': velja zadnja)' : '') + (meta.staff ? '; oddaj učiteljev (preizkusi) ' + meta.staff + ' ni upoštevanih' : '') +
       '. Zadnja oddaja: ' + (meta.last || '—') + '. ' + viewLine() + 'Lestvice: 2. in 3. VIO '), el('i', '', 'nikoli · redko · včasih · pogosto · vedno'), document.createTextNode(', 1. VIO '), el('i', '', 'še ne · včasih · pogosto'), document.createTextNode('.'));
     const empty = !P.some(p => p.r.zacetno || p.r.koncno);
-    ['#kpis', '#kpiNote', '#dbBox', '#stBox', '#s1Box', '#clBox', '#grBox', '#puBox', '#lead'].forEach(s => $(s).classList.toggle('hide', empty));
+    ['#kpis', '#kpiNote', '#dbBox', '#stBox', '#s1Box', '#clBox', '#grBox', '#coBox', '#puBox', '#lead'].forEach(s => $(s).classList.toggle('hide', empty));
     $('#none').classList.toggle('hide', !empty);
     if (empty) return;
 
@@ -365,7 +380,49 @@ select { font: inherit; color: var(--ink); background: var(--field); border: 1px
 
     // 6. one pupil (named): only pupils the server sent with a name (team: all; class teacher: own class)
     drawGrades(P, late);
+    drawCorr(P, late);
     drawPupilPicker();
+  };
+  // ---- correlations (team only, 25 Nov 2026): pairs chosen in advance by the teacher; Spearman's rho with average ranks for ties ----
+  const rankOf = xs => { const idx = xs.map((v, i) => [v, i]).sort((a, b) => a[0] - b[0]), r = new Array(xs.length);
+    for (let i = 0; i < idx.length;) { let j = i; while (j + 1 < idx.length && idx[j + 1][0] === idx[i][0]) j++; const avgR = (i + j) / 2 + 1; for (let k = i; k <= j; k++) r[idx[k][1]] = avgR; i = j + 1; } return r; };
+  const spearman = pairs => { const n = pairs.length; if (n < 3) return null; const a = rankOf(pairs.map(x => x[0])), b = rankOf(pairs.map(x => x[1]));
+    const ma = a.reduce((s, v) => s + v, 0) / n, mb = b.reduce((s, v) => s + v, 0) / n; let num = 0, da = 0, db = 0;
+    for (let i = 0; i < n; i++) { num += (a[i] - ma) * (b[i] - mb); da += (a[i] - ma) ** 2; db += (b[i] - mb) ** 2; } return da && db ? num / Math.sqrt(da * db) : null; };
+  const nStrat = a => STRAT.filter(([c]) => a['S5_' + c] === 3).length;
+  const HAB6 = ['N2', 'N3', 'M1', 'R1', 'R3', 'D2'];
+  const CORR = {
+    23: [['N3 načrtuje čas učenja', a => a.N3, 'N7 zgodnji začetek učenja za test', a => a.N7 == null ? null : -a.N7],
+         ['Število strategij, ki jih uporablja (S5)', a => Object.keys(a).some(k => k.startsWith('S5_')) ? nStrat(a) : null, 'M1 preverja, ali razume', a => a.M1],
+         ['Število strategij, ki jih uporablja (S5)', a => Object.keys(a).some(k => k.startsWith('S5_')) ? nStrat(a) : null, 'R1 pregleda napake', a => a.R1],
+         ['P1 podpora staršev', a => a.P1, 'D1 domače naloge redno', a => a.D1],
+         ['N2 postavi si cilj', a => a.N2, 'D3 izpelje, kar si zada', a => a.D3],
+         ['Vsota šestih navad (N2, N3, M1, R1, R3, D2)', a => HAB6.every(c => a[c] != null) ? HAB6.reduce((s, c) => s + a[c], 0) : null, 'Povprečna ocena (vsi predmeti)', (a, p) => p.__grade],
+         ['S0 pozna več strategij', a => a.S0, 'Število strategij, ki jih uporablja (S5)', a => Object.keys(a).some(k => k.startsWith('S5_')) ? nStrat(a) : null]],
+    1: [['M1 preverja, ali razume', a => a.M1, 'R1 pregleda napake', a => a.R1],
+        ['P1 podpora staršev', a => a.P1, 'D1 domače naloge redno', a => a.D1]]
+  };
+  const drawCorr = (P, late) => {
+    const box = $('#coBox'); box.classList.toggle('hide', !VIEW.team); if (!VIEW.team) return;
+    const k = late ? 'koncno' : 'zacetno', per = lastPer(), t = $('#co'); t.innerHTML = '';
+    const hr = el('tr'); ['Par', 'n', 'ρ', '', 'Moč'].forEach(h => hr.append(el('th', '', h))); t.append(hr);
+    const groups = tri === '1' ? [['1', '1. VIO']] : tri === 'all' ? [['23', '2. in 3. VIO skupaj'], ['1', '1. VIO']] : [['23', tri + '. VIO']];
+    groups.forEach(([g, label]) => {
+      const L = (g === '1' ? P.filter(p => p.vio === 1) : P.filter(p => p.vio > 1)).filter(p => p.r[k]);
+      const nn = L.length, sec = el('tr'), th = el('th', '', label + ' · ' + nn + (nn % 100 === 1 ? ' učenec' : nn % 100 === 2 ? ' učenca' : nn % 100 === 3 || nn % 100 === 4 ? ' učenci' : ' učencev')); th.colSpan = 5; sec.append(th); t.append(sec);
+      CORR[g === '1' ? 1 : 23].forEach(([la, fa, lb, fb]) => {
+        const pairs = []; L.forEach(p => { const pp = Object.assign({ __grade: per && p.g && p.g[per[0]] ? p.g[per[0]].vsi : null }, p); const a = fa(p.r[k], pp), b = fb(p.r[k], pp); if (a != null && b != null && !isNaN(a) && !isNaN(b)) pairs.push([a, b]); });
+        const rho = spearman(pairs), n = pairs.length, lim = n > 1 ? 1.96 / Math.sqrt(n - 1) : 1, tr = el('tr');
+        const lab = el('td'); lab.append(document.createTextNode(la), el('br'), el('span', 'small muted', '× ' + lb)); tr.append(lab, el('td', 'n', String(n)));
+        if (rho == null || n < 10) { const td = el('td', 'chance', n < 10 ? 'premalo odgovorov (n < 10)' : '—'); td.colSpan = 3; tr.append(td); t.append(tr); return; }
+        const a = Math.abs(rho), strength = a < 0.1 ? 'ni povezave' : a < 0.3 ? 'šibka' : a < 0.5 ? 'zmerna' : 'močna';
+        tr.append(el('td', 'r', (rho >= 0 ? '+' : '−') + Math.abs(rho).toFixed(2).replace('.', ',')));
+        const bc = el('td'), cb = el('div', 'cb'), i = el('i', rho < 0 ? 'neg' : ''); i.style.left = (rho < 0 ? 50 + rho * 50 : 50) + '%'; i.style.width = Math.abs(rho) * 50 + '%'; cb.append(i); bc.append(cb); tr.append(bc);
+        const st = el('td', a < lim ? 'chance' : '', strength + (a < lim ? ' · lahko naključje' : '')); hover(st, 'meja za n = ' + n + ': ±' + lim.toFixed(2).replace('.', ',')); tr.append(st);
+        t.append(tr);
+      });
+    });
+    $('#coNote').textContent = 'Samo za razvojno skupino. ' + (late ? 'Končno' : 'Začetno') + ' merjenje' + (per ? '; ocene: ' + per[1] + (meta.grades ? ', uvoz ' + meta.grades.imported : '') : '') + '. Zgodnji začetek je obrnjen, da večja vrednost pomeni prej. Vsak par samo pri učencih, ki imajo oba odgovora.';
   };
   const drawGrades = (P, late) => {
     const per = lastPer(), L = P.filter(p => p.vio > 1 && p.g && per && p.g[per[0]]);
