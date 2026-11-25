@@ -46,6 +46,7 @@
   .subtabs .btn.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); font-weight: 600; }
   .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
   .tile { background: var(--field); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; }
+  label.chk { margin-right: 8px; white-space: nowrap; }
   .tile b { display: block; font-size: 26px; line-height: 1.15; color: var(--accent); }
   .tile span { color: var(--muted); font-size: 13px; }
   table { border-collapse: collapse; width: 100%; }
@@ -1008,6 +1009,8 @@
   };
   // ---------------------------------------------------------------- homework (assign, then check who has done it)
   let hwData = null, hwState = '', hwForm = false, hwNotice = '';
+  // Homework tab filters (25 Nov 2026): classes (null = follow the page's Class filter), kinds, assigned from/to, status, one pupil (name key)
+  const HF = { cls: null, kinds: new Set(['home', 'school']), from: '', to: '', status: 'all', q: '', pupil: '' };
   const unitCache = {};
   const HW_ACTS = [['match', 'Match'], ['quiz', 'Quiz'], ['gap', 'Fill the gap'], ['test', 'Unit test'], ['test2', 'Unit test 2'], ['gcheck', 'Grammar quick check'],
     ['wordsearch', 'Word search'], ['hangman', 'Hangman'], ['scramble', 'Word scramble'], ['crossword', 'Crossword'], ['tarsia', 'Tarsia']];   // puzzles (from 15 Oct 2026): done = the pupil finished the puzzle once; their results are in the "Puzzles" tab
@@ -1145,18 +1148,50 @@
       if (hwState === 'error') { const b = el('button', 'btn', 'Try again'); b.onclick = () => { hwState = ''; render(); }; c.append(b); }
       view.append(c); return;
     }
-    const items = hwItems(), sw = swItems();
+    // ---- the tab's own filters
+    const allCls = [...new Set(hwData.items.map(it => it.cls))].sort((a, b) => a.localeCompare(b, 'sl', { numeric: true }));
+    if (!HF.cls) HF.cls = new Set(allCls.filter(c => clsOk(c)));
+    const dayOf = t => { const d = new Date(t); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+    const stOf = it => { const pu = hwPupils(it), open = pu.filter(x => !x.doneAt); return !open.length ? 'done' : it.dueEnd && Date.now() > it.dueEnd ? 'overdue' : 'open'; };
+    const pass = it => HF.cls.has(it.cls) && HF.kinds.has(it.kind === 'school' ? 'school' : 'home') && (!HF.from || dayOf(it.created) >= HF.from) && (!HF.to || dayOf(it.created) <= HF.to) &&
+      (HF.status === 'all' || stOf(it) === HF.status) && (!HF.pupil || it.pupils.some(x => nk(x[0]) === HF.pupil));
+    const fb = el('div', 'card no-print'); fb.append(el('h2', '', 'Filter'));
+    const row1 = el('div', 'tools'); row1.append(el('b', '', 'Classes '));
+    allCls.forEach(c => { const l = el('label', 'chk'), x = el('input'); x.type = 'checkbox'; x.checked = HF.cls.has(c); x.onchange = () => { x.checked ? HF.cls.add(c) : HF.cls.delete(c); render(); }; l.append(x, document.createTextNode(' ' + c + ' ')); row1.append(l); });
+    const ca = el('button', 'btn', 'All'); ca.onclick = () => { HF.cls = new Set(allCls); render(); }; row1.append(ca);
+    const row2 = el('div', 'tools'); row2.style.marginTop = '8px'; row2.append(el('b', '', 'Kind '));
+    [['home', 'Homework'], ['school', 'Schoolwork']].forEach(([k, l0]) => { const l = el('label', 'chk'), x = el('input'); x.type = 'checkbox'; x.checked = HF.kinds.has(k); x.onchange = () => { x.checked ? HF.kinds.add(k) : HF.kinds.delete(k); render(); }; l.append(x, document.createTextNode(' ' + l0 + ' ')); row2.append(l); });
+    row2.append(el('b', '', ' Assigned '));
+    const fd = el('input'), td = el('input'); fd.type = td.type = 'date'; fd.className = td.className = 'btn'; fd.value = HF.from; td.value = HF.to;
+    fd.onchange = () => { HF.from = fd.value; render(); }; td.onchange = () => { HF.to = td.value; render(); };
+    const clr = el('button', 'btn', 'any time'); clr.onclick = () => { HF.from = HF.to = ''; render(); };
+    row2.append(fd, document.createTextNode(' – '), td, clr);
+    row2.append(el('b', '', ' Status '));
+    const ss = el('select'); [['all', 'all'], ['open', 'open (not yet due)'], ['overdue', 'past due, not all done'], ['done', 'everybody done']].forEach(([v, l0]) => { const o = el('option', '', l0); o.value = v; o.selected = HF.status === v; ss.append(o); });
+    ss.onchange = () => { HF.status = ss.value; render(); }; row2.append(ss);
+    const row3 = el('div', 'tools'); row3.style.marginTop = '8px'; row3.append(el('b', '', 'Pupil '));
+    const names = [...new Map(hwData.items.flatMap(it => it.pupils.map(x => [nk(x[0]), { name: x[0], cls: it.cls }]))).values()].sort((a, b) => a.name.localeCompare(b.name, 'sl'));
+    const qi = el('input'); qi.type = 'search'; qi.placeholder = 'type a name …'; qi.value = HF.q; qi.style.minWidth = '220px';
+    const hits = el('span');
+    const showHits = () => { hits.innerHTML = ''; const q = nk(HF.q); if (!q || HF.pupil) return;
+      names.filter(n => nk(n.name).includes(q) || n.name.toLowerCase().includes(HF.q.toLowerCase())).slice(0, 8).forEach(n => { const b = el('button', 'btn', n.name + ' · ' + n.cls); b.onclick = () => { HF.pupil = nk(n.name); HF.q = n.name; render(); }; hits.append(b); }); };
+    let qt = null; qi.oninput = () => { HF.q = qi.value; HF.pupil = ''; clearTimeout(qt); qt = setTimeout(showHits, 200); };
+    row3.append(qi, hits);
+    if (HF.pupil) { const x = el('button', 'btn', '✕ all pupils'); x.onclick = () => { HF.pupil = ''; HF.q = ''; render(); }; row3.append(x); }
+    fb.append(row1, row2, row3); view.append(fb); showHits();
+    const items = hwData.items.filter(it => it.kind !== 'school' && pass(it)), sw = hwData.items.filter(it => it.kind === 'school' && pass(it));
+    if (HF.pupil) { view.append(pupilHwCard(HF.pupil, items, sw)); return; }
     if (sw.length) {
-      const sc = el('div', 'card'); sc.append(el('h2', '', '🏫 Schoolwork (ICT room) · ' + clsText()));
+      const sc = el('div', 'card'); sc.append(el('h2', '', '🏫 Schoolwork (ICT room) · ' + ([...HF.cls].join(', ') || 'no class')));
       sc.append(el('p', 'note', 'Shown to the pupils only on the lesson day. “Not finished” = not finished that day. Not counted in the homework statistics below.'));
       view.append(sc);
       sw.slice().sort((a, b) => (a.due < b.due ? 1 : a.due > b.due ? -1 : b.created - a.created)).map(hwSummary).forEach(s0 => view.append(asgCard(s0, true)));
     }
-    if (!items.length) { view.append(el('div', 'card', hwData.items.some(it => it.kind !== 'school') ? 'No homework for the selected class. (The Class filter applies here; year, book and dates do not.)' : 'No homework assigned yet this school year (' + hwData.year + ').')); return; }
+    if (!items.length) { if (HF.kinds.has('home')) view.append(el('div', 'card', hwData.items.some(it => it.kind !== 'school') ? 'No homework for these filters.' : 'No homework assigned yet this school year (' + hwData.year + ').')); return; }
     const sums = items.map(hwSummary), now = Date.now();
 
     // --- overview of everything shown
-    const ov = el('div', 'card'); ov.append(el('h2', '', 'Overview · ' + clsText() + ' · school year ' + hwData.year));
+    const ov = el('div', 'card'); ov.append(el('h2', '', 'Overview · ' + ([...HF.cls].join(', ') || 'no class') + ' · school year ' + hwData.year));
     const tot = sums.reduce((a, s) => ({ n: a.n + s.n, onTime: a.onTime + s.onTime, late: a.late + s.late, missing: a.missing + s.missing, open: a.open + s.open }), { n: 0, onTime: 0, late: 0, missing: 0, open: 0 });
     const scored = sums.filter(s => s.avgScore != null);
     const tl = el('div', 'tiles');
@@ -1197,6 +1232,32 @@
 
     // --- one card per assignment
     sums.forEach(s => view.append(asgCard(s, false)));
+  };
+  // one pupil: totals over the shown homework (schoolwork listed apart, not in the totals) and every assignment with status and scores
+  const pupilHwCard = (key, items, sw) => {
+    const card = el('div', 'card'), all = items.concat(sw).sort((a, b) => b.created - a.created);
+    const rowOf = it => { const x = hwPupils(it).find(q => nk(q.name) === key); return x && { it, x }; };
+    const R = all.map(rowOf).filter(Boolean), H = R.filter(o => o.it.kind !== 'school');
+    const name = R.length ? R[0].x.name : key;
+    card.append(el('h2', '', '👤 ' + name + ' · ' + (R.length ? R[0].it.cls : '')));
+    const t = el('div', 'tiles'), cnt = st => H.filter(o => o.x.status === st).length;
+    const sc = H.map(o => { const v = o.x.per.filter(y => y != null); return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null; }).filter(v => v != null);
+    t.append(tile(H.length, 'homework'), tile(cnt('Done'), 'done on time'), tile(cnt('Done late'), 'done late'), tile(cnt('Missing'), 'missing (past due)'),
+      tile(cnt('In progress') + cnt('Not done'), 'open'), tile(R.length - H.length, 'schoolwork'), tile(sc.length ? pct(sc.reduce((a, b) => a + b, 0) / sc.length) : '—', 'average best score'));
+    card.append(t);
+    if (!R.length) { card.append(el('p', 'msg', 'Nothing assigned to this pupil for these filters.')); return card; }
+    const tb = el('table'), hr = el('tr'); ['Kind', 'Assigned', 'Due / lesson', 'Unit', 'Activities (best score)', 'Finished', 'Status'].forEach(h => hr.append(el('th', '', h))); tb.append(hr);
+    R.forEach(({ it, x }) => {
+      const tr = el('tr'), school = it.kind === 'school';
+      const acts = it.acts.map((id, i) => (HW_ACTS.find(a => a[0] === id) || [0, id])[1] + ' ' + (x.per[i] == null ? '—' : (x.ok[i] ? '✓ ' : '') + pct(x.per[i]))).join(' · ');
+      const label = school ? (x.doneAt ? 'Done' : x.status === 'Missing' ? 'Not finished' : x.status) : x.status;
+      tr.append(el('td', '', school ? '🏫 schoolwork' : 'homework'), el('td', '', fmtDate(it.created)), el('td', '', fmtDate(it.dueEnd || 0)),
+        el('td', '', (BOOKS[it.book] || it.book) + ' · ' + [it.unit, it.topic].filter(Boolean).join(' · ')), el('td', 'small', acts), el('td', '', x.doneAt ? fmtDate(x.doneAt) : '—'));
+      const st = el('td'); st.append(el('span', 'pct' + (x.doneAt ? ' hi' : x.status === 'Missing' || x.status === 'Not done' ? ' lo' : ''), label)); tr.append(st); tb.append(tr);
+    });
+    const w = el('div', 'scroll'); w.style.overflowX = 'auto'; w.append(tb); card.append(w);
+    card.append(el('p', 'note', 'Totals count homework only; schoolwork is listed but not counted. The other filters (classes, kind, dates, status) still apply.'));
+    return card;
   };
   const asgCard = (s, school) => {
       const it = s.it, card = el('div', 'card'), pup = s.pup;
