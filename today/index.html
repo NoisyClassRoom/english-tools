@@ -107,7 +107,7 @@
     const box = $('#hw'); box.className = ''; box.innerHTML = '';
     if (!j || !j.ok) { note(box, 'Could not load the homework.'); return; }
     const now = Date.now();
-    const list = j.items.map(it => {
+    const list = j.items.filter(it => it.kind !== 'school').map(it => {          // schoolwork (ICT room) is not homework to watch
       const pupils = it.pupils.map(p => ({ name: p[0], done: !!p[2] })), open = pupils.filter(p => !p.done);
       return { it, pupils, open, overdue: !!(it.dueEnd && now > it.dueEnd) };
     }).filter(x => x.open.length).sort((a, b) => (a.it.due < b.it.due ? -1 : a.it.due > b.it.due ? 1 : 0));

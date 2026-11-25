@@ -162,6 +162,7 @@
   /* homework box */
   .hw { max-width: 640px; margin: 0 auto 18px; text-align: left; }
   .hw h2 { margin: 0 0 8px; color: var(--ink); font-size: 20px; text-align: left; }
+  .hw .item + h2 { margin-top: 18px; }
   .hw .item { background: var(--card); border: 2px solid var(--accent); border-radius: var(--radius); padding: 12px 16px; margin-bottom: 10px; }
   .hw .item.done { border-color: var(--good); background: var(--good-soft); }
   .hw .ttl { font-weight: 700; font-size: 19px; }
@@ -318,13 +319,14 @@
     const box = $('#hw'); box.innerHTML = '';
     if (!items.length) { box.classList.add('hidden'); return; }
     const today = new Date(); const tk = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
-    box.append(el('h2', '', '📚 Your homework'));
-    items.forEach(it => {
+    // schoolwork (ICT room, 25 Nov 2026): only today's, in its own box above the homework
+    const school = items.filter(it => it.kind === 'school'), home = items.filter(it => it.kind !== 'school');
+    const one = (it, isSchool) => {
       const c = el('div', 'item' + (it.done ? ' done' : ''));
       c.append(el('div', 'ttl', (it.done ? '✓ ' : '') + [it.unit, it.topic].filter(Boolean).join(' · ')));
       const meta = el('div', 'meta');
-      meta.append(document.createTextNode('Due ' + fmtDue(it.due) + (it.min ? ' · at least ' + it.min + ' % in each activity' : '')));
-      if (!it.done && it.due && it.due < tk) meta.append(el('span', 'late', ' · overdue'));
+      meta.append(document.createTextNode((isSchool ? 'In class today' : 'Due ' + fmtDue(it.due)) + (it.min ? ' · at least ' + it.min + ' % in each activity' : '')));
+      if (!isSchool && !it.done && it.due && it.due < tk) meta.append(el('span', 'late', ' · overdue'));
       c.append(meta);
       if (it.note) c.append(el('p', 'note', it.note));
       const row = el('div', 'acts');
@@ -337,7 +339,9 @@
         row.append(b);
       });
       c.append(row); box.append(c);
-    });
+    };
+    if (school.length) { box.append(el('h2', '', '🏫 Schoolwork – today')); school.forEach(it => one(it, true)); }
+    if (home.length) { box.append(el('h2', '', '📚 Your homework')); home.forEach(it => one(it, false)); }
     box.classList.toggle('hidden', !$('#play').classList.contains('hidden'));
   };
   // ----- my goal (self-regulation plan, feature 1): shown only while the teacher has switched it on (srl.on); one goal per week -----

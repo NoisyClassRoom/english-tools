@@ -1036,8 +1036,11 @@
     window.CLASS_SETS = null; await loadScript('../exercises/class-' + book + '.js');
     return unitCache[book] = (window.CLASS_SETS || []).map(x => ({ id: x.id, title: x.title, unit: x.unit || '' }));
   };
+  // kind (25 Nov 2026): 'home' = homework with a due date; 'school' = schoolwork in the ICT room on the lesson day (pupils see it only that day)
   const hwForm_ = () => {
-    const card = el('div', 'card'); card.append(el('h2', '', 'New homework'));
+    const school = hwForm === 'school';
+    const card = el('div', 'card'); card.append(el('h2', '', school ? 'New schoolwork (ICT room)' : 'New homework'));
+    if (school) card.append(el('p', 'note', 'Pupils see schoolwork only on the lesson day, in a separate “Schoolwork” box on the exercise page. It is not counted in the homework statistics.'));
     const year = roster.reduce((m, r) => r.year > m ? r.year : m, '');
     const classes = [...new Set(roster.filter(r => r.year === year).map(r => r.cls))].sort((a, b) => a.localeCompare(b, 'sl', { numeric: true }));
     const field = (label, node) => { const l = el('label'); l.style.cssText = 'display:block;margin:0 0 10px'; l.append(el('span', 'muted', label + ' '), node); return l; };
@@ -1046,7 +1049,7 @@
     const actBox = el('div'); actBox.style.cssText = 'display:flex;gap:12px;flex-wrap:wrap;margin:0 0 10px';
     HW_ACTS.forEach(([id, name]) => { const l = el('label'); const c = el('input'); c.type = 'checkbox'; c.value = id; l.append(c, document.createTextNode(' ' + name)); actBox.append(l); });
     const min = el('input'); min.type = 'number'; min.min = 0; min.max = 100; min.placeholder = 'none'; min.style.width = '70px';
-    const due = el('input'); due.type = 'date'; due.className = 'btn'; { const d = new Date(); d.setDate(d.getDate() + 7); due.value = dayKey(d.getTime()); }
+    const due = el('input'); due.type = 'date'; due.className = 'btn'; { const d = new Date(); if (!school) d.setDate(d.getDate() + 7); due.value = dayKey(d.getTime()); }
     const note = el('input'); note.type = 'text'; note.placeholder = 'optional, shown to the pupils'; note.maxLength = 300; note.style.width = 'min(420px, 100%)';
     const whole = el('input'); whole.type = 'checkbox'; whole.checked = true;
     const earlier = el('input'); earlier.type = 'checkbox';                // work done earlier this school year counts: every pupil only does what is still missing
@@ -1076,30 +1079,31 @@
     const wrapW = el('label'); wrapW.append(whole, document.createTextNode(' Whole class (untick to choose pupils)'));
     wrapW.style.cssText = 'display:block;margin:0 0 6px';
     const msg = el('p', 'msg');
-    const save = el('button', 'btn on', 'Assign homework'), cancel = el('button', 'btn', 'Cancel');
+    const save = el('button', 'btn on', school ? 'Assign schoolwork' : 'Assign homework'), cancel = el('button', 'btn', 'Cancel');
     cancel.style.marginLeft = '8px'; cancel.onclick = () => { hwForm = false; render(); };
     save.onclick = async () => {
       const acts = [...actBox.querySelectorAll('input:checked')].map(c => c.value);
       const units = unitCache[sBook.value] || [], u = units[Number(sUnit.value)];
       const chosen = [...pBox.querySelectorAll('input:checked')].map(c => c.value);
-      if (!sCls.value || !u || !acts.length || !due.value) { msg.className = 'msg err'; msg.textContent = 'Choose a class, a unit, at least one activity and a due date.'; return; }
+      if (!sCls.value || !u || !acts.length || !due.value) { msg.className = 'msg err'; msg.textContent = 'Choose a class, a unit, at least one activity and ' + (school ? 'the lesson date.' : 'a due date.'); return; }
       if (!whole.checked && !chosen.length) { msg.className = 'msg err'; msg.textContent = 'Tick at least one pupil, or choose the whole class.'; return; }
       save.disabled = true; msg.className = 'msg'; msg.textContent = 'Saving…';
       try {
         const ex = sBook.value === 'extra', lv = EXTRA_LEVELS.find(l => l[0] === sLevel.value) || EXTRA_LEVELS[0];
         const j = await api('hwsave', { hw: { cls: sCls.value, book: sBook.value, set: ex ? u.id + '.' + lv[0] : u.id, topic: ex ? u.title + ' · ' + lv[1] : u.title, unit: u.unit, acts, min: min.value === '' ? 0 : Number(min.value), due: due.value,
-          note: note.value, pupils: whole.checked ? [] : chosen, earlier: earlier.checked } });
+          note: note.value, pupils: whole.checked ? [] : chosen, earlier: earlier.checked, kind: school ? 'school' : 'home' } });
         if (!j.ok) throw new Error('save');
-        hwForm = false; hwState = ''; hwData = null; hwNotice = '✓ Homework saved: ' + [sCls.value, u.unit, u.title].filter(Boolean).join(' · ') + (j.duplicate ? ' (it was already saved a moment ago, so it was not saved twice)' : '') + '. The list below is loading…'; render();
-      } catch (e) { save.disabled = false; msg.className = 'msg err'; msg.textContent = 'Could not save the homework. Try again.'; }
+        hwForm = false; hwState = ''; hwData = null; hwNotice = (school ? '✓ Schoolwork saved: ' : '✓ Homework saved: ') + [sCls.value, u.unit, u.title].filter(Boolean).join(' · ') + (j.duplicate ? ' (it was already saved a moment ago, so it was not saved twice)' : '') + '. The list below is loading…'; render();
+      } catch (e) { save.disabled = false; msg.className = 'msg err'; msg.textContent = 'Could not save. Try again.'; }
     };
     card.append(field('Class', sCls), field('Book', sBook), field('Unit', sUnit), levelRow, el('div', 'muted', 'Activities'), actBox,
-      field('Minimum score in each activity (%)', min), wrapE, field('Due date', due), field('Note', note), wrapW, pBox, msg, save, cancel);
+      field('Minimum score in each activity (%)', min), wrapE, field(school ? 'Lesson date' : 'Due date', due), field('Note', note), wrapW, pBox, msg, save, cancel);
     fillPupils(); bookChanged();
     return card;
   };
   // ---- homework analysis helpers (used by the Homework tab and the Class report)
-  const hwItems = () => hwData ? hwData.items.filter(it => clsOk(it.cls)) : [];
+  const hwItems = () => hwData ? hwData.items.filter(it => clsOk(it.cls) && it.kind !== 'school') : [];            // homework only: schoolwork stays out of every statistic
+  const swItems = () => hwData ? hwData.items.filter(it => clsOk(it.cls) && it.kind === 'school') : [];
   // every pupil of an assignment with a status: Done / Done late / Missing (past due) / In progress / Not done
   const hwPupils = it => it.pupils.map(p => {
     const o = { name: p[0], per: p[1], doneAt: p[2], late: !!p[3], ok: p[4], any: p[1].some(v => v != null) };
@@ -1129,9 +1133,10 @@
   const homework = view => {
     const top = el('div', 'card');
     top.append(el('p', 'note', 'Assign an exercise to a class (or to chosen pupils) and see who has done it. A pupil sees the homework on the exercise page after signing in. An activity counts as done when the pupil saved a result for it after you assigned it (best attempt, at least the minimum score if you set one). Only the Class filter applies here (school year: always the current one).'));
-    const nb = el('button', 'btn' + (hwForm ? ' on' : ''), hwForm ? 'Close the form' : 'New homework'); nb.onclick = () => { hwForm = !hwForm; render(); };
+    const nb = el('button', 'btn' + (hwForm === 'home' ? ' on' : ''), hwForm === 'home' ? 'Close the form' : 'New homework'); nb.onclick = () => { hwForm = hwForm === 'home' ? false : 'home'; render(); };
+    const sb = el('button', 'btn' + (hwForm === 'school' ? ' on' : ''), hwForm === 'school' ? 'Close the form' : 'New schoolwork (ICT room)'); sb.style.marginLeft = '8px'; sb.onclick = () => { hwForm = hwForm === 'school' ? false : 'school'; render(); };
     const rb = el('button', 'btn', 'Reload'); rb.style.marginLeft = '8px'; rb.onclick = () => { hwState = ''; hwData = null; render(); };
-    top.append(nb, rb); view.append(top);
+    top.append(nb, sb, rb); view.append(top);
     if (hwNotice) { const nt = el('p', 'msg', hwNotice); nt.style.cssText = 'color:var(--good);font-weight:600'; top.append(nt); if (hwState === 'ok') hwNotice = ''; }
     if (hwForm) view.append(hwForm_());
     if (hwState !== 'ok') {
@@ -1140,9 +1145,14 @@
       if (hwState === 'error') { const b = el('button', 'btn', 'Try again'); b.onclick = () => { hwState = ''; render(); }; c.append(b); }
       view.append(c); return;
     }
-    const items = hwItems();
-    if (!hwData.items.length) { view.append(el('div', 'card', 'No homework assigned yet this school year (' + hwData.year + ').')); return; }
-    if (!items.length) { view.append(el('div', 'card', 'No homework for the selected class. (The Class filter applies here; year, book and dates do not.)')); return; }
+    const items = hwItems(), sw = swItems();
+    if (sw.length) {
+      const sc = el('div', 'card'); sc.append(el('h2', '', '🏫 Schoolwork (ICT room) · ' + clsText()));
+      sc.append(el('p', 'note', 'Shown to the pupils only on the lesson day. “Not finished” = not finished that day. Not counted in the homework statistics below.'));
+      view.append(sc);
+      sw.slice().sort((a, b) => (a.due < b.due ? 1 : a.due > b.due ? -1 : b.created - a.created)).map(hwSummary).forEach(s0 => view.append(asgCard(s0, true)));
+    }
+    if (!items.length) { view.append(el('div', 'card', hwData.items.some(it => it.kind !== 'school') ? 'No homework for the selected class. (The Class filter applies here; year, book and dates do not.)' : 'No homework assigned yet this school year (' + hwData.year + ').')); return; }
     const sums = items.map(hwSummary), now = Date.now();
 
     // --- overview of everything shown
@@ -1186,13 +1196,15 @@
     view.append(pc);
 
     // --- one card per assignment
-    sums.forEach(s => {
+    sums.forEach(s => view.append(asgCard(s, false)));
+  };
+  const asgCard = (s, school) => {
       const it = s.it, card = el('div', 'card'), pup = s.pup;
       const names = it.acts.map(id => (HW_ACTS.find(a => a[0] === id) || [0, id])[1]);
-      card.append(el('h2', '', (BOOKS[it.book] || it.book) + ' · ' + [it.unit, it.topic].filter(Boolean).join(' · ')));
+      card.append(el('h2', '', (school ? '🏫 ' : '') + (BOOKS[it.book] || it.book) + ' · ' + [it.unit, it.topic].filter(Boolean).join(' · ')));
       card.append(el('p', 'note', 'Class ' + it.cls + (it.all ? ' (whole class)' : ' (' + pup.length + ' chosen pupils)') + ' · ' + names.join(', ') + (it.min ? ' · at least ' + it.min + ' %' : '') + (it.earlier ? ' · work done earlier counts' : '') +
-        ' · due ' + fmtDate(it.dueEnd || 0) + ' · assigned ' + fmtDate(it.created) + (it.note ? ' · “' + it.note + '”' : '')));
-      const tiles2 = el('div', 'tiles'); tiles2.append(tile((s.onTime + s.late) + ' / ' + s.n, 'done' + (s.late ? ' (' + s.late + ' late)' : '')), tile(s.missing, 'missing'), tile(s.open, 'open'),
+        (school ? ' · lesson ' : ' · due ') + fmtDate(it.dueEnd || 0) + ' · assigned ' + fmtDate(it.created) + (it.note ? ' · “' + it.note + '”' : '')));
+      const tiles2 = el('div', 'tiles'); tiles2.append(tile((s.onTime + s.late) + ' / ' + s.n, 'done' + (s.late && !school ? ' (' + s.late + ' late)' : '')), tile(s.missing, school ? 'not finished' : 'missing'), tile(s.open, 'open'),
         tile(s.avgScore == null ? '—' : pct(s.avgScore), 'average best score'), tile(s.med == null ? '—' : (s.med < 1 ? 'same day' : s.med.toFixed(1) + ' days'), 'typical time to finish'));
       card.append(tiles2);
       const an = names.map((n, i) => n + ': ' + (s.actAvg[i] == null ? '—' : pct(s.actAvg[i]))).join(' · ');
@@ -1202,18 +1214,19 @@
         names.forEach((n, i) => cols.push({ h: n, k: x => x.per[i] == null ? -1 : x.per[i], num: true, v: x => x.per[i] == null ? '—' : (x.ok[i] ? '✓ ' : '') + pct(x.per[i]) }));
         cols.push({ h: 'Finished', k: x => x.doneAt || 0, num: true, v: x => x.doneAt ? fmtDate(x.doneAt) : '—' });
         const rank = { Missing: 0, 'Not done': 1, 'In progress': 2, 'Done late': 3, Done: 4 };
-        cols.push({ h: 'Status', k: x => rank[x.status], v: x => el('span', 'pct' + (x.status === 'Done' ? ' hi' : x.status === 'Missing' || x.status === 'Not done' ? ' lo' : ''), x.status) });
+        const label = x => school ? (x.doneAt ? 'Done' : x.status === 'Missing' ? 'Not finished' : x.status) : x.status;
+        cols.push({ h: 'Status', k: x => rank[x.status], v: x => el('span', 'pct' + (x.doneAt ? ' hi' : x.status === 'Missing' || x.status === 'Not done' ? ' lo' : ''), label(x)) });
         card.append(table('hw' + it.id, cols, pup, 'Status'));
       }
       const row = el('div', 'tools'); row.style.marginTop = '10px';
       const todo = pup.filter(p => !p.doneAt).map(p => p.name);
       if (todo.length) { const cp = el('button', 'btn no-print', 'Copy names of pupils who have not finished (' + todo.length + ')'); cp.onclick = () => { navigator.clipboard.writeText(todo.join('\n')).then(() => { cp.textContent = 'Copied ✓'; }, () => { cp.textContent = todo.join(', '); }); }; row.append(cp); }
-      const del = el('button', 'btn no-print', 'Delete this homework'); del.onclick = async () => {
-        if (!confirm('Delete this homework? Pupils will no longer see it (results are not affected).')) return;
+      const del = el('button', 'btn no-print', school ? 'Delete this schoolwork' : 'Delete this homework'); del.onclick = async () => {
+        if (!confirm('Delete this ' + (school ? 'schoolwork' : 'homework') + '? Pupils will no longer see it (results are not affected).')) return;
         try { const j = await api('hwdelete', { id: it.id }); if (!j.ok) throw 0; hwState = ''; hwData = null; render(); } catch (e) { del.textContent = 'Could not delete'; }
       };
-      row.append(del); card.append(row); view.append(card);
-    });
+      row.append(del); card.append(row);
+      return card;
   };
   // ---------------------------------------------------------------- compare classes (weekly lines, one per class)
   const COLORS = ['#e8710a', '#2b8a3e', '#1c7ed6', '#ae3ec9', '#c92a2a', '#0c8599', '#e6a700', '#5c940d', '#d6336c', '#7048e8'];
