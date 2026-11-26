@@ -85,7 +85,7 @@ var UNITS = {
 
 // Change this text whenever the code of doPost changes: the health check compares it with what the published web app answers,
 // so it can tell you that the saved code has not been deployed as a new version yet.
-var CODE_VERSION = '2026-11-25.1';
+var CODE_VERSION = '2026-11-26.1';
 
 // ---------------------------------------------------------------- saving results
 
@@ -127,6 +127,9 @@ function doPost(e) {
     if (d.action === 'rsobs') return rsObsReply_(d);                   // observation sheet team/opazovanje/: lists + own observations (accounts on the list)
     if (d.action === 'rsobssave') return rsObsSaveReply_(d);           // save a new or an own observation
     if (d.action === 'rsobsdelete') return rsObsDeleteReply_(d);       // delete an own observation
+    if (d.action === 'rsplan') return rsPlanReply_(d);                 // one saved lesson plan for team/izbira/?plan= (author or role skupina)
+    if (d.action === 'rsplansave') return rsPlanSaveReply_(d);         // save a new or an own lesson plan from team/izbira/
+    if (d.action === 'rsplandelete') return rsPlanDeleteReply_(d);     // delete an own lesson plan (observations keep their data, lose the link)
     if (d.action === 'rsobsnote') return rsObsNoteReply_(d);           // team feedback on the observation sheet itself (role skupina; delete with rspicknotedel)
     if (d.action === 'rsresults') return rsResultsReply_(d);           // questionnaire results team/rezultati/ (skupina; other roles per rezultati_odprti): coded answers, names only for the team / own class
     if (d.action === 'rsmeet') return rsMeetReply_(d);                 // meetings of the self-evaluation group team/sestanki/ (role szs): list + members
@@ -2736,7 +2739,7 @@ function rsPickEditReply_(d) {
 // in the owner's Drive the first time anyone saves). One row per lesson × class × strategy. No pupil data: class only, and the help text
 // asks for no names in Tema / Opombe. Everyone sees and edits only their own rows; the team analysis comes later (step 3).
 var OBS_HEADER = ['ID', 'Vpisano', 'Šolsko leto', 'Datum ure', 'Učitelj', 'Razred', 'Triada', 'Sklop', 'Predmet', 'Strategija', 'Faza', 'Tema',
-                  'Trajanje', 'Učinkovitost', 'Sodelovanje', 'Odziv', 'Samostojna uporaba', 'Opombe', 'Spremenjeno'];
+                  'Trajanje', 'Učinkovitost', 'Sodelovanje', 'Odziv', 'Samostojna uporaba', 'Opombe', 'Spremenjeno', 'Priprava'];
 var OBS_SUBJECTS = { JEZ: ['SLJ', 'TJA', 'TJN'], MAT: ['MAT'], NAR: ['NIT', 'NAR', 'BIO', 'KEM', 'FIZ'], DRU: ['SPO', 'DRU', 'ZGO', 'GEO', 'DKE'],
                      TEH: ['TIT', 'RAČ', 'izbirni predmet'], UMS: ['LUM', 'GUM', 'ŠPO'] };
 function obsBook_(create) {
@@ -2749,7 +2752,7 @@ function obsBook_(create) {
     if (id) { try { return SpreadsheetApp.openById(id); } catch (e) {} }
     var ss = SpreadsheetApp.create('Samouravnavanje – opazovanja');
     var sh = ss.getSheets()[0].setName('Opazovanja');
-    sh.appendRow(OBS_HEADER); sh.setFrozenRows(1); sh.getRange(1, 1, 1, OBS_HEADER.length).setFontWeight('bold'); sh.getRange('A:S').setNumberFormat('@');
+    sh.appendRow(OBS_HEADER); sh.setFrozenRows(1); sh.getRange(1, 1, 1, OBS_HEADER.length).setFontWeight('bold'); sh.getRange('A:T').setNumberFormat('@');
     var rz = ss.insertSheet('Razredi'); rz.appendRow(['Razred (vsak september posodobi)']); rz.getRange('A:A').setNumberFormat('@');
     rz.getRange(2, 1, 9, 1).setValues([1, 2, 3, 4, 5, 6, 7, 8, 9].map(function (g) { return [g + '.A']; }));
     p.setProperty('OBS_SHEET_ID', ss.getId());
@@ -2772,7 +2775,8 @@ function obsStrategies_() {
 }
 function obsRowOut_(r) {
   return { id: String(r[0]), date: String(r[3]), cls: String(r[5]), sklop: String(r[7]), subj: String(r[8]), strat: String(r[9]), phase: Number(r[10]) || 0,
-           topic: String(r[11]), mins: Number(r[12]) || 0, eff: Number(r[13]) || 0, part: Number(r[14]) || 0, react: Number(r[15]) || 0, own: String(r[16]), note: String(r[17]) };
+           topic: String(r[11]), mins: Number(r[12]) || 0, eff: Number(r[13]) || 0, part: Number(r[14]) || 0, react: Number(r[15]) || 0, own: String(r[16]), note: String(r[17]),
+           plan: String(r[19] || '') };
 }
 function rsObsReply_(d) {
   var who = verify_(d.token);
@@ -2785,7 +2789,13 @@ function rsObsReply_(d) {
     if (String(r[4]).toLowerCase() === me && String(r[2]) === year) mine.push(obsRowOut_(r));
   });
   mine.sort(function (a, b) { return a.date < b.date ? 1 : a.date > b.date ? -1 : 0; });
-  return out_({ ok: true, year: year, classes: obsClasses_(ss), strat: obsStrategies_(), subjects: OBS_SUBJECTS, mine: mine, team: team, name: rw.name, notes: team ? obsNotes_(me) : [] });
+  var plans = [], teamPlans = [];
+  planRows_(ss).forEach(function (r) {
+    if (String(r[2]) !== year) return;
+    if (String(r[4]).toLowerCase() === me) plans.push(planRowOut_(r, true)); else if (team) teamPlans.push(planRowOut_(r, false));
+  });
+  return out_({ ok: true, year: year, classes: obsClasses_(ss), strat: obsStrategies_(), subjects: OBS_SUBJECTS, mine: mine, plans: plans, teamPlans: teamPlans,
+                team: team, name: rw.name, notes: team ? obsNotes_(me) : [] });
 }
 // Team feedback on the observation sheet itself (decision of the teacher, 8 Nov 2026): members of the development team (role skupina)
 // leave remarks on the form while it is still being tested; everyone in the team sees them with names. Stored in RS_Pripombe with
@@ -2829,9 +2839,11 @@ function rsObsSaveReply_(d) {
   if (bad.length) return out_({ ok: false, error: 'data', details: bad });
   var ss = obsBook_(true), sh = ss.getSheetByName('Opazovanja'), me = String(who.email).toLowerCase();
   var now = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd HH:mm'), ds = Utilities.formatDate(date, TZ, 'yyyy-MM-dd');
+  var planId = r.plan && planRows_(ss).some(function (x) { return String(x[0]) === String(r.plan) && String(x[4]).toLowerCase() === me; }) ? String(r.plan) : '';
   var lock = LockService.getScriptLock(); lock.waitLock(20000);
   try {
-    var row = [null, now, schoolYear_(date), ds, me, cls, tri, sk, subj, st.c, ph, clip_(r.topic, 100), mins, eff, part, react, own, clip_(r.note, 300), now];
+    if (String(sh.getRange(1, OBS_HEADER.length).getValue()) !== 'Priprava') sh.getRange(1, OBS_HEADER.length).setValue('Priprava').setFontWeight('bold');
+    var row = [null, now, schoolYear_(date), ds, me, cls, tri, sk, subj, st.c, ph, clip_(r.topic, 100), mins, eff, part, react, own, clip_(r.note, 300), now, planId];
     if (r.id) {
       var n = sh.getLastRow() - 1, ids = n > 0 ? sh.getRange(2, 1, n, 5).getValues() : [], at = -1;
       ids.forEach(function (x, i) { if (String(x[0]) === String(r.id)) at = i; });
@@ -2857,6 +2869,96 @@ function rsObsDeleteReply_(d) {
     for (var i = 0; i < ids.length; i++) if (String(ids[i][0]) === String(d.id) && String(ids[i][4]).toLowerCase() === me) { sh.deleteRow(i + 2); return out_({ ok: true }); }
   } finally { lock.releaseLock(); }
   return out_({ ok: false, error: 'notfound' });
+}
+
+// Saved lesson plans (decision of the teacher, 26 Nov 2026: plan and observation are linked, "Moje ure" on the observation sheet; the author
+// and the development team (role skupina) can open a plan, only the author edits or deletes it). Tab "Priprave" of the same private Sheet.
+// A plan holds only what the picker page shows: class (or only the triad), subject, type of material, strategy, step, topic, minutes.
+// No pupil data. The plan text itself is not stored: the page rebuilds it from the guide (so a corrected guide text shows in old plans too).
+var PLAN_HEADER = ['ID', 'Vpisano', 'Šolsko leto', 'Datum ure', 'Učitelj', 'Ime', 'Razred', 'VIO', 'Sklop', 'Predmet', 'Vrsta snovi', 'Strategija',
+                   'Korak', 'Tema', 'Minute', 'Iz vseh strategij', 'Spremenjeno'];
+function planSheet_(ss, create) {
+  var sh = ss && ss.getSheetByName('Priprave');
+  if (sh || !create) return sh;
+  sh = ss.insertSheet('Priprave'); sh.appendRow(PLAN_HEADER); sh.setFrozenRows(1);
+  sh.getRange(1, 1, 1, PLAN_HEADER.length).setFontWeight('bold'); sh.getRange('A:Q').setNumberFormat('@');
+  return sh;
+}
+function planRows_(ss) {
+  var sh = planSheet_(ss, false);
+  return sh && sh.getLastRow() > 1 ? sh.getRange(2, 1, sh.getLastRow() - 1, PLAN_HEADER.length).getValues().filter(function (r) { return r[0]; }) : [];
+}
+// e-mails never leave the server: the team sees the author's name from the access list
+function planRowOut_(r, mine) {
+  var m = []; try { m = JSON.parse(String(r[14])); } catch (e) {}
+  return { id: String(r[0]), date: String(r[3]), mine: !!mine, name: String(r[5]) || (mine ? '' : 'učitelj'), cls: String(r[6]), vio: Number(r[7]) || 0,
+           sklop: String(r[8]), subj: String(r[9]), type: String(r[10]), strat: String(r[11]), step: Number(r[12]) || 0, topic: String(r[13]),
+           mins: m instanceof Array ? m : [], all: String(r[15]) === 'da', changed: String(r[16]) };
+}
+function rsPlanReply_(d) {
+  var who = verify_(d.token);
+  if (!who) return out_({ ok: false, error: 'token' });
+  var rw = rsWho_(who.email); if (!rw.roles.length) return out_({ ok: false, error: 'access' });
+  var me = String(who.email).toLowerCase(), team = rw.roles.indexOf('skupina') >= 0;
+  var r = planRows_(obsBook_(false)).filter(function (x) { return String(x[0]) === String(d.id); })[0];
+  if (!r) return out_({ ok: false, error: 'notfound' });
+  var mine = String(r[4]).toLowerCase() === me;
+  if (!mine && !team) return out_({ ok: false, error: 'access' });
+  return out_({ ok: true, plan: planRowOut_(r, mine) });
+}
+// d.plan = {id?, date 'yyyy-MM-dd', cls '' | '6.B', vio 1-3, subj, type, strat, step 1-4, topic, mins [5 × 0-90], all true|false}
+function rsPlanSaveReply_(d) {
+  var who = verify_(d.token);
+  if (!who) return out_({ ok: false, error: 'token' });
+  var rw = rsWho_(who.email); if (!rw.roles.length) return out_({ ok: false, error: 'access' });
+  var r = d.plan || {}, bad = [], int = function (v, a, b) { v = Number(v); return v === Math.round(v) && v >= a && v <= b ? v : null; };
+  var date = /^\d{4}-\d{2}-\d{2}$/.test(String(r.date)) ? new Date(String(r.date) + 'T12:00:00') : null;
+  if (!date || isNaN(date) || date > new Date(Date.now() + 400 * 864e5) || date < new Date(Date.now() - 400 * 864e5)) bad.push('datum');
+  var cls = String(r.cls || '').replace(/\s+/g, '').toUpperCase().replace(/^(\d)\.?([A-Z])$/, '$1.$2'); if (cls && !/^[1-9]\.[A-Z]$/.test(cls)) bad.push('razred');
+  var vio = cls ? Math.ceil(Number(cls[0]) / 3) : int(r.vio, 1, 3); if (!vio) bad.push('VIO');
+  var subj = String(r.subj || ''), sk = Object.keys(OBS_SUBJECTS).filter(function (k) { return OBS_SUBJECTS[k].indexOf(subj) >= 0; })[0]; if (!sk) bad.push('predmet');
+  var type = String(r.type || ''); if (rsPickData_().types.indexOf(type) < 0) bad.push('vrsta snovi');
+  var st = obsStrategies_().filter(function (x) { return x.c === r.strat; })[0]; if (!st) bad.push('strategija');
+  var step = int(r.step, 1, 4); if (!step) bad.push('korak');
+  var mins = r.mins instanceof Array && r.mins.length === 5 ? r.mins.map(function (v) { return int(v, 0, 90); }) : [null];
+  if (mins.some(function (v) { return v === null; })) bad.push('minute');
+  if (bad.length) return out_({ ok: false, error: 'data', details: bad });
+  var ss = obsBook_(true), sh = planSheet_(ss, true), me = String(who.email).toLowerCase();
+  var now = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd HH:mm'), ds = Utilities.formatDate(date, TZ, 'yyyy-MM-dd');
+  var row = [null, now, schoolYear_(date), ds, me, clip_(rw.name, 80), cls, vio, sk, subj, type, st.c, step, clip_(r.topic, 100), JSON.stringify(mins), r.all ? 'da' : 'ne', now];
+  var lock = LockService.getScriptLock(); lock.waitLock(20000);
+  try {
+    if (r.id) {
+      var n = sh.getLastRow() - 1, ids = n > 0 ? sh.getRange(2, 1, n, 5).getValues() : [], at = -1;
+      ids.forEach(function (x, i) { if (String(x[0]) === String(r.id)) at = i; });
+      if (at < 0 || String(ids[at][4]).toLowerCase() !== me) return out_({ ok: false, error: 'notfound' });
+      row[0] = String(r.id); row[1] = String(sh.getRange(at + 2, 2).getValue());
+      sh.getRange(at + 2, 1, 1, PLAN_HEADER.length).setValues([row]);
+    } else {
+      row[0] = 'PRI-' + Utilities.formatDate(new Date(), TZ, 'yyyyMMddHHmmss') + '-' + Math.random().toString(36).slice(2, 6);
+      sh.appendRow(row);
+    }
+  } finally { lock.releaseLock(); }
+  return out_({ ok: true, id: row[0], plan: planRowOut_(row, true) });
+}
+function rsPlanDeleteReply_(d) {
+  var who = verify_(d.token);
+  if (!who) return out_({ ok: false, error: 'token' });
+  var ss = obsBook_(false), sh = planSheet_(ss, false), me = String(who.email).toLowerCase(), id = String(d.id || '');
+  if (!sh || sh.getLastRow() < 2 || !id) return out_({ ok: false, error: 'notfound' });
+  var lock = LockService.getScriptLock(); lock.waitLock(20000);
+  try {
+    var ids = sh.getRange(2, 1, sh.getLastRow() - 1, 5).getValues(), at = -1;
+    ids.forEach(function (x, i) { if (String(x[0]) === id && String(x[4]).toLowerCase() === me) at = i; });
+    if (at < 0) return out_({ ok: false, error: 'notfound' });
+    sh.deleteRow(at + 2);
+    var ob = ss.getSheetByName('Opazovanja'), col = OBS_HEADER.length, unlinked = 0;
+    if (ob && ob.getLastRow() > 1) {
+      var v = ob.getRange(2, col, ob.getLastRow() - 1, 1).getValues();
+      v.forEach(function (x, i) { if (String(x[0]) === id) { ob.getRange(i + 2, col).setValue(''); unlinked++; } });
+    }
+  } finally { lock.releaseLock(); }
+  return out_({ ok: true, unlinked: unlinked });
 }
 
 // health check part

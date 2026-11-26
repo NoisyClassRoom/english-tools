@@ -11,7 +11,13 @@
 <style>
 /* Strategy picker and lesson plan (RAZVOJNA-SKUPINA-PLAN.md, "Strategy picker and lesson plan"; decision 9). Rule-based, no AI:
    the topic is only printed. The strategy cards and the picker fields are NOT in this public file: they are loaded after sign-in
-   (script action rspick; hidden Sheet tabs RS_Vodnik and RS_Izbira). Only the last choices are kept, in localStorage. */
+   (script action rspick; hidden Sheet tabs RS_Vodnik and RS_Izbira). The last choices are kept in localStorage; "Shrani pripravo" saves the
+   plan's choices (not its text) to the private observation Sheet, tab Priprave (rsplansave, 26 Nov 2026), so it can be opened again
+   (?plan=ID) and linked to an observation. */
+.planinfo { border-color: var(--accent); }
+.planinfo .x { margin-left: 8px; }
+.msg { font-size: .9rem; align-self: center; }
+.msg.ok { color: var(--strong); } .msg.bad { color: var(--weak); } .msg.warn { color: var(--mid); }
 body {
   --bg: #141418; --paper: #1f1f26; --ink: #f2efe9; --muted: #a39f95; --line: #34343e; --field: #14141a;
   --accent: #ff8a1f; --accent-ink: #111; --mark: #ff8a1f; --mark-soft: #5a3a18;
@@ -141,6 +147,7 @@ details.all summary { cursor: pointer; font-weight: 700; }
 
   <div id="app">
     <div id="draft" class="box draft small" style="display:none"></div>
+    <div id="planInfo" class="box planinfo small noprint" style="display:none"></div>
     <div class="box">
       <div class="form">
         <label>Razred (neobvezno, npr. 6.B)<input id="cls" maxlength="4" autocomplete="off" placeholder="6.B"></label>
@@ -158,7 +165,10 @@ details.all summary { cursor: pointer; font-weight: 700; }
     <div class="actions noprint" id="acts" style="display:none">
       <button class="btn main" id="print">🖨 Natisni pripravo</button>
       <button class="btn" id="printCard">🖨 Kartica za tablo</button>
-      <button class="btn" id="obs" title="Odpre opazovalni list z razredom, predmetom, strategijo, korakom in datumom te ure">📝 Vpiši opazovanje</button>
+      <button class="btn" id="savePlan" title="Shrani izbire te priprave; odprete jo lahko znova v »Moje ure« na opazovalnem listu">💾 Shrani pripravo</button>
+      <button class="btn" id="obs" title="Shrani pripravo in odpre opazovalni list, povezan s to pripravo">📝 Vpiši opazovanje</button>
+      <a class="btn" href="../opazovanje/#ure">📋 Moje ure</a>
+      <span class="msg" id="planMsg"></span>
     </div>
     <div id="plan"></div>
   </div>
@@ -182,6 +192,8 @@ details.all summary { cursor: pointer; font-weight: 700; }
   const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
   const rich = s => esc(s).replace(/&lt;(\/?)(i|b)&gt;/g, '<$1$2>');
   let D = null, chosen = '', fromAll = '', loaded = false, mins = [], minsKey = '';
+  // the saved plan that is open (only an own plan; a colleague's plan opens for reading and is saved as a new, own plan)
+  let planId = '', planDate = '';
 
   const api = async (action, extra) => {
     const token = Track.token(); if (!token) throw new Error('token');
@@ -306,6 +318,57 @@ details.all summary { cursor: pointer; font-weight: 700; }
     box.querySelectorAll('.min').forEach((i, n) => i.oninput = () => { mins[n] = Number(i.value) || 0; sum(); }); sum();
   };
 
+  const planMsg = (t, cls) => { $('#planMsg').className = 'msg' + (cls ? ' ' + cls : ''); $('#planMsg').textContent = t || ''; };
+  const fmtD = d => d ? d.split('-').reverse().map(Number).join('. ') : '';
+  const showInfo = (html) => { const b = $('#planInfo'); b.style.display = html ? 'block' : 'none'; b.innerHTML = html || ''; const x = b.querySelector('.x'); if (x) x.onclick = newPlan; };
+  const setSaveLabel = () => { $('#savePlan').textContent = planId ? '💾 Shrani spremembe' : '💾 Shrani pripravo'; };
+  const newPlan = () => { planId = ''; planDate = ''; showInfo(''); setSaveLabel(); planMsg(''); };
+  const collectPlan = () => {
+    const c = normCls($('#cls').value);
+    return { id: planId || undefined, date: $('#date').value, cls: /^[1-9]\.[A-Z]$/.test(c) ? c : '', vio: Number($('#vio').value), subj: $('#subj').value, type: $('#type').value,
+      strat: chosen, step: Number($('#step').value), topic: $('#topic').value.trim().slice(0, 100), mins: mins.map(v => Math.max(0, Math.min(90, Math.round(Number(v) || 0)))), all: !!fromAll };
+  };
+  const savePlan = async () => {
+    const pl = collectPlan();
+    if (!pl.strat) { planMsg('Najprej izberite strategijo.', 'bad'); return null; }
+    if (!pl.date) { planMsg('Vpišite datum ure.', 'bad'); return null; }
+    const c = normCls($('#cls').value); if ($('#cls').value.trim() && !pl.cls) { planMsg('Razred ' + c + ' ni prave oblike (npr. 6.B).', 'bad'); return null; }
+    $('#savePlan').disabled = $('#obs').disabled = true; planMsg('Shranjujem …');
+    let j = null; try { j = await api('rsplansave', { plan: pl }); } catch (e) {}
+    $('#savePlan').disabled = $('#obs').disabled = false;
+    if (!j || !j.ok) {
+      planMsg(j && j.error === 'data' ? 'Ni shranjeno: preverite ' + (j.details || []).join(', ') + '.' : j && j.error === 'token' ? 'Ni shranjeno: prijava je potekla. Osvežite stran.'
+        : j && j.error === 'notfound' ? 'Ni shranjeno: te priprave ni več (shranite jo kot novo).' : 'Ni shranjeno: napaka na strežniku.', 'bad');
+      if (j && j.error === 'notfound') newPlan();
+      return null;
+    }
+    const was = planId; planId = j.id; planDate = pl.date; setSaveLabel();
+    showInfo('📄 Shranjena priprava za ' + esc(fmtD(pl.date)) + ' · ' + esc(pl.cls || pl.vio + '. VIO') + ' · ' + esc(pl.subj) + ' · <a href="../opazovanje/#ure">Moje ure</a><button class="btn x" type="button">➕ Nova priprava</button>');
+    try { history.replaceState(null, '', location.pathname + '?plan=' + encodeURIComponent(planId)); } catch (e) {}
+    planMsg(was ? '✓ Spremembe so shranjene.' : '✓ Priprava je shranjena.', 'ok');
+    return planId;
+  };
+  const openPlan = async id => {
+    let j = null; try { j = await api('rsplan', { id }); } catch (e) {}
+    if (!j || !j.ok) { showInfo('Priprave ni mogoče odpreti' + (j && j.error === 'notfound' ? ' (ni je več).' : j && j.error === 'access' ? ' (ni vaša; priprave kolegov vidi samo razvojna skupina).' : '.')); return; }
+    const pl = j.plan;
+    $('#cls').value = pl.cls || ''; $('#vio').value = String(pl.vio || 1);
+    if ([...$('#subj').options].some(o => o.value === pl.subj)) $('#subj').value = pl.subj;
+    if ([...$('#type').options].some(o => o.value === pl.type)) $('#type').value = pl.type;
+    $('#step').value = String(pl.step || 1); $('#date').value = pl.date; $('#topic').value = pl.topic || '';
+    chosen = pl.strat; fromAll = pl.all ? pl.strat : '';
+    if (pl.mins.length === 5) { mins = pl.mins.slice(); minsKey = pl.strat + pl.step; }
+    if (pl.mine) {
+      planId = pl.id; planDate = pl.date;
+      showInfo('📄 Odprta je vaša priprava za ' + esc(fmtD(pl.date)) + ' · ' + esc(pl.cls || pl.vio + '. VIO') + ' · ' + esc(pl.subj) + '. Spremembe shranite z »Shrani spremembe«.<button class="btn x" type="button">➕ Nova priprava</button>');
+    } else {
+      planId = ''; planDate = '';
+      showInfo('👀 Priprava: ' + esc(pl.name) + ' · ' + esc(fmtD(pl.date)) + ' · ' + esc(pl.cls || pl.vio + '. VIO') + ' · ' + esc(pl.subj) + '. Samo ogled: če jo shranite, se shrani kot vaša nova priprava.');
+      try { history.replaceState(null, '', location.pathname); } catch (e) {}
+    }
+    setSaveLabel(); render();
+  };
+
   const fill = () => {
     $('#subj').innerHTML = SUBJ.map(([k, l]) => `<optgroup label="${k}">${l.map(x => `<option>${esc(x)}</option>`).join('')}</optgroup>`).join('');
     $('#type').innerHTML = (D.types || []).map(t => `<option>${esc(t)}</option>`).join('');
@@ -320,7 +383,12 @@ details.all summary { cursor: pointer; font-weight: 700; }
       if ((D.roles || []).includes('skupina') || D.admin) { const a = document.createElement('a'); a.href = 'pregled/'; a.textContent = '🔍 Pregled za skupino'; $('#draft').append(a); }
     }
     ['cls', 'vio', 'subj', 'type', 'step', 'date', 'topic'].forEach(k => $('#' + k).addEventListener('input', render));
+    // any change of a saved plan (fields, strategy, minutes) is only on screen until "Shrani spremembe"
+    $('#app').addEventListener('input', () => { if (planId) planMsg('Spremembe niso shranjene.', 'warn'); });
+    $('#app').addEventListener('click', e => { if (planId && e.target.closest('[data-pick], .areas button')) planMsg('Spremembe niso shranjene.', 'warn'); });
     render();
+    const pid = new URLSearchParams(location.search).get('plan');
+    if (pid) openPlan(pid);
   };
 
   const load = async () => {
@@ -341,8 +409,11 @@ details.all summary { cursor: pointer; font-weight: 700; }
     fill();
   };
 
-  $('#obs').onclick = () => {
-    const q = new URLSearchParams({ date: $('#date').value, subj: $('#subj').value, strat: chosen, phase: $('#step').value });
+  $('#savePlan').onclick = () => savePlan();
+  // the observation is linked to this plan: the plan is saved first (also its last changes)
+  $('#obs').onclick = async () => {
+    const id = await savePlan(); if (!id) return;
+    const q = new URLSearchParams({ date: $('#date').value, subj: $('#subj').value, strat: chosen, phase: $('#step').value, plan: id });
     const cls = $('#cls').value.trim(), topic = $('#topic').value.trim(); if (cls) q.set('cls', cls); if (topic) q.set('topic', topic);
     location.href = '../opazovanje/?' + q.toString();
   };
