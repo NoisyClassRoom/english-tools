@@ -85,7 +85,7 @@ var UNITS = {
 
 // Change this text whenever the code of doPost changes: the health check compares it with what the published web app answers,
 // so it can tell you that the saved code has not been deployed as a new version yet.
-var CODE_VERSION = '2026-11-26.4';
+var CODE_VERSION = '2026-11-26.5';
 
 // ---------------------------------------------------------------- saving results
 
@@ -2802,6 +2802,8 @@ function obsStrategies_() {
 }
 // a lesson date as yyyy-MM-dd, also when the Sheet turned the cell into a date (26 Nov 2026: the form needs this exact form)
 function obsDay_(v) { if (v instanceof Date) return Utilities.formatDate(v, TZ, 'yyyy-MM-dd'); var s = String(v || '').trim(); return /^[0-9]{4}-[0-9]{2}-[0-9]{2}/.test(s) ? s.slice(0, 10) : s; }
+// the "Vpisano" time kept when a row is edited: the Sheet may have turned it into a date (26 Nov 2026: String(date) gave "Thu Nov 26 2026 …")
+function obsStamp_(v) { return v instanceof Date ? Utilities.formatDate(v, TZ, 'yyyy-MM-dd HH:mm') : String(v || ''); }
 function obsRowOut_(r) {
   return { id: String(r[0]), date: obsDay_(r[3]), cls: String(r[5]), sklop: String(r[7]), subj: String(r[8]), strat: String(r[9]), phase: Number(r[10]) || 0,
            topic: String(r[11]), mins: Number(r[12]) || 0, eff: Number(r[13]) || 0, part: Number(r[14]) || 0, react: Number(r[15]) || 0, own: String(r[16]), note: String(r[17]),
@@ -2890,7 +2892,7 @@ function rsObsSaveReply_(d) {
       ids.forEach(function (x, i) { if (String(x[0]) === String(r.id)) at = i; });
       if (at < 0 || String(ids[at][4]).toLowerCase() !== me) return out_({ ok: false, error: 'notfound' });
       var old = sh.getRange(at + 2, 1, 1, OBS_HEADER.length).getValues()[0];
-      row[0] = String(r.id); row[1] = String(old[1]);
+      row[0] = String(r.id); row[1] = obsStamp_(old[1]);
       sh.getRange(at + 2, 1, 1, OBS_HEADER.length).setValues([row]);
     } else {
       row[0] = 'OBS-' + Utilities.formatDate(new Date(), TZ, 'yyyyMMddHHmmss') + '-' + Math.random().toString(36).slice(2, 6);
@@ -2980,7 +2982,7 @@ function rsPlanSaveReply_(d) {
       var n = sh.getLastRow() - 1, ids = n > 0 ? sh.getRange(2, 1, n, 5).getValues() : [], at = -1;
       ids.forEach(function (x, i) { if (String(x[0]) === String(r.id)) at = i; });
       if (at < 0 || String(ids[at][4]).toLowerCase() !== me) return out_({ ok: false, error: 'notfound' });
-      row[0] = String(r.id); row[1] = String(sh.getRange(at + 2, 2).getValue());
+      row[0] = String(r.id); row[1] = obsStamp_(sh.getRange(at + 2, 2).getValue());
       sh.getRange(at + 2, 1, 1, PLAN_HEADER.length).setValues([row]);
     } else {
       row[0] = 'PRI-' + Utilities.formatDate(new Date(), TZ, 'yyyyMMddHHmmss') + '-' + Math.random().toString(36).slice(2, 6);
