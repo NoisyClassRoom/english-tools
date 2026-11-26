@@ -61,6 +61,26 @@ used. A word may appear in several areas.
 3. Modes translation, edit the groups, grammar, numbers.
 4. QR code, Printables card, notes.
 
+## 5b. Version 2 – nicer and harder pictures (26 Nov 2026, the teacher's wish after the first version)
+
+Decisions: **both styles** (stained glass as the main style, squares as a choice), **all four kinds of pictures** (animals, scenes,
+seasons and holidays, mandalas), **three difficulty levels** chosen on the page.
+
+- `colour/art.js`: 14 original vector drawings (owl, fox, butterfly, sea turtle, parrot, whale; lighthouse, castle, mountain lake;
+  winter village, Christmas baubles, Easter basket, autumn tree, summer beach), up to 8 colours, and the **mandala maker**
+  (a new symmetric pattern for every sheet number; the difficulty sets rings and colours). The first 10 square pictures stay as
+  "Simple squares".
+- `colour/engine.js`: every picture is drawn as a fine colour map and cut into areas. **Stained glass**: spread-out points in each
+  colour area, every point gets the nearest part (mandalas are cut along their symmetry); the borders are smoothed curves.
+  **Squares**: the colour map on a grid (16 / 24 / 32 squares wide), squares of one colour joined into blocks. **Mosaic**: one
+  square per area. Specks under about 22 mm² take the colour around them.
+- **Difficulty**: easy about 30 areas, medium about 55, hard about 95–125.
+- Words: the page tries up to 12 places in every area and takes the largest letters; a word that does not fit well is swapped for
+  a shorter one of the same group.
+- **Fewer groups than colours** (a book has 6 units; verb forms have 5 groups): the smallest colours join the most similar kept
+  colour, and the page says which (e.g. "black → brown").
+- The answer page fills the original drawing in colour, with the words on top.
+
 ## 6. Decisions of the teacher (26 Nov 2026)
 
 - Default areas: **blocks** (mosaic stays as a choice).

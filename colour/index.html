@@ -33,10 +33,11 @@
   textarea { width: 100%; min-height: 120px; font: 13px/1.4 ui-monospace, Consolas, monospace; }
   .units { columns: 2 280px; margin: 6px 0 10px; max-height: 240px; overflow: auto; border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
   .units label { display: block; margin: 0 0 3px; }
-  .pics { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 10px; }
+  #pics h4 { margin: 8px 0 4px; font-size: 13px; color: var(--muted); font-weight: 600; }
+  .pics { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 6px; }
   .pics button { background: var(--field); color: var(--ink); border: 1px solid var(--line); border-radius: 10px; padding: 6px; cursor: pointer; font: inherit; font-size: 12px; display: grid; justify-items: center; gap: 3px; width: 86px; }
   .pics button.on { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); font-weight: 700; }
-  .pics svg { width: 48px; height: auto; display: block; }
+  .pics svg { width: 52px; height: auto; display: block; border-radius: 3px; }
   #editBox, #numBox { display: none; margin: 4px 0 10px; }
   /* the sheets: always black on white, also on screen */
   #sheets { color: #111; }
@@ -68,6 +69,8 @@
 <script src="../exercises/puzzles.js"></script>
 <script src="../vendor/qrcode.min.js"></script>
 <script src="motifs.js"></script>
+<script src="art.js"></script>
+<script src="engine.js"></script>
 <div class="wrap">
   <div class="top no-print">
     <h1>🎨 Colour by code</h1><span class="sp"></span>
@@ -104,8 +107,9 @@
       <div id="numBox"><label>Areas show <select id="numKind"><option value="words">number words (seven)</option><option value="sums">sums (3 + 4, 9 − 2)</option><option value="mix">both</option></select></label>
         <label>Numbers up to <select id="numMax"><option>10</option><option selected>20</option></select></label></div>
       <h2>2. The picture</h2>
-      <div class="pics" id="pics"></div>
-      <label>Areas <select id="size"><option value="coarse">Blocks, big (about 25–35 areas)</option><option value="fine" selected>Blocks, small (about 45–60 areas)</option><option value="mosaic">Mosaic: one word in every square (short words, numbers)</option></select></label>
+      <div id="pics"></div>
+      <label>Style <select id="style"><option value="smooth">Stained glass (smooth pieces)</option><option value="blocks">Squares (blocks)</option><option value="mosaic">Mosaic: one word in every square (short words, numbers)</option></select></label>
+      <label>Difficulty <select id="level"><option value="1">Easy (about 30 areas)</option><option value="2" selected>Medium (about 55 areas)</option><option value="3">Hard (about 95 areas)</option></select></label>
       <label><input type="checkbox" id="ab"> two versions (A and B: same picture, words in other places)</label>
       <label><input type="checkbox" id="qr" checked> QR code to practise the unit online</label><br>
       <label>Title <input type="text" id="title" placeholder="(automatic)" style="width:min(300px,100%)"></label>
@@ -123,11 +127,14 @@
   const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
   const BOOKS = { '6b': 'Project 1 (6th grade)', '7a': 'Dream Team Starter (7th grade)', '7bc': 'Project 2 (7th grade)', '8a': 'Dream Team 1 (8th grade)', '8b': 'Project 3 (8th grade)', '9a': 'Dream Team 2 (9th grade)', '9b': 'Project 4 (9th grade)', 'extra': 'Extra practice topics' };
   // the crayon colours; the key names them in English only (decision of the teacher)
-  const PAL = { '.': ['white', '#ffffff'], r: ['red', '#e53935'], o: ['orange', '#fb8c00'], y: ['yellow', '#fdd835'], g: ['green', '#43a047'], b: ['blue', '#1e88e5'],
-                n: ['brown', '#8d6e63'], k: ['black', '#212121'], a: ['grey', '#9e9e9e'], p: ['pink', '#f48fb1'] };
-  const MOTIFS = window.CC_MOTIFS || [];
-  const colorsOf = m => { const n = {}; m.rows.join('').split('').forEach(c => { n[c] = (n[c] || 0) + 1; }); return Object.keys(n).sort((a, b) => n[b] - n[a]); };
-  let loaded = false, current = [], motif = MOTIFS[0], lastSeed = 0;
+  const PAL = CCE.PAL;
+  // the pictures (26 Nov 2026, v2): vector drawings by group, mandalas made by the page, and the first square pictures
+  const CATS = ['Animals', 'Scenes', 'Seasons', 'Mandalas', 'Simple squares'];
+  const PICS = (window.CC_ART || []).concat([{ id: 'mandala', name: 'Mandala (new for every sheet number)', cat: 'Mandalas', mandala: true }],
+    (window.CC_MOTIFS || []).map(m => Object.assign({ cat: 'Simple squares' }, m)));
+  const lettersOf = p => p.rows ? [...new Set(p.rows.join(''))] : [...new Set(p.shapes.map(s => s[0]).filter(c => c !== '-'))];
+  const realPic = (p, seed, level) => p.mandala ? window.CC_MANDALA(seed, level) : p;
+  let loaded = false, current = [], motif = PICS[0], lastSeed = 0;
 
   // ---- seeded random numbers: the same sheet number gives the same sheet
   const rng = seed => { let a = seed >>> 0; return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; };
@@ -172,62 +179,6 @@
   };
   const chosen = () => [...document.querySelectorAll('#units input:checked')].map(c => current[Number(c.value)]);
   const clip = s => String(s || '').replace(/\s+/g, ' ').trim();
-
-  // ---- the areas: squares of one colour joined into blocks (seeded), or one area per square (mosaic)
-  const SIZES = { coarse: [8, 13], fine: [4, 7], mosaic: [1, 1] };
-  const blocks = (m, kind, seed) => {
-    const H = m.rows.length, W = m.rows[0].length, col = m.rows.join('').split(''), reg = new Array(W * H).fill(-1), R = rng(seed), [mn, mx] = SIZES[kind];
-    const nb = i => { const x = i % W, y = (i - x) / W, o = []; if (x > 0) o.push(i - 1); if (x < W - 1) o.push(i + 1); if (y > 0) o.push(i - W); if (y < H - 1) o.push(i + W); return o; };
-    let regions = [];
-    shuffleR([...Array(W * H).keys()], R).forEach(s => {
-      if (reg[s] >= 0) return;
-      const id = regions.length, target = mn + Math.floor(R() * (mx - mn + 1)), cells = [s]; reg[s] = id;
-      const front = nb(s).filter(j => reg[j] < 0 && col[j] === col[s]);
-      while (cells.length < target && front.length) {
-        const j = front.splice(Math.floor(R() * front.length), 1)[0]; if (reg[j] >= 0) continue;
-        reg[j] = id; cells.push(j); nb(j).forEach(q => { if (reg[q] < 0 && col[q] === col[s]) front.push(q); });
-      }
-      regions.push({ id, c: col[s], cells });
-    });
-    // very small leftovers join a neighbouring block of the same colour
-    if (mn > 1) for (let changed = true; changed;) {
-      changed = false;
-      regions.forEach(r => {
-        if (!r.cells.length || r.cells.length >= Math.ceil(mn / 2)) return;
-        const ns = new Set(); r.cells.forEach(i => nb(i).forEach(j => { if (reg[j] !== r.id && col[j] === r.c) ns.add(reg[j]); }));
-        if (!ns.size) return;
-        const t = [...ns].map(i => regions[i]).sort((a, b) => a.cells.length - b.cells.length)[0];
-        r.cells.forEach(i => { reg[i] = t.id; t.cells.push(i); }); r.cells = []; changed = true;
-      });
-    }
-    const keep = regions.filter(r => r.cells.length), map = {};
-    keep.forEach((r, k) => { map[r.id] = k; r.id = k; }); for (let i = 0; i < reg.length; i++) reg[i] = map[reg[i]];
-    return { W, H, col, reg, regions: keep };
-  };
-
-  // where a word fits in an area: the rectangle of squares inside the area that allows the largest letters (one or two lines)
-  const MIN_TEXT = 2.3;                       // mm, about 6.5 pt
-  const linesOf = t => { const o = [[t]]; const w = t.split(' '); if (w.length > 1) { let best = null; for (let k = 1; k < w.length; k++) { const a = w.slice(0, k).join(' '), b = w.slice(k).join(' '), m = Math.max(a.length, b.length); if (!best || m < best.m) best = { l: [a, b], m }; } o.push(best.l); } return o; };
-  const fit = (B, r, text, c) => {
-    const inR = (x, y) => x >= 0 && y >= 0 && x < B.W && y < B.H && B.reg[y * B.W + x] === r.id, opts = linesOf(text);
-    let best = { size: 0 };
-    r.cells.forEach(i => {
-      const x0 = i % B.W, y0 = (i - x0) / B.W;
-      for (let h = 1; h <= 3; h++) {
-        let okH = true; for (let x = x0; x < x0 + 1; x++) for (let y = y0; y < y0 + h; y++) if (!inR(x, y)) okH = false;
-        if (!okH) break;
-        for (let w = 1; w <= 7; w++) {
-          let ok = true; for (let y = y0; y < y0 + h; y++) if (!inR(x0 + w - 1, y)) ok = false;
-          if (!ok) break;
-          opts.forEach(ls => {
-            const len = Math.max(...ls.map(l => l.length)), size = Math.min((w * c * 0.86) / (len * 0.56), (h * c * 0.8) / (ls.length * 1.15), c * 0.42, 4.6);
-            if (size > best.size + 0.01) best = { size, lines: ls, cx: (x0 + w / 2) * c, cy: (y0 + h / 2) * c };
-          });
-        }
-      }
-    });
-    return best;
-  };
 
   // ---- the groups (one per colour) for every mode: { label (key text), items: [shown text], answers (key words, translation) }
   const NUMW = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen', 'twenty'];
@@ -275,43 +226,44 @@
   // ---- drawing
   const NS = 'http://www.w3.org/2000/svg';
   const sv = (tag, attrs, text) => { const e = document.createElementNS(NS, tag); Object.keys(attrs || {}).forEach(k => e.setAttribute(k, attrs[k])); if (text != null) e.textContent = text; return e; };
-  const thumb = m => {
-    const W = m.rows[0].length, H = m.rows.length, s = sv('svg', { viewBox: '0 0 ' + W + ' ' + H, 'shape-rendering': 'crispEdges' });
-    m.rows.forEach((row, y) => row.split('').forEach((c, x) => s.append(sv('rect', { x, y, width: 1, height: 1, fill: PAL[c][1] }))));
-    s.append(sv('rect', { x: 0, y: 0, width: W, height: H, fill: 'none', stroke: '#999', 'stroke-width': 0.15 })); return s;
+  // a small coloured picture for the picker
+  const thumb = p => {
+    const v = p.rows ? CCE.gridToVector(p) : p, s = sv('svg', { viewBox: '0 0 ' + v.vb.join(' ') });
+    v.shapes.forEach(([c, d]) => { if (c !== '-') s.append(sv('path', { d, fill: PAL[c][1] })); });
+    return s;
   };
-  // words: per area, from the group of its colour, a word that fits (seeded); colours = the motif's colours, most squares first
-  const placeWords = (B, groups, colours, c, R) => {
-    const queue = {}; colours.forEach((cl, k) => { queue[cl] = shuffleR(groups[k].items, R); });
+  const MIN_TEXT = 2.3;                       // mm, about 6.5 pt
+  // words: per area, from the group of its colour, a word that fits (seeded); the words of a group take turns
+  const placeWords = (L, groups, R) => {
+    const queue = L.letters.map((c, k) => shuffleR(groups[k].items, R));
     let small = 0;
-    const out = B.regions.map(r => {
-      const q = queue[r.c]; let pick = null, k0 = -1;
-      for (let k = 0; k < q.length; k++) { const f = fit(B, r, q[k], c); if (f.size >= 2.8) { pick = f; pick.text = q[k]; k0 = k; break; } if (!pick || f.size > pick.size) { pick = f; pick.text = q[k]; k0 = k; } }
+    const words = L.pieces.map((pc, k) => {
+      const q = queue[L.letters.indexOf(pc.c)]; let pick = null, k0 = 0;
+      for (let i = 0; i < q.length; i++) { const f = CCE.fit(L, k, q[i]); if (f.size >= 2.8) { pick = f; k0 = i; break; } if (!pick || f.size > pick.size) { pick = f; k0 = i; } }
       if (pick.size < MIN_TEXT) small++;
-      q.push(q.splice(k0, 1)[0]);                                   // that word goes to the end: the words of a group take turns
+      q.push(q.splice(k0, 1)[0]);
       return pick;
     });
-    return { words: out, small };
+    return { words, small };
   };
-  const drawPic = (B, words, c, coloured) => {
-    const w = B.W * c, h = B.H * c, svg = sv('svg', { class: 'pic', viewBox: '-0.6 -0.6 ' + (w + 1.2) + ' ' + (h + 1.2), width: (w + 1.2) + 'mm', height: (h + 1.2) + 'mm' });
-    if (coloured) for (let i = 0; i < B.col.length; i++) { const x = i % B.W, y = (i - x) / B.W; svg.append(sv('rect', { x: x * c, y: y * c, width: c + 0.05, height: c + 0.05, fill: PAL[B.col[i]][1] })); }
-    let d = '';
-    for (let i = 0; i < B.reg.length; i++) {
-      const x = i % B.W, y = (i - x) / B.W, r = B.reg[i];
-      if (y === 0 || B.reg[i - B.W] !== r) d += 'M' + (x * c).toFixed(2) + ' ' + (y * c).toFixed(2) + 'h' + c;
-      if (x === 0 || B.reg[i - 1] !== r) d += 'M' + (x * c).toFixed(2) + ' ' + (y * c).toFixed(2) + 'v' + c;
+  const drawPic = (L, words, coloured) => {
+    const w = L.wmm, h = L.hmm, svg = sv('svg', { class: 'pic', viewBox: '-0.6 -0.6 ' + (w + 1.2).toFixed(2) + ' ' + (h + 1.2).toFixed(2), width: (w + 1.2).toFixed(2) + 'mm', height: (h + 1.2).toFixed(2) + 'mm' });
+    if (coloured && L.fill.vector) {
+      const v = L.fill.vector, g = sv('g', { transform: 'scale(' + (w / v.vb[0]).toFixed(5) + ' ' + (h / v.vb[1]).toFixed(5) + ')' });
+      v.shapes.forEach(([c, d]) => g.append(sv('path', { d, fill: c === '-' ? '#fff' : PAL[c][1] }))); svg.append(g);
+    } else if (coloured) {
+      const G = L.fill.grid, c = w / G.W; for (let i = 0; i < G.col.length; i++) { if (G.col[i] < 0) continue; const x = i % G.W, y = (i - x) / G.W; svg.append(sv('rect', { x: (x * c).toFixed(2), y: (y * c).toFixed(2), width: (c + 0.05).toFixed(2), height: (c + 0.05).toFixed(2), fill: PAL[G.letters[G.col[i]]][1] })); }
     }
-    svg.append(sv('path', { d, fill: 'none', stroke: '#111', 'stroke-width': 0.3, 'stroke-linecap': 'square' }), sv('rect', { x: 0, y: 0, width: w, height: h, fill: 'none', stroke: '#111', 'stroke-width': 0.7 }));
+    svg.append(sv('path', { d: L.outline, fill: 'none', stroke: '#111', 'stroke-width': 0.32, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }));
     words.forEach((f, k) => {
-      const dark = coloured && ['k', 'b', 'n', 'r', 'g'].includes(B.regions[k].c), lh = f.size * 1.12;
+      const dark = coloured && CCE.DARK.has(L.pieces[k].c), lh = f.size * 1.12;
       f.lines.forEach((ln, j) => svg.append(sv('text', { x: f.cx.toFixed(2), y: (f.cy + (j - (f.lines.length - 1) / 2) * lh + f.size * 0.35).toFixed(2), 'text-anchor': 'middle', 'font-size': Math.max(f.size, 1.6).toFixed(2), 'font-family': 'Arial, Helvetica, sans-serif', fill: dark ? '#fff' : '#222' }, ln)));
     });
     return svg;
   };
   const keyBox = (groups, colours) => {
     const k = el('div', 'key');
-    colours.forEach((cl, i) => { const d = el('div'), sw = el('i'); sw.style.background = PAL[cl][1]; d.append(sw, el('b', '', PAL[cl][0] + (cl === '.' ? ' (leave it white)' : '') + ':'), el('span', '', groups[i].label)); k.append(d); });
+    colours.forEach((cl, i) => { if (!groups[i]) return; const d = el('div'), sw = el('i'); sw.style.background = PAL[cl][1]; d.append(sw, el('b', '', PAL[cl][0] + (cl === '.' ? ' (leave it white)' : '') + ':'), el('span', '', groups[i].label)); k.append(d); });
     return k;
   };
   const qrBlock = (url, caption) => {
@@ -337,38 +289,50 @@
 
   const make = (newSeed) => {
     const box = $('#sheets'); box.innerHTML = ''; ['#print', '#again'].forEach(s => $(s).style.display = 'none'); $('#msg').textContent = '';
-    const mode = $('#mode').value, kind = $('#size').value, colours = colorsOf(motif), n = colours.length;
+    const mode = $('#mode').value, style = $('#style').value, level = Number($('#level').value);
     if (newSeed === true || !Number($('#seed').value)) $('#seed').value = String(1000 + Math.floor(Math.random() * 9000));
     const seed = Number($('#seed').value); lastSeed = seed;
-    const G = groupsFor(mode, n, rng(seed * 13 + 5));
+    // how many word groups the mode can give; a picture with more colours is reduced (the smallest colours join a similar one)
+    const editLines = () => $('#edit').value.split('\n').filter(l => l.indexOf(':') > 0 && l.slice(l.indexOf(':') + 1).trim()).length;
+    const avail = mode === 'unit' ? chosen().length : mode === 'edit' ? editLines() : mode === 'past' ? 5 : mode === 'num' ? Number($('#numMax').value) - 1 : 99;
+    if (avail < 2) { $('#msg').textContent = mode === 'unit' ? 'Tick at least 2 units (one colour per unit).' : 'Write at least 2 groups (one line each: “group: word, word …”).'; return; }
+    let pic = realPic(motif, seed, level);
+    if (lettersOf(pic).length > avail) pic = CCE.reduce(pic, avail);
+    const n0 = lettersOf(pic).length;
+    const G = groupsFor(mode, n0, rng(seed * 13 + 5));
     if (G.error) { $('#msg').textContent = G.error; return; }
     const units = ['unit', 'trans', 'edit'].includes(mode) ? chosen() : [];
-    const B = blocks(motif, kind, seed);
-    // square size: the picture fills the A4 page under the title and the key (188 × 275 mm inside the margins)
-    const keyRows = Math.ceil(n / 2), keyH = keyRows * (mode === 'trans' ? 9.5 : 6) + 6, c = Math.min(186 / B.W, (275 - 24 - keyH - 16) / B.H, 13);
-    const title = $('#title').value.trim() || (mode === 'unit' || mode === 'trans' ? (units.length === 1 ? units[0].label : units.slice(0, mode === 'unit' ? n : 99).map(u => u.short).join(', ')) : mode === 'past' ? 'Verb forms' : mode === 'num' ? 'Numbers' : 'Word groups');
-    const versions = $('#ab').checked ? ['A', 'B'] : [''], made = [];
-    let small = 0;
-    versions.forEach((v, vi) => {
-      const P = placeWords(B, G.groups, colours, c, rng(seed * 7 + 1 + vi)); small = Math.max(small, P.small); made.push([v, P.words]);
-      const s = el('div', 'sheet'), head = el('div', 'head');
-      head.append(el('h3', '', '🎨 ' + title + (v ? ' · ' + v : '')), el('span', 'name', 'Name: ______________________'));
-      s.append(head, el('p', 'sub', INSTR[mode]), keyBox(G.groups, colours), drawPic(B, P.words, c, false));
-      const foot = el('div', 'foot'); foot.append(el('span', '', 'Colour by code · ' + motif.name.toLowerCase() + ' · ' + MODE_NAME[mode] + ' · sheet ' + seed + (v ? ' ' + v : '')));
-      if ($('#qr').checked && units.length && mode !== 'edit') foot.append(qrBlock(playUrl(units), units.length === 1 ? 'Practise this unit online' : 'Practise online'));
-      s.append(foot); box.append(s);
-    });
-    made.forEach(([v, words]) => {
-      const s = el('div', 'sheet'), head = el('div', 'head'); head.append(el('h3', '', '🎨 ' + title + (v ? ' · ' + v : '') + ' – answers'));
-      s.append(head, el('p', 'sub', 'The coloured picture with the words. Sheet ' + seed + (v ? ' ' + v : '') + '.'), keyBox(G.groups, colours), drawPic(B, words, c, true)); box.append(s);
-    });
-    $('#print').style.display = ''; $('#again').style.display = '';
-    $('#msg').textContent = B.regions.length + ' areas, ' + n + ' colours. Sheet number ' + seed + ' (type it again with the same settings to print the same sheet).' + (small ? ' ' + small + ' areas have very small letters: choose bigger blocks or shorter words.' : '');
+    // the picture fills the A4 page under the title and the key (188 × 275 mm inside the margins)
+    const keyH = Math.ceil(n0 / 2) * (mode === 'trans' ? 11 : 6) + 6;
+    $('#msg').textContent = 'Cutting the picture …';
+    setTimeout(() => {
+      const t0 = performance.now(), L = CCE.build({ pic, style, level, boxW: 186, boxH: 275 - 24 - keyH - 16, seed }), colours = L.letters;
+      const groups = colours.map((c, k) => G.groups[k]);
+      const title = $('#title').value.trim() || (mode === 'unit' || mode === 'trans' ? (units.length === 1 ? units[0].label : ((us => us.length > 3 ? us[0].short + ' – ' + us[us.length - 1].short : us.map(u => u.short).join(', '))(units.slice(0, mode === 'unit' ? n0 : 99)))) : mode === 'past' ? 'Verb forms' : mode === 'num' ? 'Numbers' : 'Word groups');
+      const versions = $('#ab').checked ? ['A', 'B'] : [''], made = [];
+      let small = 0;
+      versions.forEach((v, vi) => {
+        const P = placeWords(L, groups, rng(seed * 7 + 1 + vi)); small = Math.max(small, P.small); made.push([v, P.words]);
+        const s = el('div', 'sheet'), head = el('div', 'head');
+        head.append(el('h3', '', '🎨 ' + title + (v ? ' · ' + v : '')), el('span', 'name', 'Name: ______________________'));
+        s.append(head, el('p', 'sub', INSTR[mode]), keyBox(groups, colours), drawPic(L, P.words, false));
+        const foot = el('div', 'foot'); foot.append(el('span', '', 'Colour by code · ' + pic.name.toLowerCase() + ' · ' + MODE_NAME[mode] + ' · sheet ' + seed + (v ? ' ' + v : '')));
+        if ($('#qr').checked && units.length && mode !== 'edit') foot.append(qrBlock(playUrl(units), units.length === 1 ? 'Practise this unit online' : 'Practise online'));
+        s.append(foot); box.append(s);
+      });
+      made.forEach(([v, words]) => {
+        const s = el('div', 'sheet'), head = el('div', 'head'); head.append(el('h3', '', '🎨 ' + title + (v ? ' · ' + v : '') + ' – answers'));
+        s.append(head, el('p', 'sub', 'The coloured picture with the words. Sheet ' + seed + (v ? ' ' + v : '') + '.'), keyBox(groups, colours), drawPic(L, words, true)); box.append(s);
+      });
+      $('#print').style.display = ''; $('#again').style.display = '';
+      $('#msg').textContent = L.pieces.length + ' areas, ' + colours.length + ' colours' + (pic.joined ? ' (this mode has only ' + avail + ' groups, so similar colours were joined: ' + pic.joined.join(', ') + ')' : '') + '. Sheet number ' + seed + ' (type it again with the same settings to print the same sheet).' + (small ? ' ' + small + ' areas have very small letters: choose an easier difficulty or shorter words.' : '');
+      window.__ccTime = Math.round(performance.now() - t0);
+    }, 20);
   };
 
   // the "my own groups" box: filled from the ticked units (one unit per line, or the words shared out when there are fewer units than colours)
   const fillEdit = () => {
-    const n = colorsOf(motif).length, units = chosen(), R = rng(Date.now() % 100000);
+    const n = lettersOf(realPic(motif, 1000, Number($('#level').value))).length, units = chosen(), R = rng(Date.now() % 100000);
     if (!units.length) { $('#edit').value = ['animals: cat, dog, horse, cow', 'food: bread, apple, cheese, milk', 'clothes: shirt, dress, shoes, hat', 'school: pen, desk, book, ruler', 'family: mum, dad, sister, brother'].slice(0, Math.max(n, 3)).join('\n'); return; }
     if (units.length >= n) { $('#edit').value = units.slice(0, n).map(u => u.short + ': ' + u.words.map(w => clip(w.en)).filter(w => w.length <= 24).join(', ')).join('\n'); return; }
     const all = shuffleR([].concat(...units.map(u => u.words.map(w => clip(w.en)).filter(w => w && w.length <= 24))), R), per = Math.max(1, Math.floor(all.length / n));
@@ -381,13 +345,20 @@
     $('#numBox').style.display = m === 'num' ? 'block' : 'none';
     $('#unitHint').textContent = m === 'unit' ? '(one unit per colour: tick as many units as the picture has colours)' : m === 'trans' ? '(one or several units)' : '(optional: to fill the groups below)';
     if (m === 'edit' && !$('#edit').value.trim()) fillEdit();
-    if (m === 'num' && $('#size').value === 'fine') {}                // numbers also fit in the mosaic
   };
   const drawPics = () => {
-    const box = $('#pics'); box.innerHTML = '';
-    MOTIFS.forEach(m => { const b = el('button'); b.type = 'button'; b.className = m === motif ? 'on' : ''; b.append(thumb(m), el('span', '', m.name + ' · ' + colorsOf(m).length)); b.title = colorsOf(m).length + ' colours: ' + colorsOf(m).map(c => PAL[c][0]).join(', '); b.onclick = () => { motif = m; drawPics(); }; box.append(b); });
+    const box = $('#pics'); box.innerHTML = ''; const level = Number($('#level').value);
+    CATS.forEach(cat => {
+      const list = PICS.filter(p => p.cat === cat); if (!list.length) return;
+      const row = el('div', 'pics'); box.append(el('h4', '', cat), row);
+      list.forEach(p => {
+        const real = realPic(p, 1000 + level, level), n = lettersOf(real).length, b = el('button');
+        b.type = 'button'; b.className = p === motif ? 'on' : ''; b.append(thumb(real), el('span', '', (p.mandala ? 'Mandala' : p.name) + ' · ' + n));
+        b.title = n + ' colours: ' + lettersOf(real).map(c => PAL[c][0]).join(', ') + (p.mandala ? '. A new pattern for every sheet number; the difficulty sets rings and colours.' : '');
+        b.onclick = () => { motif = p; drawPics(); }; row.append(b);
+      });
+    });
   };
-
   const load = async () => {
     if (!Track.token()) return;
     const j = await api('boardmarks').catch(() => null);          // a teacher-only action: only the teacher account gets an answer
@@ -396,10 +367,11 @@
     const s = $('#src'); Object.keys(BOOKS).forEach(k => { const o = el('option', '', BOOKS[k]); o.value = k; s.append(o); });
     s.onchange = fillUnits; $('#lvl').onchange = fillUnits; $('#mode').onchange = syncMode; $('#fillEdit').onclick = fillEdit;
     $('#all').onclick = () => document.querySelectorAll('#units input').forEach(c => c.checked = true); $('#none').onclick = () => document.querySelectorAll('#units input').forEach(c => c.checked = false);
+    $('#level').onchange = drawPics;
     $('#make').onclick = () => make(false); $('#again').onclick = () => make(true); $('#print').onclick = () => window.print();
     drawPics(); syncMode(); fillUnits();
   };
-  window.__cc = { blocks, fit, groupsFor, colorsOf, make };
+  window.__cc = { groupsFor, make, PICS, pick: id => { motif = PICS.find(p => p.id === id) || motif; drawPics(); } };
   $('#theme').onclick = () => { document.body.classList.toggle('light'); try { localStorage.setItem('cc.light', document.body.classList.contains('light') ? '1' : ''); } catch (e) {} };
   try { if (localStorage.getItem('cc.light')) document.body.classList.add('light'); } catch (e) {}
   if (window.Track && Track.enabled) {
