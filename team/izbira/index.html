@@ -97,6 +97,10 @@ details.all summary { cursor: pointer; font-weight: 700; }
 #plan th, #plan td { border: 1px solid #bbb; padding: 5px 8px; text-align: left; vertical-align: top; }
 #plan th { background: #f2f2ee; width: 1%; white-space: nowrap; }
 #plan .min { width: 64px; text-align: right; padding: 2px 4px; background: #fff; color: #111; border: 1px solid #bbb; }
+/* the editable introduction: dashed frame on screen only */
+#plan .ed { border: 1px dashed #1f5a4e; border-radius: 4px; padding: 2px 5px; min-height: 1.4em; cursor: text; }
+#plan .ed:focus { outline: 2px solid #1f5a4e; border-style: solid; background: #fffdf3; }
+#plan .reset { margin-top: 4px; font: inherit; font-size: .8rem; background: #fff; color: #1f5a4e; border: 1px solid #bbb; border-radius: 6px; padding: 1px 8px; cursor: pointer; }
 #plan .sum { font-weight: 700; }
 #plan .say { background: #faf7e8; border-color: #e8c63a; }
 .pcard { border: 3px solid #1f5a4e; border-radius: 10px; padding: 12px 16px; margin-top: 10px; }
@@ -117,6 +121,7 @@ details.all summary { cursor: pointer; font-weight: 700; }
   #plan h2 { font-size: 15pt; }
   #plan table { font-size: 9.5pt; }
   #plan .min { border: 0; width: 34px; -moz-appearance: textfield; appearance: textfield; }
+  #plan .ed { border: 0; padding: 0; background: none; }
   #plan .min::-webkit-inner-spin-button { display: none; }
   .pcard ol { font-size: 12pt; }
   .pcard, .ticket, .howbox, tr { break-inside: avoid; }
@@ -194,6 +199,7 @@ details.all summary { cursor: pointer; font-weight: 700; }
   let D = null, chosen = '', fromAll = '', loaded = false, mins = [], minsKey = '';
   // the saved plan that is open (only an own plan; a colleague's plan opens for reading and is saved as a new, own plan)
   let planId = '', planDate = '';
+  let uvod = null, uvodKey = '';                 // own text of the introduction (null = the guide's text)
 
   const api = async (action, extra) => {
     const token = Track.token(); if (!token) throw new Error('token');
@@ -294,9 +300,13 @@ details.all summary { cursor: pointer; font-weight: 700; }
     const s = r.s, x = r.x, step = Number($('#step').value), k = s.k || [];
     if (minsKey !== s.c + step) { minsKey = s.c + step; mins = MIN[step].slice(); }   // edited minutes stay until the strategy or the step changes
     const m = mins;
+    // the introduction can be edited (wish of the teacher, 26 Nov 2026); an own text stays until the strategy changes, and is saved with the plan
+    if (uvodKey !== s.c) { uvodKey = s.c; uvod = null; }
+    const uvodDef = 'Cilj ure. Povem, čemu služi strategija »' + s.n + '« in kdaj pomaga: ' + (s.w || '');
     const d = $('#date').value ? $('#date').value.split('-').reverse().map(Number).join('. ') : '';
     const rows = [
-      ['Uvod', `Cilj ure. Povem, čemu služi strategija »${esc(s.n)}« in kdaj pomaga: ${esc(s.w)}`],
+      ['Uvod', `<div class="ed" id="uvod" contenteditable="plaintext-only" spellcheck="true" title="Kliknite in spremenite besedilo uvoda">${esc(uvod != null ? uvod : uvodDef)}</div>` +
+        `<button type="button" class="reset noprint" id="uvodReset"${uvod != null ? '' : ' hidden'}>↺ privzeto</button>`],
       ['Prikaz / glasno razmišljanje', esc(k[0] || '') + (x.g ? `<p class="say">${esc(x.g)}</p>` : '')],
       ['Vodena vaja', esc(k[1] || '')],
       ['Samostojno delo', esc(k[2] || '') + (s.e === 'w' && selfName ? ` Nato samopreverjanje (${esc(selfName.c)}).` : '')],
@@ -319,6 +329,11 @@ details.all summary { cursor: pointer; font-weight: 700; }
       </div>`;
     const sum = () => { $('#sum').textContent = [...box.querySelectorAll('.min')].reduce((a, i) => a + (Number(i.value) || 0), 0) + ' min'; };
     box.querySelectorAll('.min').forEach((i, n) => i.oninput = () => { mins[n] = Number(i.value) || 0; sum(); }); sum();
+    const ue = $('#uvod'), ur = $('#uvodReset');
+    if (ue.contentEditable !== 'plaintext-only') ue.contentEditable = 'true';        // browsers without plaintext-only
+    ue.oninput = () => { let t = ue.innerText.replace(/\s+/g, ' ').trim(); if (t.length > 400) { t = t.slice(0, 400); ue.innerText = t; }
+      uvod = t && t !== uvodDef ? t : null; ur.hidden = uvod == null; };
+    ur.onclick = () => { uvod = null; ue.innerText = uvodDef; ur.hidden = true; ue.dispatchEvent(new Event('input', { bubbles: true })); };
   };
 
   const planMsg = (t, cls) => { $('#planMsg').className = 'msg' + (cls ? ' ' + cls : ''); $('#planMsg').textContent = t || ''; };
@@ -329,7 +344,7 @@ details.all summary { cursor: pointer; font-weight: 700; }
   const collectPlan = () => {
     const cl = clsList($('#cls').value);
     return { id: planId || undefined, date: $('#date').value, cls: clsOkAll(cl) ? cl.join(', ') : '', vio: Number($('#vio').value), subj: $('#subj').value, type: $('#type').value,
-      strat: chosen, step: Number($('#step').value), topic: $('#topic').value.trim().slice(0, 100), mins: mins.map(v => Math.max(0, Math.min(90, Math.round(Number(v) || 0)))), all: !!fromAll };
+      strat: chosen, step: Number($('#step').value), topic: $('#topic').value.trim().slice(0, 100), mins: mins.map(v => Math.max(0, Math.min(90, Math.round(Number(v) || 0)))), all: !!fromAll, uvod: uvod || '' };
   };
   const savePlan = async () => {
     const pl = collectPlan();
@@ -362,6 +377,7 @@ details.all summary { cursor: pointer; font-weight: 700; }
     $('#step').value = String(pl.step || 1); $('#date').value = pl.date; $('#topic').value = pl.topic || '';
     chosen = pl.strat; fromAll = pl.all ? pl.strat : '';
     if (pl.mins.length === 5) { mins = pl.mins.slice(); minsKey = pl.strat + pl.step; }
+    uvod = pl.uvod || null; uvodKey = pl.strat;
     if (pl.mine) {
       planId = pl.id; planDate = pl.date;
       showInfo('📄 Odprta je vaša priprava za ' + esc(fmtD(pl.date)) + ' · ' + esc(pl.cls || pl.vio + '. VIO') + ' · ' + esc(pl.subj) + '. Spremembe shranite z »Shrani spremembe«.<button class="btn x" type="button">➕ Nova priprava</button>');

@@ -85,7 +85,7 @@ var UNITS = {
 
 // Change this text whenever the code of doPost changes: the health check compares it with what the published web app answers,
 // so it can tell you that the saved code has not been deployed as a new version yet.
-var CODE_VERSION = '2026-11-26.3';
+var CODE_VERSION = '2026-11-26.4';
 
 // ---------------------------------------------------------------- saving results
 
@@ -2917,12 +2917,17 @@ function rsObsDeleteReply_(d) {
 // A plan holds only what the picker page shows: class (or only the triad), subject, type of material, strategy, step, topic, minutes.
 // No pupil data. The plan text itself is not stored: the page rebuilds it from the guide (so a corrected guide text shows in old plans too).
 var PLAN_HEADER = ['ID', 'Vpisano', 'Šolsko leto', 'Datum ure', 'Učitelj', 'Ime', 'Razred', 'VIO', 'Sklop', 'Predmet', 'Vrsta snovi', 'Strategija',
-                   'Korak', 'Tema', 'Minute', 'Iz vseh strategij', 'Spremenjeno'];
+                   'Korak', 'Tema', 'Minute', 'Iz vseh strategij', 'Spremenjeno', 'Uvod'];
+// 'Uvod' (26 Nov 2026, wish of the teacher): the teacher's own text of the introduction, empty = the guide's text; at most 400 characters
 function planSheet_(ss, create) {
   var sh = ss && ss.getSheetByName('Priprave');
-  if (sh || !create) return sh;
+  if (sh) {
+    if (create && String(sh.getRange(1, PLAN_HEADER.length).getValue()) !== 'Uvod') sh.getRange(1, PLAN_HEADER.length).setValue('Uvod').setFontWeight('bold');   // a tab made before the column existed
+    return sh;
+  }
+  if (!create) return sh;
   sh = ss.insertSheet('Priprave'); sh.appendRow(PLAN_HEADER); sh.setFrozenRows(1);
-  sh.getRange(1, 1, 1, PLAN_HEADER.length).setFontWeight('bold'); sh.getRange('A:Q').setNumberFormat('@');
+  sh.getRange(1, 1, 1, PLAN_HEADER.length).setFontWeight('bold'); sh.getRange('A:R').setNumberFormat('@');
   return sh;
 }
 function planRows_(ss) {
@@ -2934,7 +2939,7 @@ function planRowOut_(r, mine) {
   var m = []; try { m = JSON.parse(String(r[14])); } catch (e) {}
   return { id: String(r[0]), date: obsDay_(r[3]), mine: !!mine, name: String(r[5]) || (mine ? '' : 'učitelj'), cls: String(r[6]), vio: Number(r[7]) || 0,
            sklop: String(r[8]), subj: String(r[9]), type: String(r[10]), strat: String(r[11]), step: Number(r[12]) || 0, topic: String(r[13]),
-           mins: m instanceof Array ? m : [], all: String(r[15]) === 'da', changed: String(r[16]) };
+           mins: m instanceof Array ? m : [], all: String(r[15]) === 'da', changed: String(r[16]), uvod: String(r[17] || '') };
 }
 function rsPlanReply_(d) {
   var who = verify_(d.token);
@@ -2968,7 +2973,7 @@ function rsPlanSaveReply_(d) {
   if (bad.length) return out_({ ok: false, error: 'data', details: bad });
   var ss = obsBook_(true), sh = planSheet_(ss, true), me = String(who.email).toLowerCase();
   var now = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd HH:mm'), ds = Utilities.formatDate(date, TZ, 'yyyy-MM-dd');
-  var row = [null, now, schoolYear_(date), ds, me, clip_(rw.name, 80), cls, vio, sk, subj, type, st.c, step, clip_(r.topic, 100), JSON.stringify(mins), r.all ? 'da' : 'ne', now];
+  var row = [null, now, schoolYear_(date), ds, me, clip_(rw.name, 80), cls, vio, sk, subj, type, st.c, step, clip_(r.topic, 100), JSON.stringify(mins), r.all ? 'da' : 'ne', now, clip_(r.uvod, 400)];
   var lock = LockService.getScriptLock(); lock.waitLock(20000);
   try {
     if (r.id) {
