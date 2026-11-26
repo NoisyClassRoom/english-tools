@@ -85,7 +85,14 @@ td.has { font-weight: 700; }
 .tag.ok { color: var(--strong, #34c06d); } .tag.no { color: var(--muted); }
 .linkline { font-size: .9rem; margin: -4px 0 10px; }
 .linkline:empty { display: none; }
-#extra label { margin-right: 10px; white-space: nowrap; color: var(--ink); }
+/* "Ura z več razredi": one chip per class, like the rating buttons (the form's label and input rules would stretch the boxes) */
+#extra { display: flex; flex-wrap: wrap; gap: 6px; }
+#extra label { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 14px; border: 1px solid var(--line); border-radius: 8px;
+  background: var(--field); color: var(--ink); font-size: .9rem; cursor: pointer; white-space: nowrap; }
+#extra label:hover { border-color: var(--accent); }
+#extra label:has(input:checked) { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); font-weight: 700; }
+#extra input { width: auto; margin: 0; padding: 0; accent-color: var(--accent); }
+#extraBox .small { color: var(--muted); }
 #extraBox.off { display: none; }
 #ureNote a { color: inherit; text-decoration: underline; }
 </style>
@@ -114,7 +121,7 @@ td.has { font-weight: 700; }
         <label>Datum ure<input id="date" type="date"></label>
         <label>Razred<select id="cls"></select></label>
         <label>Predmet<select id="subj"></select></label>
-        <div class="q wide" id="extraBox">Ura z več razredi? Pri uri so bili tudi učenci iz: <span id="extra"></span><div class="small">Shrani se eno opazovanje za vsak razred (z enakimi ocenami), da pregled po razredih ostane pravilen.</div></div>
+        <div class="q wide" id="extraBox"><span>Ura z več razredi? Pri uri so bili tudi učenci iz:</span><div id="extra"></div><div class="small">Shrani se eno opazovanje za vsak razred (z enakimi ocenami), da pregled po razredih ostane pravilen.</div></div>
         <label class="wide">Strategija<select id="strat"></select></label>
         <div class="q wide">Korak uvajanja<div class="seg" id="phase"></div></div>
         <label class="wide">Tema ure (neobvezno, največ 100 znakov, brez imen učencev)<input id="topic" maxlength="100" autocomplete="off" placeholder="npr. Kroženje vode v naravi"></label>
