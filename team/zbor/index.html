@@ -80,6 +80,9 @@ table.turn .sp { width: .5em; padding: 0; background: none; }
 table.turn td.rl .c { color: var(--muted); font-family: ui-monospace, Consolas, monospace; font-size: .85em; }
 table.turn td.n { color: var(--muted); font-size: .85em; }
 table.turn td small { display: block; font-size: .72em; font-weight: 700; opacity: .9; }
+/* the whole grade (all 5th classes …) next to its classes (26 Nov 2026) */
+table.turn th.tot { border-bottom: 2px solid var(--ink); }
+table.turn td.tot, table.turn th.tot { box-shadow: inset 0 0 0 2px var(--ink); font-weight: 700; }
 /* how-to slides for teachers (18 Nov 2026) */
 .howto { display: grid; grid-template-columns: 1fr auto; gap: 2.2em; align-items: start; }
 .howto ol, .howto ul { margin: 0; padding-left: 1.3em; display: grid; gap: .55em; font-size: 1.12em; }
@@ -250,29 +253,37 @@ ul.next { font-size: 1.35em; display: grid; gap: .7em; padding-left: 1.2em; marg
     const ROWS = [['N3', 'načrtuje čas', a => a.N3 != null, a => a.N3 >= a._top], ['M1', 'preverja, ali razume', a => a.M1 != null, a => a.M1 >= a._top], ['R1', 'pregleda napake', a => a.R1 != null, a => a.R1 >= a._top],
       ['ST06', 'samopreverjanje', a => a.S5_ST06 != null, a => a.S5_ST06 === 3], ['N7', 'zgodnji začetek', a => a.N7 != null, a => a.N7 <= 3]];
     const heat = v => v < 0.2 ? 1 : v < 0.4 ? 2 : v < 0.6 ? 3 : v < 0.8 ? 4 : 5, dark = document.body.classList.contains('dark');
-    const tri = c => Math.ceil(Number(c[0]) / 3), gapBefore = (c, i) => i > 0 && tri(c) !== tri(cl[i - 1]);
+    // the columns: every class, and after the classes of one grade with two or more classes the whole grade ("5. r." = all 5th classes;
+    // wish of the teacher, 26 Nov 2026)
+    const grade = c => Number(c[0]), cols = [];
+    cl.forEach((c, i) => {
+      cols.push({ label: c, L: P.filter(p => p.cls === c), g: grade(c) });
+      const next = cl[i + 1], same = cl.filter(x => grade(x) === grade(c));
+      if ((!next || grade(next) !== grade(c)) && same.length > 1) cols.push({ label: grade(c) + '. r.', L: P.filter(p => p.cls && grade(p.cls) === grade(c)), g: grade(c), tot: true });
+    });
+    const tri = g => Math.ceil(g / 3), gapBefore = i => i > 0 && tri(cols[i].g) !== tri(cols[i - 1].g);
     const t = el('table', 'turn'), hr = el('tr'), nr = el('tr');
     hr.append(el('th', '', 'Razred')); nr.append(el('td', 'rl', 'odgovorov'));
     const sp = row => row.append(el(row === hr ? 'th' : 'td', 'sp'));    // thin empty column between the triads
-    const N = {}; cl.forEach((c, i) => { N[c] = P.filter(p => p.cls === c && p.r[K]).length;
-      if (gapBefore(c, i)) { sp(hr); sp(nr); } hr.append(el('th', '', c)); nr.append(el('td', 'n', String(N[c]))); });
+    cols.forEach((c, i) => { c.n = c.L.filter(p => p.r[K]).length;
+      if (gapBefore(i)) { sp(hr); sp(nr); } hr.append(el('th', c.tot ? 'tot' : '', c.label)); nr.append(el('td', 'n' + (c.tot ? ' tot' : ''), String(c.n))); });
     t.append(hr, nr);
     ROWS.forEach(([code, lab, has, ok]) => {
       const tr = el('tr'), rl = el('td', 'rl'); rl.append(el('span', 'c', code + ' '), document.createTextNode(lab)); tr.append(rl);
-      cl.forEach((c, i) => {
-        if (gapBefore(c, i)) sp(tr);
-        const g = '', L = P.filter(p => p.cls === c);
-        if (N[c] < MIN_CLASS) { tr.append(el('td', 'na' + g, '·')); return; }
+      cols.forEach((c, i) => {
+        if (gapBefore(i)) sp(tr);
+        const g = c.tot ? ' tot' : '', L = c.L;
+        if (c.n < MIN_CLASS) { tr.append(el('td', 'na' + g, '·')); return; }
         const sh = share(L, K, has, ok); if (!sh.n) { tr.append(el('td', 'na' + g, '—')); return; }
         const a = share(L, 'zacetno', has, ok), h = heat(sh.v), td = el('td', 'hc' + g + ' ' + (dark ? (h === 5 ? 'b' : 'w') : (h >= 4 ? 'w' : '')));
-        td.style.background = 'var(--h' + h + ')'; td.append(document.createTextNode(Math.round(sh.v * 100) + ' %'));
+        td.style.background = 'var(--h' + h + ')'; td.append(document.createTextNode(String(Math.round(sh.v * 100))));   // the number only: with the grade columns the cells are narrow
         if (late) { const d = ppN(a.v, sh.v); td.append(el('small', '', (d > 0 ? '▲ ' : d < 0 ? '▼ ' : '± ') + Math.abs(d))); }
         tr.append(td);
       });
       t.append(tr);
     });
-    return slide('Primerjava razredov', (late ? 'Končni delež zgornjih odgovorov, pod njim sprememba od jeseni (odstotne točke). ' : 'Začetni delež zgornjih odgovorov. ') +
-      'Temnejša celica = večji delež. »—« = vprašanja v tej triadi ni. »·« = manj kot ' + MIN_CLASS + ' odgovori.', t);
+    return slide('Primerjava razredov', (late ? 'Končni delež zgornjih odgovorov v %, pod njim sprememba od jeseni (odstotne točke). ' : 'Začetni delež zgornjih odgovorov v %. ') +
+      'Temnejša celica = večji delež. Obrobljen stolpec (npr. »5. r.«) = vsi oddelki tega razreda skupaj. »—« = vprašanja v tej triadi ni. »·« = manj kot ' + MIN_CLASS + ' odgovori.', t);
   };
 
   // ---- links between answers (25 Nov 2026): the pairs the team chose in advance, maths in ../vprasalnik.js (same as team/rezultati/) ----
