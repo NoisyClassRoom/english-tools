@@ -312,7 +312,7 @@ ul.next { font-size: 1.35em; display: grid; gap: .7em; padding-left: 1.2em; marg
   const sEnd = () => {
     const g = el('div', 'an');
     [['1 · Jesen in pomlad', 'Kako so se spremenile navade (načrtovanje, sprotno delo, preverjanje, pregled napak …) po triadah in razredih.'],
-     ['2 · Strategije pri pouku', 'Ali učenci strategije, ki smo jih uvajali, spomladi pogosteje poznajo in uporabljajo – razrede z uvedeno strategijo (opazovalni listi) primerjamo z drugimi.'],
+     ['2 · Strategije pri pouku', 'Ali učenci strategije, ki smo jih uvajali, spomladi pogosteje poznajo in uporabljajo – razrede z uvedeno strategijo (priprave in opazovalni listi) primerjamo z drugimi.'],
      ['3 · Glas učencev', 'Spomladi tudi kratko vprašanje, ali so kaj spremenili pri učenju in kaj jim je pri tem pomagalo (predlog, o vprašanjih odloči skupina).'],
      ['4 · Navade in ocene (2. in 3. VIO)', 'Povprečne ocene po predmetnih sklopih pri učencih z navado in brez nje ter sprememba ocen in navad med letom – vedno kot povezava, ne vzrok.'],
      ['5 · Izbrane povezave', 'Nekaj vnaprej izbranih parov, npr. ali tisti, ki načrtujejo čas, tudi prej začnejo z učenjem – samo, kjer je odgovorov dovolj.'],
@@ -345,11 +345,12 @@ ul.next { font-size: 1.35em; display: grid; gap: .7em; padding-left: 1.2em; marg
       'Pasti in kako spremljati, ali strategija deluje.',
       'Strategija meseca je na domači strani.']));
     b.append(el('h3', '', '🎯 Izbira strategije in priprava ure'), li(el('ol'), [
-      ['Vpišite ', 'razred (ali triado), predmet, vrsto snovi in korak uvajanja.'],
+      ['Vpišite ', 'razred (ali triado; ura z več razredi: npr. 7.B + 7.C), predmet, vrsto snovi in korak uvajanja.'],
       ['Dobite ', 'do tri predloge strategij (in strategijo meseca); eno izberite za pripravo.'],
       ['Ali pa ', 'pod »Vse strategije« izberete katero koli drugo – urejene so po področjih; tiste, ki niso za vašo triado, so označene.'],
       ['Natisnite ', 'pripravo ure na eno stran A4 ali kartico za tablo.'],
-      ['Po uri ', 'z gumbom »Vpiši opazovanje« odprete opazovalni list z že izpolnjenimi podatki.']]));
+      ['💾 Shranite ', 'pripravo: najdete jo v »Moje ure« in jo pozneje odprete ali popravite.'],
+      ['Po uri ', '»Vpiši opazovanje« shrani pripravo in odpre opazovalni list, povezan z njo.']]));
     c.append(a, b);
     return slide('Priročnik in izbira strategije', 'Pred uro: kaj izbrati in kako začeti.', c);
   };
@@ -362,12 +363,14 @@ ul.next { font-size: 1.35em; display: grid; gap: .7em; padding-left: 1.2em; marg
       ['Odziv učencev: ', 'od »odpor« do »navdušenje«.'],
       ['So jo pozneje uporabili sami? ', 'da · ne · še ne vem (lahko spremenite pozneje).'],
       'Tema in opombe sta neobvezni – brez imen učencev.',
+      ['Ura z več razredi: ', 'odkljukajte še druge razrede – shrani se zapis za vsak razred.'],
       '»➕ Še ena strategija pri tej uri?« za drugo strategijo pri isti uri.']));
-    b.append(el('h3', '', '📂 Moja opazovanja'), li(el('ul'), [
-      'Seznam vaših zapisov s filtri (razred, predmet, strategija, mesec); vsak zapis lahko uredite ali izbrišete.',
+    b.append(el('h3', '', '📂 Moje ure'), li(el('ul'), [
+      ['Priprave in opazovanja na enem mestu: ', 'pod pripravo je opazovanje te ure, »še brez opazovanja« vas opomni.'],
+      'Filtri (razred, predmet, strategija, mesec); vsak zapis lahko odprete, uredite ali izbrišete.',
       ['»Kaj sem že uvedel«: ', 'koliko ur s posamezno strategijo po razredih in najvišji dosežen korak.'],
       ['Vprašanja in predlogi: ', 'razvojni skupini – list še izboljšujemo.']]));
-    const t = el('div', 'tip', 'Svoja opazovanja vidite samo vi. Razvojna skupina bo pozneje videla skupne številke vseh učiteljev (kaj smo uvajali in kako je delovalo) – brez podatkov o učencih.');
+    const t = el('div', 'tip', 'Svoja opazovanja vidite samo vi; shranjene priprave lahko odpre še razvojna skupina (z imenom avtorja). Pozneje bo skupina videla skupne številke vseh učiteljev (kaj smo načrtovali, kaj izvedli in kako je delovalo) – brez podatkov o učencih.');
     b.append(t);
     c.append(a, b);
     return slide('Opazovalni list', 'Kratek zapis po uri, v kateri ste uvajali ali utrjevali učno strategijo.', c);
