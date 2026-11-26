@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Colour by code</title>
+<style>
+  /* Colour by code (docs/COLOUR-BY-CODE-PLAN.md, decisions of the teacher 26 Nov 2026): a picture split into areas, each area holds
+     a word or a code, the key says which answer gets which colour. Original motifs in motifs.js; the words come from the public
+     exercise files, like on Tarsia and Puzzles. Nothing is saved or sent. */
+  :root {
+    --bg: #141418; --card: #1f1f26; --ink: #f2efe9; --muted: #a39f95; --line: #34343e; --field: #14141a;
+    --accent: #ff8a1f; --good: #34c06d; --bad: #ff5a5a; --radius: 14px;
+  }
+  body.light {
+    --bg: #f6f4ef; --card: #ffffff; --ink: #1f2a37; --muted: #6b7280; --line: #e5e1d8; --field: #ffffff;
+    --accent: #e8710a; --good: #1f9d55; --bad: #d64545;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .wrap { max-width: 1000px; margin: 0 auto; padding: 14px; }
+  h1 { margin: 0; font-size: 22px; } h2 { margin: 12px 0 8px; font-size: 16px; color: var(--accent); }
+  .top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+  .top .sp { flex: 1; }
+  .btn { background: var(--field); color: var(--ink); border: 1px solid var(--line); border-radius: 10px; padding: 6px 12px; font: inherit; cursor: pointer; text-decoration: none; display: inline-block; }
+  .btn:hover { border-color: var(--accent); } .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px; margin-bottom: 12px; }
+  .muted { color: var(--muted); }
+  #login { text-align: center; padding: 40px 14px; } #app { display: none; }
+  label { display: inline-block; margin: 0 14px 8px 0; }
+  select, input[type=number], input[type=text], textarea { background: var(--field); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 5px 8px; font: inherit; max-width: 100%; }
+  textarea { width: 100%; min-height: 120px; font: 13px/1.4 ui-monospace, Consolas, monospace; }
+  .units { columns: 2 280px; margin: 6px 0 10px; max-height: 240px; overflow: auto; border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
+  .units label { display: block; margin: 0 0 3px; }
+  .pics { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 10px; }
+  .pics button { background: var(--field); color: var(--ink); border: 1px solid var(--line); border-radius: 10px; padding: 6px; cursor: pointer; font: inherit; font-size: 12px; display: grid; justify-items: center; gap: 3px; width: 86px; }
+  .pics button.on { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); font-weight: 700; }
+  .pics svg { width: 48px; height: auto; display: block; }
+  #editBox, #numBox { display: none; margin: 4px 0 10px; }
+  /* the sheets: always black on white, also on screen */
+  #sheets { color: #111; }
+  .sheet { background: #fff; color: #111; border-radius: 6px; padding: 14px 18px; margin-bottom: 14px; font: 13px/1.35 Arial, Helvetica, sans-serif; }
+  .sheet .head { display: flex; align-items: baseline; gap: 12px; }
+  .sheet h3 { margin: 0; font-size: 19px; flex: 1; } .sheet .name { font-size: 13px; white-space: nowrap; }
+  .sheet .sub { color: #444; margin: 2px 0 6px; font-size: 12px; }
+  .sheet .key { display: grid; grid-template-columns: 1fr 1fr; gap: 3px 14px; border: 1.5px solid #111; border-radius: 6px; padding: 6px 10px; margin: 0 0 6px; font-size: 12.5px; }
+  .sheet .key div { display: flex; gap: 6px; align-items: baseline; break-inside: avoid; }
+  .sheet .key i { flex: none; width: 11px; height: 11px; border: 1px solid #111; border-radius: 2px; display: inline-block; position: relative; top: 1px; }
+  .sheet .key b { white-space: nowrap; }
+  .sheet svg.pic { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+  .sheet .foot { display: flex; justify-content: space-between; align-items: flex-end; gap: 10px; margin-top: 4px; font-size: 11px; color: #444; }
+  .qrbox { display: flex; flex-direction: column; align-items: center; width: 96px; font: 10px/1.25 Arial, sans-serif; text-align: center; }
+  .qrbox svg { width: 72px; height: 72px; }
+  @media print {
+    @page { size: A4 portrait; margin: 11mm; }
+    body, body.light { background: #fff; } .wrap { max-width: none; padding: 0; }
+    .no-print, .top { display: none !important; }
+    .sheet { border-radius: 0; padding: 0; margin: 0; page-break-after: always; break-after: page; }
+    .sheet:last-child { page-break-after: auto; break-after: auto; }
+    .sheet .key i { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .sheet svg.pic { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+</style>
+</head>
+<body>
+<script src="../exercises/tracking.js"></script>
+<script src="../exercises/puzzles.js"></script>
+<script src="../vendor/qrcode.min.js"></script>
+<script src="motifs.js"></script>
+<div class="wrap">
+  <div class="top no-print">
+    <h1>🎨 Colour by code</h1><span class="sp"></span>
+    <a class="btn" href="../printables/">🖨 Printables</a>
+    <span class="muted" id="who"></span>
+    <button class="btn" id="theme">Light / dark</button>
+  </div>
+  <div id="login" class="card no-print">
+    <p id="loginMsg" class="muted">Sign in with your school Google account. Only the teacher account is allowed.</p>
+    <div id="slot"></div>
+  </div>
+  <div id="app">
+    <div class="card no-print">
+      <h2>1. What is written in the areas</h2>
+      <label>Mode <select id="mode">
+        <option value="unit">Word groups: one colour per unit (English words)</option>
+        <option value="edit">Word groups: my own groups (edit below)</option>
+        <option value="trans">Translation: Slovenian words, the key lists the English words</option>
+        <option value="past">Grammar: verb forms (past simple regular / irregular, -ing, he/she, base form)</option>
+        <option value="num">Numbers: number words or sums</option>
+      </select></label>
+      <div id="srcBox">
+        <label>Book <select id="src"></select></label>
+        <label id="lvlWrap" style="display:none">Level <select id="lvl"><option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option></select></label>
+        <div><b>Units</b> <span class="muted" id="unitHint"></span>
+          <button class="btn" id="all" style="margin-left:8px">All</button> <button class="btn" id="none">None</button></div>
+        <div class="units" id="units">Loading…</div>
+      </div>
+      <div id="editBox">
+        <p class="muted" style="margin:0 0 4px">One line = one colour: <code>name of the group: word, word, word</code>. You need as many lines as the picture has colours.
+          <button class="btn" id="fillEdit" type="button">Fill from the ticked units</button></p>
+        <textarea id="edit" spellcheck="false"></textarea>
+      </div>
+      <div id="numBox"><label>Areas show <select id="numKind"><option value="words">number words (seven)</option><option value="sums">sums (3 + 4, 9 − 2)</option><option value="mix">both</option></select></label>
+        <label>Numbers up to <select id="numMax"><option>10</option><option selected>20</option></select></label></div>
+      <h2>2. The picture</h2>
+      <div class="pics" id="pics"></div>
+      <label>Areas <select id="size"><option value="coarse">Blocks, big (about 25–35 areas)</option><option value="fine" selected>Blocks, small (about 45–60 areas)</option><option value="mosaic">Mosaic: one word in every square (short words, numbers)</option></select></label>
+      <label><input type="checkbox" id="ab"> two versions (A and B: same picture, words in other places)</label>
+      <label><input type="checkbox" id="qr" checked> QR code to practise the unit online</label><br>
+      <label>Title <input type="text" id="title" placeholder="(automatic)" style="width:min(300px,100%)"></label>
+      <label>Sheet number <input type="number" id="seed" min="1000" max="9999" placeholder="new" style="width:90px" title="The number printed on a sheet: type it with the same settings to print that sheet again"></label>
+      <div style="margin-top:8px"><button class="btn primary" id="make">Make the sheet</button> <button class="btn" id="again" style="display:none">New arrangement</button>
+        <button class="btn" id="print" style="display:none">🖨 Print</button> <span class="muted" id="msg" style="margin-left:8px"></span></div>
+    </div>
+    <div id="sheets"></div>
+  </div>
+</div>
+<script>
+(() => {
+  'use strict';
+  const $ = s => document.querySelector(s);
+  const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+  const BOOKS = { '6b': 'Project 1 (6th grade)', '7a': 'Dream Team Starter (7th grade)', '7bc': 'Project 2 (7th grade)', '8a': 'Dream Team 1 (8th grade)', '8b': 'Project 3 (8th grade)', '9a': 'Dream Team 2 (9th grade)', '9b': 'Project 4 (9th grade)', 'extra': 'Extra practice topics' };
+  // the crayon colours; the key names them in English only (decision of the teacher)
+  const PAL = { '.': ['white', '#ffffff'], r: ['red', '#e53935'], o: ['orange', '#fb8c00'], y: ['yellow', '#fdd835'], g: ['green', '#43a047'], b: ['blue', '#1e88e5'],
+                n: ['brown', '#8d6e63'], k: ['black', '#212121'], a: ['grey', '#9e9e9e'], p: ['pink', '#f48fb1'] };
+  const MOTIFS = window.CC_MOTIFS || [];
+  const colorsOf = m => { const n = {}; m.rows.join('').split('').forEach(c => { n[c] = (n[c] || 0) + 1; }); return Object.keys(n).sort((a, b) => n[b] - n[a]); };
+  let loaded = false, current = [], motif = MOTIFS[0], lastSeed = 0;
+
+  // ---- seeded random numbers: the same sheet number gives the same sheet
+  const rng = seed => { let a = seed >>> 0; return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; };
+  const shuffleR = (arr, R) => { const a = arr.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(R() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+
+  const api = async action => {
+    const token = Track.token(); if (!token) throw new Error('token');
+    const r = await fetch(Track.config.endpoint, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action, token }) });
+    return r.json();
+  };
+  const loadScript = src => new Promise(res => { const s = document.createElement('script'); s.src = src; s.onload = s.onerror = res; document.head.append(s); });
+
+  // ---- the units come from the public exercise files, merged the same way as on Tarsia (no pupil data)
+  const cache = {};
+  const loadSource = async (book, level) => {
+    const key = book + '|' + (book === 'extra' ? level : '');
+    if (cache[key]) return cache[key];
+    let list = [];
+    if (book === 'extra') {
+      await loadScript('../exercises/sets.js'); for (const f of ['levels-1', 'levels-2', 'levels-3', 'levels-4', 'levels-5', 'levels-6']) await loadScript('../exercises/' + f + '.js');
+      const base = (window.SETS || []).map(s => ({ id: s.id, title: s.title, words: s.words || [] }));
+      const toW = a => ({ en: a[0], sl: a[1] });
+      (window.EXTRA_LEVELS || []).forEach(x => {
+        let b = base.find(s => s.id === x.id); if (!b) { b = { id: x.id, title: x.title, words: [] }; base.push(b); }
+        const l = x[level]; if (!l) { b.skip = true; return; }
+        b.lv = { words: (level === 'easy' ? b.words : []).concat(l.w.map(toW)) };
+      });
+      list = base.filter(b => !b.skip && (b.lv || !(window.EXTRA_LEVELS || []).some(x => x.id === b.id))).map(b => ({ id: b.id, label: b.title + ' · ' + level[0].toUpperCase() + level.slice(1), short: b.title, words: (b.lv || b).words }));
+    } else {
+      window.CLASS_SETS = null;
+      await loadScript('../exercises/class-' + book + '.js');
+      list = (window.CLASS_SETS || []).map(s => ({ id: s.id, label: [s.unit, s.title].filter(Boolean).join(' · '), short: s.unit || s.title, words: s.words || [] }));
+    }
+    return cache[key] = list;
+  };
+  const fillUnits = async () => {
+    const box = $('#units'); box.textContent = 'Loading…';
+    const book = $('#src').value; $('#lvlWrap').style.display = book === 'extra' ? '' : 'none';
+    current = await loadSource(book, $('#lvl').value); box.innerHTML = '';
+    current.forEach((u, i) => { const l = el('label'), c = el('input'); c.type = 'checkbox'; c.value = i; l.append(c, document.createTextNode(' ' + u.label + ' (' + u.words.length + ' words)')); box.append(l); });
+    if (!current.length) box.textContent = 'Nothing found.';
+  };
+  const chosen = () => [...document.querySelectorAll('#units input:checked')].map(c => current[Number(c.value)]);
+  const clip = s => String(s || '').replace(/\s+/g, ' ').trim();
+
+  // ---- the areas: squares of one colour joined into blocks (seeded), or one area per square (mosaic)
+  const SIZES = { coarse: [8, 13], fine: [4, 7], mosaic: [1, 1] };
+  const blocks = (m, kind, seed) => {
+    const H = m.rows.length, W = m.rows[0].length, col = m.rows.join('').split(''), reg = new Array(W * H).fill(-1), R = rng(seed), [mn, mx] = SIZES[kind];
+    const nb = i => { const x = i % W, y = (i - x) / W, o = []; if (x > 0) o.push(i - 1); if (x < W - 1) o.push(i + 1); if (y > 0) o.push(i - W); if (y < H - 1) o.push(i + W); return o; };
+    let regions = [];
+    shuffleR([...Array(W * H).keys()], R).forEach(s => {
+      if (reg[s] >= 0) return;
+      const id = regions.length, target = mn + Math.floor(R() * (mx - mn + 1)), cells = [s]; reg[s] = id;
+      const front = nb(s).filter(j => reg[j] < 0 && col[j] === col[s]);
+      while (cells.length < target && front.length) {
+        const j = front.splice(Math.floor(R() * front.length), 1)[0]; if (reg[j] >= 0) continue;
+        reg[j] = id; cells.push(j); nb(j).forEach(q => { if (reg[q] < 0 && col[q] === col[s]) front.push(q); });
+      }
+      regions.push({ id, c: col[s], cells });
+    });
+    // very small leftovers join a neighbouring block of the same colour
+    if (mn > 1) for (let changed = true; changed;) {
+      changed = false;
+      regions.forEach(r => {
+        if (!r.cells.length || r.cells.length >= Math.ceil(mn / 2)) return;
+        const ns = new Set(); r.cells.forEach(i => nb(i).forEach(j => { if (reg[j] !== r.id && col[j] === r.c) ns.add(reg[j]); }));
+        if (!ns.size) return;
+        const t = [...ns].map(i => regions[i]).sort((a, b) => a.cells.length - b.cells.length)[0];
+        r.cells.forEach(i => { reg[i] = t.id; t.cells.push(i); }); r.cells = []; changed = true;
+      });
+    }
+    const keep = regions.filter(r => r.cells.length), map = {};
+    keep.forEach((r, k) => { map[r.id] = k; r.id = k; }); for (let i = 0; i < reg.length; i++) reg[i] = map[reg[i]];
+    return { W, H, col, reg, regions: keep };
+  };
+
+  // where a word fits in an area: the rectangle of squares inside the area that allows the largest letters (one or two lines)
+  const MIN_TEXT = 2.3;                       // mm, about 6.5 pt
+  const linesOf = t => { const o = [[t]]; const w = t.split(' '); if (w.length > 1) { let best = null; for (let k = 1; k < w.length; k++) { const a = w.slice(0, k).join(' '), b = w.slice(k).join(' '), m = Math.max(a.length, b.length); if (!best || m < best.m) best = { l: [a, b], m }; } o.push(best.l); } return o; };
+  const fit = (B, r, text, c) => {
+    const inR = (x, y) => x >= 0 && y >= 0 && x < B.W && y < B.H && B.reg[y * B.W + x] === r.id, opts = linesOf(text);
+    let best = { size: 0 };
+    r.cells.forEach(i => {
+      const x0 = i % B.W, y0 = (i - x0) / B.W;
+      for (let h = 1; h <= 3; h++) {
+        let okH = true; for (let x = x0; x < x0 + 1; x++) for (let y = y0; y < y0 + h; y++) if (!inR(x, y)) okH = false;
+        if (!okH) break;
+        for (let w = 1; w <= 7; w++) {
+          let ok = true; for (let y = y0; y < y0 + h; y++) if (!inR(x0 + w - 1, y)) ok = false;
+          if (!ok) break;
+          opts.forEach(ls => {
+            const len = Math.max(...ls.map(l => l.length)), size = Math.min((w * c * 0.86) / (len * 0.56), (h * c * 0.8) / (ls.length * 1.15), c * 0.42, 4.6);
+            if (size > best.size + 0.01) best = { size, lines: ls, cx: (x0 + w / 2) * c, cy: (y0 + h / 2) * c };
+          });
+        }
+      }
+    });
+    return best;
+  };
+
+  // ---- the groups (one per colour) for every mode: { label (key text), items: [shown text], answers (key words, translation) }
+  const NUMW = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen', 'twenty'];
+  // verb forms: base, he/she form, -ing form, past simple; irregular verbs whose past = base (put, cut, read …) are left out on purpose
+  const REG = 'play plays playing played|watch watches watching watched|walk walks walking walked|talk talks talking talked|cook cooks cooking cooked|clean cleans cleaning cleaned|help helps helping helped|jump jumps jumping jumped|listen listens listening listened|live lives living lived|love loves loving loved|open opens opening opened|start starts starting started|stop stops stopping stopped|study studies studying studied|travel travels travelling travelled|visit visits visiting visited|want wants wanting wanted|wash washes washing washed|work works working worked|dance dances dancing danced|like likes liking liked|finish finishes finishing finished|carry carries carrying carried|try tries trying tried|arrive arrives arriving arrived|call calls calling called|climb climbs climbing climbed';
+  const IRR = 'go goes going went|see sees seeing saw|eat eats eating ate|drink drinks drinking drank|buy buys buying bought|come comes coming came|do does doing did|have has having had|make makes making made|take takes taking took|get gets getting got|give gives giving gave|know knows knowing knew|swim swims swimming swam|run runs running ran|write writes writing wrote|sing sings singing sang|sleep sleeps sleeping slept|speak speaks speaking spoke|find finds finding found|fly flies flying flew|drive drives driving drove|ride rides riding rode|think thinks thinking thought|teach teaches teaching taught|catch catches catching caught|begin begins beginning began|break breaks breaking broke|wear wears wearing wore|win wins winning won';
+  const verbs = s => s.split('|').map(x => x.split(' '));
+  const groupsFor = (mode, n, R) => {
+    const units = chosen();
+    if (mode === 'unit') {
+      if (units.length < n) return { error: 'This picture has ' + n + ' colours, so it needs ' + n + ' word groups: tick at least ' + n + ' units (you ticked ' + units.length + '), choose “my own groups”, or a picture with fewer colours.' };
+      const seen = new Set();
+      return { groups: units.slice(0, n).map(u => ({ label: u.label, items: u.words.map(w => clip(w.en)).filter(w => w && w.length <= 24 && !seen.has(w.toLowerCase()) && seen.add(w.toLowerCase())) })) };
+    }
+    if (mode === 'edit') {
+      const lines = $('#edit').value.split('\n').map(l => l.trim()).filter(Boolean).map(l => { const k = l.indexOf(':'); return { label: clip(k > 0 ? l.slice(0, k) : 'Group'), items: (k > 0 ? l.slice(k + 1) : l).split(',').map(clip).filter(Boolean) }; }).filter(g => g.items.length);
+      if (lines.length < n) return { error: 'This picture has ' + n + ' colours: write at least ' + n + ' lines “group: word, word …” (now ' + lines.length + ').' };
+      return { groups: lines.slice(0, n) };
+    }
+    if (mode === 'trans') {
+      const seen = new Set(), pool = [];
+      units.forEach(u => u.words.forEach(w => { const en = clip(w.en), sl = clip(w.sl), k1 = 'e' + en.toLowerCase(), k2 = 's' + sl.toLowerCase(); if (en && sl && en.length <= 22 && sl.length <= 24 && en.toLowerCase() !== sl.toLowerCase() && !seen.has(k1) && !seen.has(k2)) { seen.add(k1); seen.add(k2); pool.push([en, sl]); } }));
+      if (pool.length < n * 2) return { error: 'Translation needs at least ' + (n * 2) + ' words for this picture; the ticked units give ' + pool.length + '. Tick more units.' };
+      const per = Math.min(6, Math.floor(pool.length / n)), mixed = shuffleR(pool, R);
+      return { groups: [...Array(n).keys()].map(g => { const ws = mixed.slice(g * per, g * per + per); return { label: ws.map(w => w[0]).join(', '), items: ws.map(w => w[1]) }; }) };
+    }
+    if (mode === 'past') {
+      const r = verbs(REG), i = verbs(IRR);
+      const cats = [['past simple, regular (-ed)', r.map(v => v[3])], ['past simple, irregular', i.map(v => v[3])], ['-ing form', r.concat(i).map(v => v[2])],
+                    ['he / she / it form (-s)', r.concat(i).map(v => v[1])], ['base form (infinitive)', r.concat(i).map(v => v[0])]];
+      return { groups: cats.slice(0, n).map(([label, items]) => ({ label, items })) };
+    }
+    if (mode === 'num') {
+      const max = Number($('#numMax').value), kind = $('#numKind').value, nums = shuffleR([...Array(max - 1).keys()].map(k => k + 2), R).slice(0, n);
+      return { groups: nums.map(v => {
+        const words = [NUMW[v]], sums = [];
+        for (let a = 1; a < v; a++) sums.push(a + ' + ' + (v - a));        // thin spaces: a sum is never split over two lines
+        for (let a = v + 1; a <= max; a++) sums.push(a + ' − ' + (a - v));
+        return { label: String(v), items: kind === 'words' ? words : kind === 'sums' ? sums : words.concat(words, words, sums) };
+      }) };
+    }
+    return { error: 'Unknown mode.' };
+  };
+
+  // ---- drawing
+  const NS = 'http://www.w3.org/2000/svg';
+  const sv = (tag, attrs, text) => { const e = document.createElementNS(NS, tag); Object.keys(attrs || {}).forEach(k => e.setAttribute(k, attrs[k])); if (text != null) e.textContent = text; return e; };
+  const thumb = m => {
+    const W = m.rows[0].length, H = m.rows.length, s = sv('svg', { viewBox: '0 0 ' + W + ' ' + H, 'shape-rendering': 'crispEdges' });
+    m.rows.forEach((row, y) => row.split('').forEach((c, x) => s.append(sv('rect', { x, y, width: 1, height: 1, fill: PAL[c][1] }))));
+    s.append(sv('rect', { x: 0, y: 0, width: W, height: H, fill: 'none', stroke: '#999', 'stroke-width': 0.15 })); return s;
+  };
+  // words: per area, from the group of its colour, a word that fits (seeded); colours = the motif's colours, most squares first
+  const placeWords = (B, groups, colours, c, R) => {
+    const queue = {}; colours.forEach((cl, k) => { queue[cl] = shuffleR(groups[k].items, R); });
+    let small = 0;
+    const out = B.regions.map(r => {
+      const q = queue[r.c]; let pick = null, k0 = -1;
+      for (let k = 0; k < q.length; k++) { const f = fit(B, r, q[k], c); if (f.size >= 2.8) { pick = f; pick.text = q[k]; k0 = k; break; } if (!pick || f.size > pick.size) { pick = f; pick.text = q[k]; k0 = k; } }
+      if (pick.size < MIN_TEXT) small++;
+      q.push(q.splice(k0, 1)[0]);                                   // that word goes to the end: the words of a group take turns
+      return pick;
+    });
+    return { words: out, small };
+  };
+  const drawPic = (B, words, c, coloured) => {
+    const w = B.W * c, h = B.H * c, svg = sv('svg', { class: 'pic', viewBox: '-0.6 -0.6 ' + (w + 1.2) + ' ' + (h + 1.2), width: (w + 1.2) + 'mm', height: (h + 1.2) + 'mm' });
+    if (coloured) for (let i = 0; i < B.col.length; i++) { const x = i % B.W, y = (i - x) / B.W; svg.append(sv('rect', { x: x * c, y: y * c, width: c + 0.05, height: c + 0.05, fill: PAL[B.col[i]][1] })); }
+    let d = '';
+    for (let i = 0; i < B.reg.length; i++) {
+      const x = i % B.W, y = (i - x) / B.W, r = B.reg[i];
+      if (y === 0 || B.reg[i - B.W] !== r) d += 'M' + (x * c).toFixed(2) + ' ' + (y * c).toFixed(2) + 'h' + c;
+      if (x === 0 || B.reg[i - 1] !== r) d += 'M' + (x * c).toFixed(2) + ' ' + (y * c).toFixed(2) + 'v' + c;
+    }
+    svg.append(sv('path', { d, fill: 'none', stroke: '#111', 'stroke-width': 0.3, 'stroke-linecap': 'square' }), sv('rect', { x: 0, y: 0, width: w, height: h, fill: 'none', stroke: '#111', 'stroke-width': 0.7 }));
+    words.forEach((f, k) => {
+      const dark = coloured && ['k', 'b', 'n', 'r', 'g'].includes(B.regions[k].c), lh = f.size * 1.12;
+      f.lines.forEach((ln, j) => svg.append(sv('text', { x: f.cx.toFixed(2), y: (f.cy + (j - (f.lines.length - 1) / 2) * lh + f.size * 0.35).toFixed(2), 'text-anchor': 'middle', 'font-size': Math.max(f.size, 1.6).toFixed(2), 'font-family': 'Arial, Helvetica, sans-serif', fill: dark ? '#fff' : '#222' }, ln)));
+    });
+    return svg;
+  };
+  const keyBox = (groups, colours) => {
+    const k = el('div', 'key');
+    colours.forEach((cl, i) => { const d = el('div'), sw = el('i'); sw.style.background = PAL[cl][1]; d.append(sw, el('b', '', PAL[cl][0] + (cl === '.' ? ' (leave it white)' : '') + ':'), el('span', '', groups[i].label)); k.append(d); });
+    return k;
+  };
+  const qrBlock = (url, caption) => {
+    const qr = qrcode(0, 'M'); qr.addData(url); qr.make();
+    const n = qr.getModuleCount(); let d = '';
+    for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (qr.isDark(r, c)) d += 'M' + c + ',' + r + 'h1v1h-1z';
+    const w = el('div', 'qrbox');
+    w.innerHTML = '<svg viewBox="-2 -2 ' + (n + 4) + ' ' + (n + 4) + '" shape-rendering="crispEdges"><rect x="-2" y="-2" width="' + (n + 4) + '" height="' + (n + 4) + '" fill="#fff"/><path d="' + d + '" fill="#000"/></svg>';
+    w.append(el('div', '', caption)); w.title = url; return w;
+  };
+  const playUrl = units => {
+    const book = $('#src').value, q = new URLSearchParams(); q.set('class', book);
+    if (units.length === 1 && units[0].id) { q.set('set', units[0].id); if (book === 'extra') q.set('level', $('#lvl').value); }
+    return new URL('../exercises/', location.href).href + '?' + q.toString();
+  };
+
+  const INSTR = { unit: 'Read the word in every area. Which unit is it from? Colour the area with the colour of that unit.',
+    edit: 'Read the word in every area. Which group does it belong to? Colour the area with the colour of that group.',
+    trans: 'Translate the word in every area into English. Find the English word in the key and colour the area with its colour.',
+    past: 'Which form of the verb is it? Colour the area with the colour of that form.',
+    num: 'Work out the number in every area. Colour the area with the colour of that number.' };
+  const MODE_NAME = { unit: 'word groups', edit: 'word groups', trans: 'translation', past: 'verb forms', num: 'numbers' };
+
+  const make = (newSeed) => {
+    const box = $('#sheets'); box.innerHTML = ''; ['#print', '#again'].forEach(s => $(s).style.display = 'none'); $('#msg').textContent = '';
+    const mode = $('#mode').value, kind = $('#size').value, colours = colorsOf(motif), n = colours.length;
+    if (newSeed === true || !Number($('#seed').value)) $('#seed').value = String(1000 + Math.floor(Math.random() * 9000));
+    const seed = Number($('#seed').value); lastSeed = seed;
+    const G = groupsFor(mode, n, rng(seed * 13 + 5));
+    if (G.error) { $('#msg').textContent = G.error; return; }
+    const units = ['unit', 'trans', 'edit'].includes(mode) ? chosen() : [];
+    const B = blocks(motif, kind, seed);
+    // square size: the picture fills the A4 page under the title and the key (188 × 275 mm inside the margins)
+    const keyRows = Math.ceil(n / 2), keyH = keyRows * (mode === 'trans' ? 9.5 : 6) + 6, c = Math.min(186 / B.W, (275 - 24 - keyH - 16) / B.H, 13);
+    const title = $('#title').value.trim() || (mode === 'unit' || mode === 'trans' ? (units.length === 1 ? units[0].label : units.slice(0, mode === 'unit' ? n : 99).map(u => u.short).join(', ')) : mode === 'past' ? 'Verb forms' : mode === 'num' ? 'Numbers' : 'Word groups');
+    const versions = $('#ab').checked ? ['A', 'B'] : [''], made = [];
+    let small = 0;
+    versions.forEach((v, vi) => {
+      const P = placeWords(B, G.groups, colours, c, rng(seed * 7 + 1 + vi)); small = Math.max(small, P.small); made.push([v, P.words]);
+      const s = el('div', 'sheet'), head = el('div', 'head');
+      head.append(el('h3', '', '🎨 ' + title + (v ? ' · ' + v : '')), el('span', 'name', 'Name: ______________________'));
+      s.append(head, el('p', 'sub', INSTR[mode]), keyBox(G.groups, colours), drawPic(B, P.words, c, false));
+      const foot = el('div', 'foot'); foot.append(el('span', '', 'Colour by code · ' + motif.name.toLowerCase() + ' · ' + MODE_NAME[mode] + ' · sheet ' + seed + (v ? ' ' + v : '')));
+      if ($('#qr').checked && units.length && mode !== 'edit') foot.append(qrBlock(playUrl(units), units.length === 1 ? 'Practise this unit online' : 'Practise online'));
+      s.append(foot); box.append(s);
+    });
+    made.forEach(([v, words]) => {
+      const s = el('div', 'sheet'), head = el('div', 'head'); head.append(el('h3', '', '🎨 ' + title + (v ? ' · ' + v : '') + ' – answers'));
+      s.append(head, el('p', 'sub', 'The coloured picture with the words. Sheet ' + seed + (v ? ' ' + v : '') + '.'), keyBox(G.groups, colours), drawPic(B, words, c, true)); box.append(s);
+    });
+    $('#print').style.display = ''; $('#again').style.display = '';
+    $('#msg').textContent = B.regions.length + ' areas, ' + n + ' colours. Sheet number ' + seed + ' (type it again with the same settings to print the same sheet).' + (small ? ' ' + small + ' areas have very small letters: choose bigger blocks or shorter words.' : '');
+  };
+
+  // the "my own groups" box: filled from the ticked units (one unit per line, or the words shared out when there are fewer units than colours)
+  const fillEdit = () => {
+    const n = colorsOf(motif).length, units = chosen(), R = rng(Date.now() % 100000);
+    if (!units.length) { $('#edit').value = ['animals: cat, dog, horse, cow', 'food: bread, apple, cheese, milk', 'clothes: shirt, dress, shoes, hat', 'school: pen, desk, book, ruler', 'family: mum, dad, sister, brother'].slice(0, Math.max(n, 3)).join('\n'); return; }
+    if (units.length >= n) { $('#edit').value = units.slice(0, n).map(u => u.short + ': ' + u.words.map(w => clip(w.en)).filter(w => w.length <= 24).join(', ')).join('\n'); return; }
+    const all = shuffleR([].concat(...units.map(u => u.words.map(w => clip(w.en)).filter(w => w && w.length <= 24))), R), per = Math.max(1, Math.floor(all.length / n));
+    $('#edit').value = [...Array(n).keys()].map(g => 'Group ' + (g + 1) + ': ' + all.slice(g * per, g * per + per).join(', ')).join('\n');
+  };
+  const syncMode = () => {
+    const m = $('#mode').value;
+    $('#srcBox').style.display = ['unit', 'trans', 'edit'].includes(m) ? '' : 'none';
+    $('#editBox').style.display = m === 'edit' ? 'block' : 'none';
+    $('#numBox').style.display = m === 'num' ? 'block' : 'none';
+    $('#unitHint').textContent = m === 'unit' ? '(one unit per colour: tick as many units as the picture has colours)' : m === 'trans' ? '(one or several units)' : '(optional: to fill the groups below)';
+    if (m === 'edit' && !$('#edit').value.trim()) fillEdit();
+    if (m === 'num' && $('#size').value === 'fine') {}                // numbers also fit in the mosaic
+  };
+  const drawPics = () => {
+    const box = $('#pics'); box.innerHTML = '';
+    MOTIFS.forEach(m => { const b = el('button'); b.type = 'button'; b.className = m === motif ? 'on' : ''; b.append(thumb(m), el('span', '', m.name + ' · ' + colorsOf(m).length)); b.title = colorsOf(m).length + ' colours: ' + colorsOf(m).map(c => PAL[c][0]).join(', '); b.onclick = () => { motif = m; drawPics(); }; box.append(b); });
+  };
+
+  const load = async () => {
+    if (!Track.token()) return;
+    const j = await api('boardmarks').catch(() => null);          // a teacher-only action: only the teacher account gets an answer
+    if (!j || !j.ok) { $('#login').style.display = 'block'; $('#app').style.display = 'none'; $('#loginMsg').textContent = 'This Google account is not allowed to open this page.'; return; }
+    loaded = true; $('#login').style.display = 'none'; $('#app').style.display = 'block'; $('#who').textContent = Track.email || '';
+    const s = $('#src'); Object.keys(BOOKS).forEach(k => { const o = el('option', '', BOOKS[k]); o.value = k; s.append(o); });
+    s.onchange = fillUnits; $('#lvl').onchange = fillUnits; $('#mode').onchange = syncMode; $('#fillEdit').onclick = fillEdit;
+    $('#all').onclick = () => document.querySelectorAll('#units input').forEach(c => c.checked = true); $('#none').onclick = () => document.querySelectorAll('#units input').forEach(c => c.checked = false);
+    $('#make').onclick = () => make(false); $('#again').onclick = () => make(true); $('#print').onclick = () => window.print();
+    drawPics(); syncMode(); fillUnits();
+  };
+  window.__cc = { blocks, fit, groupsFor, colorsOf, make };
+  $('#theme').onclick = () => { document.body.classList.toggle('light'); try { localStorage.setItem('cc.light', document.body.classList.contains('light') ? '1' : ''); } catch (e) {} };
+  try { if (localStorage.getItem('cc.light')) document.body.classList.add('light'); } catch (e) {}
+  if (window.Track && Track.enabled) {
+    Track.onChange(() => { if (Track.token() && !loaded) load(); });
+    Track.init(() => { if (Track.token()) load(); else Track.button($('#slot')); });
+  } else $('#loginMsg').textContent = 'Sign-in is not set up.';
+})();
+</script>
+</body>
+</html>
