@@ -232,7 +232,7 @@ td.has { font-weight: 700; }
   const setForm = r => {
     setLink(r.plan || '');
     const cl = splitCls(r.cls); r = Object.assign({}, r, { cls: cl[0] || r.cls, extra: r.extra || cl.slice(1) });
-    $('#date').value = r.date || today();
+    $('#date').value = /^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(String(r.date || '')) ? r.date : today();
     if (r.cls && D.classes.includes(r.cls)) $('#cls').value = r.cls;
     if (r.subj && sklopOf(r.subj)) $('#subj').value = r.subj;
     drawStrat(r.strat || '');
@@ -303,7 +303,9 @@ td.has { font-weight: 700; }
         <button class="btn sm" data-a="obs">📝 Vpiši opazovanje</button><span class="sp" style="flex:1"></span><button class="btn sm" data-a="pdel">Izbriši pripravo</button></div>`;
     d.querySelector('[data-a=obs]').onclick = () => {
       stopEdit();
-      setForm({ date: p.date, cls: p.cls, subj: p.subj, strat: p.strat, phase: p.step, topic: p.topic, plan: p.id });
+      // the observation is written after the lesson: the plan's date, or today when that date is missing or still ahead (26 Nov 2026)
+      const pd = String(p.date || '').slice(0, 10);
+      setForm({ date: /^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(pd) && pd <= today() ? pd : today(), cls: p.cls, subj: p.subj, strat: p.strat, phase: p.step, topic: p.topic, plan: p.id });
       if (p.cls && !splitCls(p.cls).every(c => D.classes.includes(c))) { $('#msg').className = 'msg warn'; $('#msg').textContent = 'Razreda ' + p.cls + ' ni na seznamu; izberite ga ročno.'; }
       else if (!p.cls) { $('#msg').className = 'msg warn'; $('#msg').textContent = 'Priprava je za ' + p.vio + '. VIO brez razreda: izberite razred.'; }
       else $('#msg').textContent = '';

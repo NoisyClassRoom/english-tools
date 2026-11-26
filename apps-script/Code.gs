@@ -85,7 +85,7 @@ var UNITS = {
 
 // Change this text whenever the code of doPost changes: the health check compares it with what the published web app answers,
 // so it can tell you that the saved code has not been deployed as a new version yet.
-var CODE_VERSION = '2026-11-26.2';
+var CODE_VERSION = '2026-11-26.3';
 
 // ---------------------------------------------------------------- saving results
 
@@ -2800,8 +2800,10 @@ function obsStrategies_() {
   });
   return out;
 }
+// a lesson date as yyyy-MM-dd, also when the Sheet turned the cell into a date (26 Nov 2026: the form needs this exact form)
+function obsDay_(v) { if (v instanceof Date) return Utilities.formatDate(v, TZ, 'yyyy-MM-dd'); var s = String(v || '').trim(); return /^[0-9]{4}-[0-9]{2}-[0-9]{2}/.test(s) ? s.slice(0, 10) : s; }
 function obsRowOut_(r) {
-  return { id: String(r[0]), date: String(r[3]), cls: String(r[5]), sklop: String(r[7]), subj: String(r[8]), strat: String(r[9]), phase: Number(r[10]) || 0,
+  return { id: String(r[0]), date: obsDay_(r[3]), cls: String(r[5]), sklop: String(r[7]), subj: String(r[8]), strat: String(r[9]), phase: Number(r[10]) || 0,
            topic: String(r[11]), mins: Number(r[12]) || 0, eff: Number(r[13]) || 0, part: Number(r[14]) || 0, react: Number(r[15]) || 0, own: String(r[16]), note: String(r[17]),
            plan: String(r[19] || '') };
 }
@@ -2930,7 +2932,7 @@ function planRows_(ss) {
 // e-mails never leave the server: the team sees the author's name from the access list
 function planRowOut_(r, mine) {
   var m = []; try { m = JSON.parse(String(r[14])); } catch (e) {}
-  return { id: String(r[0]), date: String(r[3]), mine: !!mine, name: String(r[5]) || (mine ? '' : 'učitelj'), cls: String(r[6]), vio: Number(r[7]) || 0,
+  return { id: String(r[0]), date: obsDay_(r[3]), mine: !!mine, name: String(r[5]) || (mine ? '' : 'učitelj'), cls: String(r[6]), vio: Number(r[7]) || 0,
            sklop: String(r[8]), subj: String(r[9]), type: String(r[10]), strat: String(r[11]), step: Number(r[12]) || 0, topic: String(r[13]),
            mins: m instanceof Array ? m : [], all: String(r[15]) === 'da', changed: String(r[16]) };
 }
