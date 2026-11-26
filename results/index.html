@@ -189,7 +189,11 @@
   const F = { year: '', cls: '', cls2: '', who: 'p', book: '', level: '', from: '', to: '' };
   // accounts filter: pupils = accounts with a class in the Roster; a chosen class always means pupils
   // one or two classes (lessons with combined classes): the second one only counts when a first one is chosen
-  const clsOk = c => !F.cls || c === F.cls || (!!F.cls2 && c === F.cls2);
+  let groups = {};                                                       // {year: {group: [classes]}} from the tab Skupine
+  const grpOf = g => { const ys = F.year ? [F.year] : Object.keys(groups).sort().reverse(); for (const y of ys) if (groups[y] && groups[y][g]) return groups[y][g]; return null; };
+  const expand = c => grpOf(c) || [c];
+  const grpLabel = c => grpOf(c) ? c + ' (' + grpOf(c).join(' + ') + ')' : c;
+  const clsOk = c => { if (!F.cls) return true; const want = new Set(expand(F.cls).concat(F.cls2 ? expand(F.cls2) : [])); return c === F.cls || (!!F.cls2 && c === F.cls2) || expand(c).some(x => want.has(x)); };
   const clsText = cap => F.cls ? (cap ? 'Class ' : 'class ') + F.cls + (F.cls2 ? ' + ' + F.cls2 : '') : (cap ? 'All classes' : 'all classes');
   // accounts: pupils = with a class; teacher / guest / other = listed in the Roster column H (Category) WITHOUT a class; n = neither a class nor a category
   const whoOk = (c, cat) => !!F.cls || F.who === 'all' || (F.who === 'p' ? !!c : F.who === 'n' ? !c && !cat : !c && cat === F.who);
@@ -209,6 +213,7 @@
       rows = j.rows.map(a => ({ t: a[0], last: a[1], first: a[2], cls: a[3] || '', book: a[4], unit: a[5], act: a[6],
                                 lvl: a[7], score: a[8], total: a[9], year: a[10], cat: a[11] || '', p: a[9] ? a[8] / a[9] : 0, key: a[1] + '|' + a[2] }));
       roster = j.roster.map(a => ({ year: a[0], cls: a[1], name: a[2], n: a[3], last: a[4] }));
+      groups = j.groups || {};
       prowsRaw = Array.isArray(j.prows) ? j.prows.map(a => ({ t: a[0], last: a[1], first: a[2], cls: a[3] || '', book: a[4], unit: a[5], act: a[6], score: a[8], total: a[9],
                                                              year: a[10], cat: a[11] || '', p: a[9] ? a[8] / a[9] : 0, key: a[1] + '|' + a[2], pz: true })) : null;
       $('#login').style.display = 'none'; $('#app').style.display = 'block'; $('#reload').style.display = '';
@@ -236,7 +241,8 @@
     fill($('#fYear'), [['', 'All years']].concat(years.map(y => [y, y])));
     $('#fYear').value = F.year;
     const classes = [...new Set(rows.map(r => r.cls).concat(roster.map(r => r.cls)))].filter(Boolean).sort((a, b) => a.localeCompare(b, 'sl', { numeric: true }));
-    fill($('#fClass'), [['', 'All classes']].concat(classes.map(c => [c, c])));
+    const gNames = [...new Set(Object.keys(groups).filter(y => !F.year || y === F.year).flatMap(y => Object.keys(groups[y])))].filter(g => !classes.includes(g)).sort();
+    fill($('#fClass'), [['', 'All classes']].concat(classes.map(c => [c, c]), gNames.map(g => [g, '👥 ' + grpLabel(g)])));
     classList = classes; syncCls2();
     const books = [...new Set(rows.map(r => r.book))].filter(Boolean).sort();
     fill($('#fBook'), [['', 'All books']].concat(books.map(b => [b, (BOOKS[b] || b) + ' (' + b + ')'])));
@@ -1050,9 +1056,10 @@
     if (school) card.append(el('p', 'note', 'Pupils see schoolwork only on the lesson day, in a separate “Schoolwork” box on the exercise page. It is not counted in the homework statistics.'));
     const year = roster.reduce((m, r) => r.year > m ? r.year : m, '');
     const classes = [...new Set(roster.filter(r => r.year === year).map(r => r.cls))].sort((a, b) => a.localeCompare(b, 'sl', { numeric: true }));
+    const gList = Object.keys(groups[year] || {}).filter(g => !classes.includes(g)).sort();
     const field = (label, node) => { const l = el('label'); l.style.cssText = 'display:block;margin:0 0 10px'; l.append(el('span', 'muted', label + ' '), node); return l; };
     const sel = (items) => { const s = el('select'); items.forEach(([v, t]) => { const o = el('option', '', t); o.value = v; s.append(o); }); return s; };
-    const sCls = sel(classes.map(c => [c, c])), sBook = sel(Object.keys(BOOKS).map(b => [b, BOOKS[b] + ' (' + b + ')'])), sUnit = sel([['', 'Loading…']]);
+    const sCls = sel(classes.map(c => [c, c]).concat(gList.map(g => [g, '👥 ' + g + ' (' + groups[year][g].join(' + ') + ')']))), sBook = sel(Object.keys(BOOKS).map(b => [b, BOOKS[b] + ' (' + b + ')'])), sUnit = sel([['', 'Loading…']]);
     const actBox = el('div'); actBox.style.cssText = 'display:flex;gap:12px;flex-wrap:wrap;margin:0 0 10px';
     HW_ACTS.forEach(([id, name]) => { const l = el('label'); const c = el('input'); c.type = 'checkbox'; c.value = id; l.append(c, document.createTextNode(' ' + name)); actBox.append(l); });
     const min = el('input'); min.type = 'number'; min.min = 0; min.max = 100; min.placeholder = 'none'; min.style.width = '70px';
@@ -1064,8 +1071,9 @@
     const pBox = el('div'); pBox.style.cssText = 'display:none;columns:2 220px;margin:0 0 10px';
     const fillPupils = () => {
       pBox.innerHTML = '';
-      roster.filter(r => r.year === year && r.cls === sCls.value).sort((a, b) => a.name.localeCompare(b.name, 'sl')).forEach(r => {
-        const l = el('label'); l.style.display = 'block'; const c = el('input'); c.type = 'checkbox'; c.value = r.name; c.checked = true; l.append(c, document.createTextNode(' ' + r.name)); pBox.append(l);
+      const inG = (groups[year] || {})[sCls.value];
+      roster.filter(r => r.year === year && (inG ? inG.includes(r.cls) : r.cls === sCls.value)).sort((a, b) => a.name.localeCompare(b.name, 'sl')).forEach(r => {
+        const l = el('label'); l.style.display = 'block'; const c = el('input'); c.type = 'checkbox'; c.value = r.name; c.checked = true; l.append(c, document.createTextNode(' ' + r.name + (inG ? ' · ' + r.cls : ''))); pBox.append(l);
       });
     };
     const fillUnits = async () => {
@@ -1083,7 +1091,7 @@
     };
     sCls.onchange = fillPupils; sBook.onchange = bookChanged;
     whole.onchange = () => { pBox.style.display = whole.checked ? 'none' : 'block'; };
-    const wrapW = el('label'); wrapW.append(whole, document.createTextNode(' Whole class (untick to choose pupils)'));
+    const wrapW = el('label'); wrapW.append(whole, document.createTextNode(' Whole class or group (untick to choose pupils)'));
     wrapW.style.cssText = 'display:block;margin:0 0 6px';
     const msg = el('p', 'msg');
     const save = el('button', 'btn on', school ? 'Assign schoolwork' : 'Assign homework'), cancel = el('button', 'btn', 'Cancel');

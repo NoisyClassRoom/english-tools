@@ -150,7 +150,7 @@ details.all summary { cursor: pointer; font-weight: 700; }
     <div id="planInfo" class="box planinfo small noprint" style="display:none"></div>
     <div class="box">
       <div class="form">
-        <label>Razred (neobvezno, npr. 6.B)<input id="cls" maxlength="4" autocomplete="off" placeholder="6.B"></label>
+        <label>Razred (neobvezno, npr. 6.B ali 7.B + 7.C)<input id="cls" maxlength="30" autocomplete="off" placeholder="6.B"></label>
         <label>VIO<select id="vio"><option value="1">1. VIO (1.–3. razred)</option><option value="2">2. VIO (4.–6. razred)</option><option value="3">3. VIO (7.–9. razred)</option></select></label>
         <label>Predmet<select id="subj"></select></label>
         <label>Vrsta snovi<select id="type"></select></label>
@@ -202,6 +202,9 @@ details.all summary { cursor: pointer; font-weight: 700; }
   };
   const save = () => { try { localStorage.setItem('izbira.last', JSON.stringify({ cls: $('#cls').value, vio: $('#vio').value, subj: $('#subj').value, type: $('#type').value, step: $('#step').value, chosen, fromAll })); } catch (e) {} };
   const normCls = v => String(v).replace(/\s+/g, '').toUpperCase().replace(/^(\d)\.?([A-Z])$/, '$1.$2');
+  // several classes in one lesson (26 Nov 2026): "7.B + 7.C" or "7.B, 7.C"
+  const clsList = v => String(v).split(/[,;+]/).map(normCls).filter(Boolean);
+  const clsOkAll = l => l.length && l.every(c => /^[1-9]\.[A-Z]$/.test(c));
   const sklopOf = subj => (SUBJ.find(([, l]) => l.includes(subj)) || [''])[0];
   const extra = c => (D.pick && D.pick[c]) || { v: [], s: [], g: '', r: '', ok: false };
 
@@ -225,7 +228,7 @@ details.all summary { cursor: pointer; font-weight: 700; }
 
   const render = () => {
     if (!D) return;
-    const c = normCls($('#cls').value), g = /^[1-9]\.[A-Z]$/.test(c) ? Number(c[0]) : 0;
+    const cl = clsList($('#cls').value), c = cl.join(' + '), g = clsOkAll(cl) ? Number(cl[0][0]) : 0;
     if (g) $('#vio').value = String(Math.ceil(g / 3));
     $('#vio').disabled = !!g;
     const vio = Number($('#vio').value), subj = $('#subj').value, sklop = sklopOf(subj), type = $('#type').value;
@@ -324,15 +327,16 @@ details.all summary { cursor: pointer; font-weight: 700; }
   const setSaveLabel = () => { $('#savePlan').textContent = planId ? '💾 Shrani spremembe' : '💾 Shrani pripravo'; };
   const newPlan = () => { planId = ''; planDate = ''; showInfo(''); setSaveLabel(); planMsg(''); };
   const collectPlan = () => {
-    const c = normCls($('#cls').value);
-    return { id: planId || undefined, date: $('#date').value, cls: /^[1-9]\.[A-Z]$/.test(c) ? c : '', vio: Number($('#vio').value), subj: $('#subj').value, type: $('#type').value,
+    const cl = clsList($('#cls').value);
+    return { id: planId || undefined, date: $('#date').value, cls: clsOkAll(cl) ? cl.join(', ') : '', vio: Number($('#vio').value), subj: $('#subj').value, type: $('#type').value,
       strat: chosen, step: Number($('#step').value), topic: $('#topic').value.trim().slice(0, 100), mins: mins.map(v => Math.max(0, Math.min(90, Math.round(Number(v) || 0)))), all: !!fromAll };
   };
   const savePlan = async () => {
     const pl = collectPlan();
     if (!pl.strat) { planMsg('Najprej izberite strategijo.', 'bad'); return null; }
     if (!pl.date) { planMsg('Vpišite datum ure.', 'bad'); return null; }
-    const c = normCls($('#cls').value); if ($('#cls').value.trim() && !pl.cls) { planMsg('Razred ' + c + ' ni prave oblike (npr. 6.B).', 'bad'); return null; }
+    if ($('#cls').value.trim() && !pl.cls) { planMsg('Razred »' + $('#cls').value.trim() + '« ni prave oblike (npr. 6.B ali 7.B + 7.C).', 'bad'); return null; }
+    if (new Set(clsList($('#cls').value).map(c => Math.ceil(Number(c[0]) / 3))).size > 1) { planMsg('Razredi morajo biti iz iste triade (VIO).', 'bad'); return null; }
     $('#savePlan').disabled = $('#obs').disabled = true; planMsg('Shranjujem …');
     let j = null; try { j = await api('rsplansave', { plan: pl }); } catch (e) {}
     $('#savePlan').disabled = $('#obs').disabled = false;
@@ -352,7 +356,7 @@ details.all summary { cursor: pointer; font-weight: 700; }
     let j = null; try { j = await api('rsplan', { id }); } catch (e) {}
     if (!j || !j.ok) { showInfo('Priprave ni mogoče odpreti' + (j && j.error === 'notfound' ? ' (ni je več).' : j && j.error === 'access' ? ' (ni vaša; priprave kolegov vidi samo razvojna skupina).' : '.')); return; }
     const pl = j.plan;
-    $('#cls').value = pl.cls || ''; $('#vio').value = String(pl.vio || 1);
+    $('#cls').value = (pl.cls || '').split(', ').join(' + '); $('#vio').value = String(pl.vio || 1);
     if ([...$('#subj').options].some(o => o.value === pl.subj)) $('#subj').value = pl.subj;
     if ([...$('#type').options].some(o => o.value === pl.type)) $('#type').value = pl.type;
     $('#step').value = String(pl.step || 1); $('#date').value = pl.date; $('#topic').value = pl.topic || '';

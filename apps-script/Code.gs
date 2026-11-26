@@ -85,7 +85,7 @@ var UNITS = {
 
 // Change this text whenever the code of doPost changes: the health check compares it with what the published web app answers,
 // so it can tell you that the saved code has not been deployed as a new version yet.
-var CODE_VERSION = '2026-11-26.1';
+var CODE_VERSION = '2026-11-26.2';
 
 // ---------------------------------------------------------------- saving results
 
@@ -466,9 +466,9 @@ function homeworkReply_(d) {
   roster.forEach(function (r) {                       // the Roster name of this pupil (it may differ from the Google name)
     if ((r.year === year || !r.year) && ((r.email && r.email === email) || (r.name && r.name === gk)) && r.name) keys.push(r.name);
   });
-  var today = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd');
+  var today = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd'), G = groupsOf_(year, false);
   var list = hwAll_().filter(function (a) {
-    return a.cls === cls && a.year === year && (!a.keys.length || a.keys.some(function (k) { return keys.indexOf(k) >= 0; })) &&
+    return inCls_(a.cls, cls, G) && a.year === year && (!a.keys.length || a.keys.some(function (k) { return keys.indexOf(k) >= 0; })) &&
       (a.kind !== 'school' || a.due === today);                       // schoolwork: only on the lesson day
   });
   if (!list.length) return out_({ ok: true, items: [] });
@@ -497,16 +497,16 @@ function hwListReply_(d) {
       if ((y === year || !y) && cls && (name || email)) people.push({ cls: cls, name: name || email, email: email, key: nameKey_(name) });
     });
   }
-  var results = hwResults_(), items = [];
+  var results = hwResults_(), items = [], G = groupsOf_(year, true);
   hwAll_().filter(function (a) { return a.year === year; }).sort(function (x, y) { return y.created - x.created; }).forEach(function (a) {
-    var pupils = people.filter(function (p) { return p.cls === a.cls && (!a.keys.length || a.keys.indexOf(p.key) >= 0); }).map(function (p) {
+    var pupils = people.filter(function (p) { return inCls_(a.cls, p.cls, G) && (!a.keys.length || a.keys.indexOf(p.key) >= 0); }).map(function (p) {
       var pr = hwProgress_(a, results, p.email, p.key ? [p.key] : []);
       return [p.name, pr.per.map(function (o) { return o.pct; }), pr.doneAt, pr.late ? 1 : 0, pr.per.map(function (o) { return o.at !== null ? 1 : 0; })];
     });
     items.push({ id: a.id, created: a.created, cls: a.cls, book: a.book, set: a.set, topic: a.topic, unit: a.unit, acts: a.acts, min: a.min,
       due: a.due, dueEnd: a.dueEnd, note: a.note, all: !a.keys.length, earlier: a.earlier, kind: a.kind, pupils: pupils });
   });
-  return out_({ ok: true, year: year, items: items });
+  return out_({ ok: true, year: year, items: items, groups: G });
 }
 
 function hwSaveReply_(d) {
@@ -801,7 +801,8 @@ function statsReply_(d) {
       roster.push([y, cls, name || email, n, t]);
     });
   }
-  return out_({ ok: true, rows: rows, prows: prows, roster: roster });
+  var gy = {}; roster.forEach(function (x) { if (x[0]) gy[x[0]] = 1; }); gy[schoolYear_(new Date())] = 1;
+  return out_({ ok: true, rows: rows, prows: prows, roster: roster, groups: groupsAll_(true, Object.keys(gy)) });
 }
 // The "Results" tab (current school year, newest first). An older layout is kept under another name;
 // newer columns are added in place and the old rows get their values.
@@ -903,6 +904,32 @@ function level_(activity) {
   return 2;
 }
 // "2026-27" for a date between 1 Sep 2026 and 31 Aug 2027.
+// Teaching groups (decision of the teacher, 26 Nov 2026: some lessons have pupils of two classes, e.g. 7.B and 7.C together). Tab "Skupine"
+// of this Sheet: school year | group name | classes ("7.B; 7.C"); empty year = every year. Every pupil keeps the class of the Roster; a
+// homework, test or oral grade given to the group belongs to every pupil of its classes. Only class names, no pupil data.
+var GROUPS = 'Skupine', GROUPS_HEADER = ['Šolsko leto', 'Skupina', 'Razredi (ločeni s ;)'];
+function groupsSheet_(create) {
+  var ss = SpreadsheetApp.getActive(), sh = ss.getSheetByName(GROUPS);
+  if (sh || !create) return sh;
+  sh = ss.insertSheet(GROUPS); sh.appendRow(GROUPS_HEADER); sh.setFrozenRows(1); sh.getRange(1, 1, 1, 3).setFontWeight('bold'); sh.getRange('A:C').setNumberFormat('@');
+  sh.appendRow(['2026-27', '7.BC', '7.B; 7.C']);                     // the first group the teacher asked for (26 Nov 2026); more are added in the Sheet
+  return sh;
+}
+// {year: {group: [classes]}}; a row without a year is copied into every year asked for (years = list of school years)
+function groupsAll_(create, years) {
+  var sh = groupsSheet_(create), out = {};
+  (years || []).forEach(function (y) { out[y] = {}; });
+  if (!sh || sh.getLastRow() < 2) return out;
+  sh.getRange(2, 1, sh.getLastRow() - 1, 3).getValues().forEach(function (r) {
+    var y = String(r[0]).trim(), g = String(r[1]).trim().slice(0, 30), cs = String(r[2]).split(/[;,+]/).map(function (c) { return c.replace(/\s+/g, '').toUpperCase(); }).filter(String);
+    if (!g || cs.length < 2 || cs.indexOf(g.toUpperCase()) >= 0) return;
+    (y ? [y] : Object.keys(out)).forEach(function (yy) { (out[yy] = out[yy] || {})[g] = cs; });
+  });
+  return out;
+}
+function groupsOf_(year, create) { return groupsAll_(create, [year])[year] || {}; }
+// does something given to aCls (a class or a group) belong to a pupil of class pCls?
+function inCls_(aCls, pCls, G) { return aCls === pCls || !!(G && G[aCls] && G[aCls].indexOf(String(pCls).toUpperCase()) >= 0); }
 function schoolYear_(d) {
   if (!(d instanceof Date)) return '';
   var y = Number(Utilities.formatDate(d, TZ, 'yyyy')), m = Number(Utilities.formatDate(d, TZ, 'M'));
@@ -2822,6 +2849,18 @@ function rsObsNoteReply_(d) {
 }
 // d.row = {id?, date 'yyyy-MM-dd', cls, sklop, subj, strat, phase 1-4, topic, mins 5-45, eff 1-5, part 1-4, react 1-5, own da|ne|še ne vem, note}
 function rsObsSaveReply_(d) {
+  var r0 = d.row || {};
+  if (!r0.id && r0.classes instanceof Array && r0.classes.length) {          // d.row.classes = ['7.B', '7.C']: one lesson, several classes
+    var cs = []; r0.classes.forEach(function (c) { c = String(c).replace(/\s+/g, '').toUpperCase(); if (cs.indexOf(c) < 0) cs.push(c); });
+    if (cs.length > 6 || cs.some(function (c) { return !/^[1-9]\.[A-Z]$/.test(c); })) return out_({ ok: false, error: 'data', details: ['razredi'] });
+    var ids = [];
+    for (var i = 0; i < cs.length; i++) {
+      var one = JSON.parse(rsObsSaveReply_({ token: d.token, row: Object.assign({}, r0, { cls: cs[i], classes: null }) }).getContent());
+      if (!one.ok) { one.saved = ids; return out_(one); }
+      ids.push(one.id);
+    }
+    return out_({ ok: true, id: ids[0], ids: ids, classes: cs });
+  }
   var who = verify_(d.token);
   if (!who) return out_({ ok: false, error: 'token' });
   if (!rsWho_(who.email).roles.length) return out_({ ok: false, error: 'access' });
@@ -2914,8 +2953,10 @@ function rsPlanSaveReply_(d) {
   var r = d.plan || {}, bad = [], int = function (v, a, b) { v = Number(v); return v === Math.round(v) && v >= a && v <= b ? v : null; };
   var date = /^\d{4}-\d{2}-\d{2}$/.test(String(r.date)) ? new Date(String(r.date) + 'T12:00:00') : null;
   if (!date || isNaN(date) || date > new Date(Date.now() + 400 * 864e5) || date < new Date(Date.now() - 400 * 864e5)) bad.push('datum');
-  var cls = String(r.cls || '').replace(/\s+/g, '').toUpperCase().replace(/^(\d)\.?([A-Z])$/, '$1.$2'); if (cls && !/^[1-9]\.[A-Z]$/.test(cls)) bad.push('razred');
-  var vio = cls ? Math.ceil(Number(cls[0]) / 3) : int(r.vio, 1, 3); if (!vio) bad.push('VIO');
+  var cl = String(r.cls || '').split(/[,;+]/).map(function (c) { return c.replace(/\s+/g, '').toUpperCase().replace(/^(\d)\.?([A-Z])$/, '$1.$2'); }).filter(String);
+  var tri = []; cl.forEach(function (c) { var t = Math.ceil(Number(c[0]) / 3); if (tri.indexOf(t) < 0) tri.push(t); });
+  if (cl.length > 6 || cl.some(function (c) { return !/^[1-9]\.[A-Z]$/.test(c); })) bad.push('razred'); else if (tri.length > 1) bad.push('razredi iz različnih VIO');
+  var cls = cl.join(', '), vio = cl.length ? tri[0] : int(r.vio, 1, 3); if (!vio) bad.push('VIO');
   var subj = String(r.subj || ''), sk = Object.keys(OBS_SUBJECTS).filter(function (k) { return OBS_SUBJECTS[k].indexOf(subj) >= 0; })[0]; if (!sk) bad.push('predmet');
   var type = String(r.type || ''); if (rsPickData_().types.indexOf(type) < 0) bad.push('vrsta snovi');
   var st = obsStrategies_().filter(function (x) { return x.c === r.strat; })[0]; if (!st) bad.push('strategija');
@@ -3236,9 +3277,18 @@ function gbInitReply_(d) {
     var c = ((years[y] = years[y] || {})[cls] = years[y][cls] || []);
     c.push({ k: nameKey_(name), n: shown || name });
   });
+  var groups = groupsAll_(true, Object.keys(years));
+  Object.keys(groups).forEach(function (y) {
+    if (!years[y]) { delete groups[y]; return; }
+    Object.keys(groups[y]).forEach(function (g) {
+      if (years[y][g]) { delete groups[y][g]; return; }              // a group may not have the name of a real class
+      var all = []; groups[y][g].forEach(function (c) { (years[y][c] || []).forEach(function (p) { all.push({ k: p.k, n: p.n, c: c }); }); });
+      if (all.length) years[y][g] = all; else delete groups[y][g];
+    });
+  });
   Object.keys(years).forEach(function (y) { Object.keys(years[y]).forEach(function (c) { years[y][c].sort(function (a, b) { return a.n.localeCompare(b.n, 'sl'); }); }); });
   var ss = gbBook_(false);
-  return out_({ ok: true, current: cur, roster: years, periods: gbPeriods_(ss), ready: !!ss });
+  return out_({ ok: true, current: cur, roster: years, groups: groups, periods: gbPeriods_(ss), ready: !!ss });
 }
 // everything of one class in one school year: tests with their point rows, oral grades
 // allClasses (action gbyear, 24 Nov 2026): every class of the school year, for the overview with filters

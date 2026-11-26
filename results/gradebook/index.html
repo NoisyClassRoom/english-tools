@@ -143,6 +143,10 @@ label.chip input { margin: 0; vertical-align: -1px; }
   };
   const status = t => { $('#status').textContent = t || ''; };
   const pupils = () => ((R.roster[year] || {})[cls] || []);
+  // teaching groups (tab Skupine, 26 Nov 2026): a group is chosen like a class; its tests and oral grades count for the pupils of its classes
+  const grp = c => (R.groups && R.groups[year] && R.groups[year][c]) || null;
+  const realCls = () => Object.keys(R.roster[year] || {}).filter(c => !grp(c)).sort((a, b) => a.localeCompare(b, 'sl', { numeric: true }));
+  const belongs = (given, c) => given === c || (grp(given) || []).includes(c);
   const periods = () => R.periods.filter(p => p.year === year);
   const periodOf = d => (periods().find(p => d >= p.from && d <= p.to) || {}).p || '';
   const KINDS = [['projekt', 'Project'], ['predstavitev', 'Presentation'], ['domača naloga', 'Homework'], ['branje', 'Reading'], ['drugo', 'Other']];
@@ -163,7 +167,7 @@ label.chip input { margin: 0; vertical-align: -1px; }
     $('#year').innerHTML = ''; ys.forEach(y => { const o = el('option', '', y.replace('-', '/')); o.value = y; o.selected = y === year; $('#year').append(o); });
     const cs = Object.keys(R.roster[year] || {}).sort((a, b) => a.localeCompare(b, 'sl', { numeric: true }));
     if (!cs.includes(cls)) { let c = ''; try { c = localStorage.getItem('gb.cls') || ''; } catch (e) {} cls = cs.includes(c) ? c : cs[0] || ''; }
-    $('#cls').innerHTML = ''; cs.forEach(c => { const o = el('option', '', c + ' (' + R.roster[year][c].length + ')'); o.value = c; o.selected = c === cls; $('#cls').append(o); });
+    $('#cls').innerHTML = ''; cs.filter(c => !grp(c)).concat(cs.filter(c => grp(c))).forEach(c => { const o = el('option', '', (grp(c) ? '👥 ' + c + ' = ' + grp(c).join(' + ') : c) + ' (' + R.roster[year][c].length + ')'); o.value = c; o.selected = c === cls; $('#cls').append(o); });
   };
   const leaveOk = () => !dirty || confirm('You have unsaved points. Leave without saving?');
   $('#year').onchange = e => { if (!leaveOk()) { e.target.value = year; return; } setDirty(null); year = e.target.value; fillSelects(); loadClass(); };
@@ -477,27 +481,28 @@ label.chip input { margin: 0; vertical-align: -1px; }
   // every grade entry of one pupil of class c in the chosen time and kinds: {kind w|o|x, grade|null, status, title, date, att, t}
   const entriesOf = (c, p) => {
     const [a, z] = range(), out = [];
-    Y.tests.filter(t => t.cls === c).forEach(t => {
+    Y.tests.filter(t => belongs(t.cls, c)).forEach(t => {
       const kind = t.kind ? 'x' : 'w'; if (!ov.kinds.has(kind)) return;
       const rs = t.rows.filter(r => r.k === p.k);
       if (!rs.length) { if (kind === 'w' && t.date >= a && t.date <= z && (t.pupils && t.pupils.length ? t.pupils.includes(p.k) : true)) out.push({ kind, miss: true, title: t.title, date: t.date, t }); return; }
       rs.forEach(r => { const d = r.date || t.date; if (d >= a && d <= z) out.push({ kind, grade: r.grade, status: r.status, title: t.title, date: d, att: r.att, t, r }); });
     });
-    if (ov.kinds.has('o')) Y.oral.filter(o => o.cls === c && o.k === p.k && o.date >= a && o.date <= z).forEach(o => out.push({ kind: 'o', grade: o.grade, title: o.topic || 'oral', date: o.date, o }));
+    if (ov.kinds.has('o')) Y.oral.filter(o => belongs(o.cls, c) && o.k === p.k && o.date >= a && o.date <= z).forEach(o => out.push({ kind: 'o', grade: o.grade, title: o.topic || 'oral', date: o.date, o }));
     return out.sort((x, y) => x.date.localeCompare(y.date));
   };
   const drawOver = async () => {
     const box = $('#over'); box.innerHTML = '';
-    if (!ov.cls) ov.cls = new Set([cls]);
+    const here = grp(cls) || [cls];                                          // the overview is always by real class
+    if (!ov.cls) ov.cls = new Set(here);
     if (!ov.per) ov.per = curPeriod();
     if (!Y || Yyear !== year) { box.append(el('p', 'muted', 'Loading all classes …')); try { Y = await api('gbyear', { year }); Yyear = year; } catch (e) { box.innerHTML = ''; box.append(el('p', 'muted', 'Could not load: ' + e.message)); return; } box.innerHTML = ''; }
-    const allCls = Object.keys(R.roster[year] || {}).sort((a, b) => a.localeCompare(b, 'sl', { numeric: true }));
+    const allCls = realCls();
     [...ov.cls].forEach(c => { if (!allCls.includes(c)) ov.cls.delete(c); }); if (!ov.cls.size && allCls.length) ov.cls.add(allCls[0]);
     // filters
     const f = el('div', 'box noprint');
     const cr = el('div', 'bar'); cr.style.marginTop = '0'; cr.append(el('b', '', 'Classes'));
     allCls.forEach(c => { const l = el('label', 'chip'), x = el('input'); x.type = 'checkbox'; x.checked = ov.cls.has(c); x.onchange = () => { x.checked ? ov.cls.add(c) : ov.cls.delete(c); drawOver(); }; l.append(x, document.createTextNode(' ' + c)); cr.append(l); });
-    const ca = el('button', 'btn sm', 'All'), cn = el('button', 'btn sm', 'Only ' + cls); ca.onclick = () => { allCls.forEach(c => ov.cls.add(c)); drawOver(); }; cn.onclick = () => { ov.cls = new Set([cls]); drawOver(); }; cr.append(ca, cn);
+    const ca = el('button', 'btn sm', 'All'), cn = el('button', 'btn sm', 'Only ' + here.join(' + ')); ca.onclick = () => { allCls.forEach(c => ov.cls.add(c)); drawOver(); }; cn.onclick = () => { ov.cls = new Set(here); drawOver(); }; cr.append(ca, cn);
     const tr = el('div', 'bar'), ps = el('select');
     [...periods().map(p => [p.p, p.p + '. period']), ['all', 'whole year'], ['custom', 'from – to …']].forEach(([v, l]) => { const o = el('option', '', l); o.value = v; o.selected = v === ov.per; ps.append(o); });
     ps.onchange = () => { ov.per = ps.value; if (ov.per === 'custom' && !ov.from) { const r0 = periods().find(p => p.p === curPeriod()); ov.from = r0 ? r0.from : ''; ov.to = today(); } drawOver(); };

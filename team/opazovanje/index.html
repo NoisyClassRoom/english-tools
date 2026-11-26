@@ -85,6 +85,8 @@ td.has { font-weight: 700; }
 .tag.ok { color: var(--strong, #34c06d); } .tag.no { color: var(--muted); }
 .linkline { font-size: .9rem; margin: -4px 0 10px; }
 .linkline:empty { display: none; }
+#extra label { margin-right: 10px; white-space: nowrap; color: var(--ink); }
+#extraBox.off { display: none; }
 #ureNote a { color: inherit; text-decoration: underline; }
 </style>
 </head>
@@ -112,6 +114,7 @@ td.has { font-weight: 700; }
         <label>Datum ure<input id="date" type="date"></label>
         <label>Razred<select id="cls"></select></label>
         <label>Predmet<select id="subj"></select></label>
+        <div class="q wide" id="extraBox">Ura z več razredi? Pri uri so bili tudi učenci iz: <span id="extra"></span><div class="small">Shrani se eno opazovanje za vsak razred (z enakimi ocenami), da pregled po razredih ostane pravilen.</div></div>
         <label class="wide">Strategija<select id="strat"></select></label>
         <div class="q wide">Korak uvajanja<div class="seg" id="phase"></div></div>
         <label class="wide">Tema ure (neobvezno, največ 100 znakov, brez imen učencev)<input id="topic" maxlength="100" autocomplete="off" placeholder="npr. Kroženje vode v naravi"></label>
@@ -217,12 +220,23 @@ td.has { font-weight: 700; }
       ' <button class="btn sm" type="button" id="unlink">✕ brez povezave</button>' : '';
     if (p) $('#unlink').onclick = () => setLink('');
   };
+  // the other classes of the same triad, ticked = the same lesson (only for a new observation)
+  const drawExtra = keep => {
+    const main = $('#cls').value, t = triad(main), on = new Set(keep || [...document.querySelectorAll('#extra input:checked')].map(i => i.value));
+    const list = D.classes.filter(c => c !== main && triad(c) === t);
+    $('#extra').innerHTML = list.map(c => '<label><input type="checkbox" value="' + esc(c) + '"' + (on.has(c) ? ' checked' : '') + '> ' + esc(c) + '</label>').join('') || '<span class="muted">ni drugih razredov te triade</span>';
+    $('#extraBox').classList.toggle('off', !!editId);
+  };
+  const extraOn = () => editId ? [] : [...document.querySelectorAll('#extra input:checked')].map(i => i.value);
+  const splitCls = v => String(v || '').split(/[,;+]/).map(c => c.replace(/\s+/g, '').toUpperCase().replace(/^(\d)\.?([A-Z])$/, '$1.$2')).filter(Boolean);
   const setForm = r => {
     setLink(r.plan || '');
+    const cl = splitCls(r.cls); r = Object.assign({}, r, { cls: cl[0] || r.cls, extra: r.extra || cl.slice(1) });
     $('#date').value = r.date || today();
     if (r.cls && D.classes.includes(r.cls)) $('#cls').value = r.cls;
     if (r.subj && sklopOf(r.subj)) $('#subj').value = r.subj;
     drawStrat(r.strat || '');
+    drawExtra(r.extra || []);
     $('#topic').value = r.topic || '';
     resetRatings();
     ['phase', 'eff', 'part', 'react'].forEach(k => { if (r[k]) setSeg(k, Number(r[k])); });
@@ -231,12 +245,12 @@ td.has { font-weight: 700; }
     if (r.note) $('#note').value = r.note;
   };
   const edit = r => {
-    editId = r.id; setForm(r);
+    editId = r.id; setForm(Object.assign({}, r, { extra: [] }));
     $('#formTitle').textContent = 'Urejanje opazovanja z dne ' + fmtDate(r.date); $('#formBox').classList.add('editing');
     $('#cancel').style.display = ''; $('#again').style.display = 'none'; $('#msg').textContent = '';
     $('#formBox').scrollIntoView({ behavior: 'smooth' });
   };
-  const stopEdit = () => { editId = ''; setLink(''); $('#formTitle').textContent = 'Novo opazovanje'; $('#formBox').classList.remove('editing'); $('#cancel').style.display = 'none'; };
+  const stopEdit = () => { editId = ''; setLink(''); $('#extraBox').classList.remove('off'); $('#formTitle').textContent = 'Novo opazovanje'; $('#formBox').classList.remove('editing'); $('#cancel').style.display = 'none'; };
 
   // filters of "Moje ure": the options come from the teacher's own plans and observations; a choice that no longer exists falls back to "vsi"
   const F = { fCls: ['cls', 'vsi razredi'], fSubj: ['subj', 'vsi predmeti'], fStrat: ['strat', 'vse strategije'], fMonth: ['month', 'vsi meseci'] };
@@ -290,7 +304,7 @@ td.has { font-weight: 700; }
     d.querySelector('[data-a=obs]').onclick = () => {
       stopEdit();
       setForm({ date: p.date, cls: p.cls, subj: p.subj, strat: p.strat, phase: p.step, topic: p.topic, plan: p.id });
-      if (p.cls && !D.classes.includes(p.cls)) { $('#msg').className = 'msg warn'; $('#msg').textContent = 'Razreda ' + p.cls + ' ni na seznamu; izberite ga ročno.'; }
+      if (p.cls && !splitCls(p.cls).every(c => D.classes.includes(c))) { $('#msg').className = 'msg warn'; $('#msg').textContent = 'Razreda ' + p.cls + ' ni na seznamu; izberite ga ročno.'; }
       else if (!p.cls) { $('#msg').className = 'msg warn'; $('#msg').textContent = 'Priprava je za ' + p.vio + '. VIO brez razreda: izberite razred.'; }
       else $('#msg').textContent = '';
       $('#again').style.display = 'none';
@@ -349,7 +363,7 @@ td.has { font-weight: 700; }
 
   const collect = () => ({ id: editId || undefined, date: $('#date').value, cls: $('#cls').value, subj: $('#subj').value, sklop: sklopOf($('#subj').value), strat: $('#strat').value,
     phase: val.phase, topic: $('#topic').value.trim(), mins: Number($('#mins').value), eff: val.eff, part: val.part, react: val.react, own: val.own || 'še ne vem', note: $('#note').value.trim(),
-    plan: planLink });
+    plan: planLink, classes: extraOn().length ? [$('#cls').value].concat(extraOn()) : undefined });
   const missing = r => [[!r.date, 'datum'], [!r.strat, 'strategijo'], [!r.phase, 'korak'], [!(r.mins >= 5 && r.mins <= 45), 'čas (5–45 min)'], [!r.eff, 'kako je delovala'], [!r.part, 'koliko učencev'], [!r.react, 'odziv']].filter(x => x[0]).map(x => x[1]);
 
   $('#save').onclick = async () => {
@@ -363,17 +377,18 @@ td.has { font-weight: 700; }
       msg.textContent = j && j.error === 'data' ? 'Ni shranjeno: preverite ' + j.details.join(', ') + '.' : j && j.error === 'token' ? 'Ni shranjeno: prijava je potekla. Osvežite stran.' : j && j.error === 'notfound' ? 'Ni shranjeno: opazovanja ni več.' : 'Ni shranjeno: napaka na strežniku.';
       return;
     }
-    const row = Object.assign({}, r, { id: j.id }); setLink('');
-    D.mine = D.mine.filter(x => x.id !== j.id).concat(row).sort((a, b) => a.date < b.date ? 1 : a.date > b.date ? -1 : 0);
+    const made = j.ids ? j.ids.map((id, i) => Object.assign({}, r, { id, cls: j.classes[i], classes: undefined })) : [Object.assign({}, r, { id: j.id })]; setLink('');
+    D.mine = D.mine.filter(x => !made.some(m => m.id === x.id)).concat(made).sort((a, b) => a.date < b.date ? 1 : a.date > b.date ? -1 : 0);
     const was = editId; stopEdit(); drawMine(); drawGrid();
     try { localStorage.setItem('opazovanje.last', JSON.stringify({ cls: r.cls, subj: r.subj })); } catch (e) {}
-    msg.className = 'msg ok'; msg.textContent = was ? '✓ Spremembe so shranjene.' : '✓ Shranjeno.';
+    msg.className = 'msg ok'; msg.textContent = was ? '✓ Spremembe so shranjene.' : made.length > 1 ? '✓ Shranjeno za ' + made.map(m => m.cls).join(' in ') + '.' : '✓ Shranjeno.';
+    document.querySelectorAll('#extra input').forEach(i => { i.checked = false; });
     if (!was) $('#again').style.display = '';
     else { setForm({ date: r.date, cls: r.cls, subj: r.subj }); }
   };
   $('#again').onclick = () => { $('#strat').value = ''; resetRatings(); $('#again').style.display = 'none'; $('#msg').textContent = ''; $('#strat').focus(); };
   $('#cancel').onclick = () => { stopEdit(); setForm({ date: today(), cls: $('#cls').value, subj: $('#subj').value }); $('#msg').textContent = ''; };
-  $('#cls').addEventListener('change', () => drawStrat());
+  $('#cls').addEventListener('change', () => { drawStrat(); drawExtra([]); });
   Object.keys(F).forEach(id => $('#' + id).addEventListener('change', () => { shown = PAGE; drawMine(); }));
   $('#fReset').onclick = () => { Object.keys(F).forEach(id => { $('#' + id).value = ''; }); shown = PAGE; drawMine(); };
   $('#more').onclick = () => { shown += PAGE; drawMine(); };
@@ -415,7 +430,7 @@ td.has { font-weight: 700; }
     let last = {}; try { last = JSON.parse(localStorage.getItem('opazovanje.last') || '{}') || {}; } catch (e) {}
     const q = new URLSearchParams(location.search), pre = {};
     ['date', 'cls', 'subj', 'strat', 'phase', 'topic', 'plan'].forEach(k => { if (q.get(k)) pre[k] = q.get(k); });
-    if (pre.cls) pre.cls = pre.cls.replace(/\s+/g, '').toUpperCase().replace(/^(\d)\.?([A-Z])$/, '$1.$2');
+    if (pre.cls) { const cl = splitCls(pre.cls); pre.cls = cl[0]; pre.extra = cl.slice(1).filter(c => D.classes.includes(c)); }
     if (pre.date && !/^\d{4}-\d{2}-\d{2}$/.test(pre.date)) delete pre.date;
     if (pre.topic) pre.topic = pre.topic.slice(0, 100);
     setForm(Object.assign({ cls: last.cls, subj: last.subj }, pre));
