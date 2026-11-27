@@ -85,7 +85,7 @@ var UNITS = {
 
 // Change this text whenever the code of doPost changes: the health check compares it with what the published web app answers,
 // so it can tell you that the saved code has not been deployed as a new version yet.
-var CODE_VERSION = '2026-11-26.5';
+var CODE_VERSION = '2026-11-27.1';
 
 // ---------------------------------------------------------------- saving results
 
@@ -144,7 +144,8 @@ function doPost(e) {
     if (d.action === 'gboralsave') return gbOralSaveReply_(d);         // teacher-only: one oral grade
     if (d.action === 'gboraldelete') return gbOralDeleteReply_(d);     // teacher-only: delete one oral grade
     if (d.action === 'gboralbulk') return gbOralBulkReply_(d);         // teacher-only: oral grades of several pupils at once (one topic and date)
-    if (d.action === 'gbpupil') return gbPupilReply_(d);               // teacher-only: one pupil's grades in every school year
+    if (d.action === 'gbpupil') return gbPupilReply_(d);
+    if (d.action === 'gbea') return gbEaReply_(d);                     // teacher-only: tick / untick "already in eAsistent" for chosen grades               // teacher-only: one pupil's grades in every school year
     if (d.action === 'ping') return out_({ ok: true, v: CODE_VERSION });   // no data; used by "Check that everything works" in the Sheet menu
     var who = verify_(d.token);
     if (!who) return out_({ ok: false, error: 'token' });
@@ -3230,8 +3231,11 @@ function hcTeam_(add) {
 // domača naloga, branje, drugo (the teacher's "other grades")
 var GB_TESTS = ['ID', 'Šolsko leto', 'Razred', 'Datum', 'Obdobje', 'Naslov', 'Deli (JSON)', 'Meje 5/4/3/2 (%)', 'Skupaj točk', 'Skupini A/B', 'Opomba', 'Ustvarjeno', 'Spremenjeno', 'Učenci (JSON)', 'Vrsta'];
 var GB_KINDS = ['projekt', 'predstavitev', 'domača naloga', 'branje', 'drugo'];
-var GB_POINTS = ['Test ID', 'Šolsko leto', 'Razred', 'Ključ', 'Učenec', 'Poskus', 'Datum poskusa', 'Stanje', 'Skupina', 'Točke (JSON)', 'Skupaj', 'Odstotek', 'Ocena', 'Spremenjeno'];
-var GB_ORAL = ['ID', 'Šolsko leto', 'Razred', 'Obdobje', 'Datum', 'Ključ', 'Učenec', 'Ocena', 'Tema', 'Vprašanja', 'Opomba', 'Spremenjeno'];
+var GB_POINTS = ['Test ID', 'Šolsko leto', 'Razred', 'Ključ', 'Učenec', 'Poskus', 'Datum poskusa', 'Stanje', 'Skupina', 'Točke (JSON)', 'Skupaj', 'Odstotek', 'Ocena', 'Spremenjeno', 'eAsistent'];
+var GB_ORAL = ['ID', 'Šolsko leto', 'Razred', 'Obdobje', 'Datum', 'Ključ', 'Učenec', 'Ocena', 'Tema', 'Vprašanja', 'Opomba', 'Spremenjeno', 'eAsistent'];
+// 'eAsistent' (27 Nov 2026, wish of the teacher): 'da' = this grade is already entered in eAsistent. Kept when a row is saved again with the
+// same grade; cleared when the grade changes (new points, other limits, another oral grade), so it has to be entered in eAsistent again.
+function gbHead_(sh, header) { if (sh && String(sh.getRange(1, header.length).getValue()) !== header[header.length - 1]) sh.getRange(1, 1, 1, header.length).setValues([header]).setFontWeight('bold'); }
 var GB_PERIODS = ['Šolsko leto', 'Obdobje', 'Od', 'Do'];
 var GB_PERIODS_DEFAULT = [['2026-27', '1', '2026-09-01', '2027-01-31'], ['2026-27', '2', '2027-02-01', '2027-06-24']];   // decision of the teacher, 24 Nov 2026
 
@@ -3318,9 +3322,9 @@ function gbTestObj_(r) {
 }
 function gbPointObj_(r) {
   var pts = []; try { pts = JSON.parse(r[9]); } catch (e) {}
-  return { k: r[3], n: r[4], att: Number(r[5]) || 1, date: r[6], status: r[7], grp: r[8], pts: pts, total: r[10] === '' ? null : Number(r[10]), pct: r[11] === '' ? null : Number(r[11]), grade: r[12] === '' ? null : Number(r[12]) };
+  return { k: r[3], n: r[4], att: Number(r[5]) || 1, date: r[6], status: r[7], grp: r[8], pts: pts, total: r[10] === '' ? null : Number(r[10]), pct: r[11] === '' ? null : Number(r[11]), grade: r[12] === '' ? null : Number(r[12]), ea: r[14] === 'da' };
 }
-function gbOralObj_(r) { return { id: r[0], year: r[1], cls: r[2], period: r[3], date: r[4], k: r[5], n: r[6], grade: Number(r[7]), topic: r[8], q: r[9], note: r[10] }; }
+function gbOralObj_(r) { return { id: r[0], year: r[1], cls: r[2], period: r[3], date: r[4], k: r[5], n: r[6], grade: Number(r[7]), topic: r[8], q: r[9], note: r[10], ea: r[12] === 'da' }; }
 
 // new or changed test: {test: {id?, year, cls, date, title, parts: [{n, m}], th: [g5, g4, g3, g2], groups, note}}
 function gbTestSaveReply_(d) {
@@ -3351,6 +3355,7 @@ function gbRegrade_(ss, id, parts, max, th) {
     var o = gbPointObj_(r), sum = o.pts.slice(0, parts.length).reduce(function (s, x) { return s + (Number(x) || 0); }, 0), has = o.pts.some(function (x) { return x !== '' && x != null; });
     var out = has && !o.status ? [String(sum), String(Math.round(sum / max * 1000) / 10), String(gbGrade_(sum, max, th))] : ['', '', ''];
     sh.getRange(i + 2, 11, 1, 3).setValues([out]);
+    if (o.ea && out[2] !== r[12]) sh.getRange(i + 2, 15).setValue('');
   });
 }
 function gbTestDeleteReply_(d) {
@@ -3378,22 +3383,24 @@ function gbPointsSaveReply_(d) {
   var ss = gbBook_(false); if (!ss) return out_({ ok: false, error: 'notfound' });
   var t = gbRows_(ss, 'Testi', GB_TESTS.length).filter(function (r) { return r[0] === String(d.id); }).map(gbTestObj_)[0];
   if (!t) return out_({ ok: false, error: 'notfound' });
-  var now = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd HH:mm');
+  var now = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd HH:mm'), old = {};
+  gbRows_(ss, 'Tockovanje', GB_POINTS.length).forEach(function (r) { if (r[0] === t.id) old[r[3] + '|' + (Number(r[5]) || 1)] = r[12]; });
+  var keepEa = function (x, grade) { var o = old[gbText_(x.k, 120) + '|' + Math.max(1, Math.min(5, Number(x.att) || 1))]; return x.ea && grade !== '' && (o === undefined || o === grade) ? 'da' : ''; };
   var out = (d.rows || []).slice(0, 400).map(function (x) {
     var pts = t.parts.map(function (p, i) { var v = x.pts && x.pts[i]; if (v === '' || v == null || isNaN(Number(v))) return ''; return Math.max(0, Math.min(p.m, Number(v))); });
     var status = ['manjkal', 'opravičen'].indexOf(x.status) >= 0 ? x.status : '', has = pts.some(function (v) { return v !== ''; });
     var sum = pts.reduce(function (s, v) { return s + (Number(v) || 0); }, 0), graded = has && !status;
     if (t.kind) {                                                    // other grade: the grade itself, no points
       var g = Number(x.grade), ok = g >= 1 && g <= 5 && !status;
-      return [t.id, t.year, t.cls, gbText_(x.k, 120), gbText_(x.n, 120), String(Math.max(1, Math.min(5, Number(x.att) || 1))), gbDate_(x.date || t.date), status, '', '[]', '', '', ok ? String(g) : '', now];
+      return [t.id, t.year, t.cls, gbText_(x.k, 120), gbText_(x.n, 120), String(Math.max(1, Math.min(5, Number(x.att) || 1))), gbDate_(x.date || t.date), status, '', '[]', '', '', ok ? String(g) : '', now, keepEa(x, ok ? String(g) : '')];
     }
     return [t.id, t.year, t.cls, gbText_(x.k, 120), gbText_(x.n, 120), String(Math.max(1, Math.min(5, Number(x.att) || 1))), gbDate_(x.date || t.date), status,
             /^[AB]$/.test(x.grp) ? x.grp : '', JSON.stringify(pts), graded ? String(sum) : '', graded ? String(Math.round(sum / t.max * 1000) / 10) : '',
-            graded ? String(gbGrade_(sum, t.max, t.th)) : '', now];
+            graded ? String(gbGrade_(sum, t.max, t.th)) : '', now, keepEa(x, graded ? String(gbGrade_(sum, t.max, t.th)) : '')];
   }).filter(function (r) { return r[3] && (r[7] || (t.kind ? r[12] !== '' : r[9] !== JSON.stringify(t.parts.map(function () { return ''; })))); });
   var lock = LockService.getScriptLock(); lock.waitLock(20000);
   try {
-    var sh = ss.getSheetByName('Tockovanje');
+    var sh = ss.getSheetByName('Tockovanje'); gbHead_(sh, GB_POINTS);
     gbDeleteWhere_(sh, GB_POINTS.length, function (r) { return r[0] === t.id; });
     if (out.length) sh.getRange(Math.max(2, sh.getLastRow() + 1), 1, out.length, GB_POINTS.length).setValues(out);
     return out_({ ok: true, saved: out.length });
@@ -3411,7 +3418,8 @@ function gbOralSaveReply_(d) {
     if (x.id) rows.forEach(function (r, i) { if (r[0] === String(x.id)) idx = i; });
     var id = idx >= 0 ? String(x.id) : Utilities.getUuid().slice(0, 8);
     var row = [id, String(x.year), String(x.cls), gbPeriodOf_(gbPeriods_(ss), String(x.year), date), date, gbText_(x.k, 120), gbText_(x.n, 120), String(g),
-               gbText_(x.topic, 120), gbText_(x.q, 600), gbText_(x.note, 300), now];
+               gbText_(x.topic, 120), gbText_(x.q, 600), gbText_(x.note, 300), now, idx >= 0 && rows[idx][12] === 'da' && rows[idx][7] === String(g) ? 'da' : ''];
+    gbHead_(sh, GB_ORAL);
     if (idx >= 0) sh.getRange(idx + 2, 1, 1, row.length).setValues([row]); else sh.appendRow(row);
     return out_({ ok: true, id: id });
   } finally { lock.releaseLock(); }
@@ -3424,9 +3432,9 @@ function gbOralBulkReply_(d) {
   if (!d.year || !d.cls || !rows.length) return out_({ ok: false, error: 'data' });
   var ss = gbBook_(true), sh = ss.getSheetByName('Ustno'), now = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd HH:mm'), date = gbDate_(d.date);
   var per = gbPeriodOf_(gbPeriods_(ss), String(d.year), date), topic = gbText_(d.topic, 120), q = gbText_(d.q, 600);
-  var out = rows.map(function (x) { return [Utilities.getUuid().slice(0, 8), String(d.year), String(d.cls), per, date, gbText_(x.k, 120), gbText_(x.n, 120), String(Number(x.grade)), topic, q, '', now]; });
+  var out = rows.map(function (x) { return [Utilities.getUuid().slice(0, 8), String(d.year), String(d.cls), per, date, gbText_(x.k, 120), gbText_(x.n, 120), String(Number(x.grade)), topic, q, '', now, '']; });
   var lock = LockService.getScriptLock(); lock.waitLock(20000);
-  try { sh.getRange(Math.max(2, sh.getLastRow() + 1), 1, out.length, GB_ORAL.length).setValues(out); return out_({ ok: true, saved: out.length }); }
+  try { gbHead_(sh, GB_ORAL); sh.getRange(Math.max(2, sh.getLastRow() + 1), 1, out.length, GB_ORAL.length).setValues(out); return out_({ ok: true, saved: out.length }); }
   finally { lock.releaseLock(); }
 }
 function gbOralDeleteReply_(d) {
@@ -3435,6 +3443,25 @@ function gbOralDeleteReply_(d) {
   var lock = LockService.getScriptLock(); lock.waitLock(20000);
   try { return out_({ ok: true, deleted: gbDeleteWhere_(ss.getSheetByName('Ustno'), GB_ORAL.length, function (r) { return r[0] === String(d.id); }) }); }
   finally { lock.releaseLock(); }
+}
+// tick / untick "already in eAsistent" (27 Nov 2026): d.items = [{t: 'p', id: test ID, k: name key, att} | {t: 'o', id: oral ID}], d.on = true/false.
+// Only grades that exist are ticked (a written row without a grade is skipped). One read and one write per tab.
+function gbEaReply_(d) {
+  if (!gbTeacher_(d)) return out_({ ok: false, error: 'token' });
+  var items = (d.items || []).slice(0, 1000), on = d.on ? 'da' : '', ss = gbBook_(false); if (!ss || !items.length) return out_({ ok: false, error: 'data' });
+  var P = {}, O = {}; items.forEach(function (x) { if (x && x.t === 'p') P[String(x.id) + '|' + String(x.k) + '|' + (Number(x.att) || 1)] = 1; else if (x && x.t === 'o') O[String(x.id)] = 1; });
+  var lock = LockService.getScriptLock(), changed = 0; lock.waitLock(20000);
+  try {
+    [['Tockovanje', GB_POINTS, function (r) { return P[r[0] + '|' + r[3] + '|' + (Number(r[5]) || 1)] && r[12] !== ''; }],
+     ['Ustno', GB_ORAL, function (r) { return O[r[0]]; }]].forEach(function (x) {
+      var sh = ss.getSheetByName(x[0]); if (!sh || sh.getLastRow() < 2) return;
+      gbHead_(sh, x[1]);
+      var col = x[1].length, rows = gbRows_(ss, x[0], col), vals = rows.map(function (r) { return [r[col - 1]]; });
+      rows.forEach(function (r, i) { if (x[2](r) && vals[i][0] !== on) { vals[i][0] = on; changed++; } });
+      sh.getRange(2, col, vals.length, 1).setValues(vals);
+    });
+  } finally { lock.releaseLock(); }
+  return out_({ ok: true, changed: changed });
 }
 // all grades of one pupil (name key) in every school year: written (test title, date, grade, attempt) and oral
 function gbPupilReply_(d) {

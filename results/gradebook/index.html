@@ -49,6 +49,12 @@ input.pt { width: 3.6em; text-align: center; padding: 5px 2px; }
 .g5 { background: var(--g5); } .g4 { background: var(--g4); } .g3 { background: var(--g3); } .g2 { background: var(--g2); } .g1 { background: var(--g1); }
 body:not(.light) .g { color: #fff; }
 .chip { display: inline-block; border: 1px solid var(--line); border-radius: 999px; padding: 1px 8px; font-size: .8rem; color: var(--muted); }
+/* "already in eAsistent" (27 Nov 2026) */
+.g.ea { box-shadow: inset 0 0 0 2px #0b7a3b; }
+.g.ea::after { content: '✓'; font-size: .75em; margin-left: 2px; }
+.g.click { cursor: pointer; }
+label.ea { white-space: nowrap; font-size: .85rem; color: var(--muted); cursor: pointer; }
+label.ea input { vertical-align: middle; }
 .parts { display: grid; gap: 6px; }
 .parts .row { display: grid; grid-template-columns: 1fr 5.5em auto; gap: 6px; }
 .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
@@ -87,6 +93,7 @@ label.chip input { margin: 0; vertical-align: -1px; }
   .box { border: 0; padding: 0; margin: 0 0 10px; background: #fff; }
   th, td { border-bottom: 1px solid #999; color: #000; }
   .g { color: #000 !important; border: 1px solid #555; background: #fff !important; }
+  .g.ea { box-shadow: none; border-width: 2px; }
   .chip { border-color: #777; color: #333; }
 }
 @media (max-width: 640px) { .anbar { grid-template-columns: 7em 1fr 3em; } th, td { padding: 5px 3px; } }
@@ -128,7 +135,18 @@ label.chip input { margin: 0; vertical-align: -1px; }
   const el = (t, c, x) => { const e = document.createElement(t); if (c) e.className = c; if (x != null) e.textContent = x; return e; };
   const today = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
   const fmtD = s => s ? s.slice(8, 10).replace(/^0/, '') + '. ' + s.slice(5, 7).replace(/^0/, '') + '.' : '';
-  const gchip = (g, title) => { const s = el('span', 'g g' + g, String(g)); if (title) s.title = title; return s; };
+  const gchip = (g, title, ea) => { const s = el('span', 'g g' + g + (ea ? ' ea' : ''), String(g)); if (title) s.title = title + (ea ? ' · in eAsistent' : ''); return s; };
+  // "already in eAsistent" (27 Nov 2026): item = {t: 'p', id: test, k, att} | {t: 'o', id: oral}; the same grade may be loaded twice (class and year)
+  const patchEA = (it, on) => {
+    if (it.t === 'o') [D.oral, Y && Y.oral].forEach(L => (L || []).forEach(o => { if (o.id === it.id) o.ea = on; }));
+    else [D.tests, Y && Y.tests].forEach(L => (L || []).forEach(t => { if (t.id === it.id) t.rows.forEach(r => { if (r.k === it.k && r.att === it.att) r.ea = on; }); }));
+  };
+  const setEA = async (items, on) => { if (!items.length) return true; try { await api('gbea', { items, on }); items.forEach(it => patchEA(it, on)); return true; } catch (e) { status('Not saved: ' + e.message); return false; } };
+  const eaBox = (it, on, after) => {               // a small tick box "in eA" next to a saved grade
+    const l = el('label', 'ea'), c = el('input'); c.type = 'checkbox'; c.checked = !!on; l.title = 'Already entered in eAsistent'; l.append(c, document.createTextNode(' in eA'));
+    c.onchange = async () => { c.disabled = true; const ok = await setEA([it], c.checked); if (!ok) c.checked = !c.checked; c.disabled = false; if (after) after(c.checked); };
+    return l;
+  };
   // grade rule exactly as the grade table printed by tests/
   const gradeOf = (total, max, th) => { const lim = p => Math.ceil(p / 100 * max - 1e-9); return total >= lim(th[0]) ? 5 : total >= lim(th[1]) ? 4 : total >= lim(th[2]) ? 3 : total >= lim(th[3]) ? 2 : 1; };
   const avg = xs => xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null;
@@ -258,8 +276,8 @@ label.chip input { margin: 0; vertical-align: -1px; }
     Object.keys(byK).filter(k => !pupils().some(p => p.k === k)).forEach(k => byK[k].forEach(r => rows.push(Object.assign({}, r))));   // pupil no longer in the class list
     const tbl = el('table'), tw = el('div', 'tw'), hr = el('tr');
     hr.append(el('th', '', 'Pupil')); if (t.groups) hr.append(el('th', 'num', 'Gr.')); t.parts.forEach(p => { const h = el('th', 'num', p.n); h.title = p.m + ' points'; h.append(el('div', 'muted', '/' + p.m)); hr.append(h); });
-    hr.append(el('th', 'num', 'Total'), el('th', 'num', '%'), el('th', 'num', 'Grade'), el('th', '', 'Status'), el('th', '')); tbl.append(hr);
-    const collect = () => rows.map(r => ({ k: r.k, n: r.n, att: r.att, date: r.date, status: r.status, grp: r.grp, pts: r.pts }));
+    hr.append(el('th', 'num', 'Total'), el('th', 'num', '%'), el('th', 'num', 'Grade'), el('th', '', 'Status'), el('th', '', 'eAsistent'), el('th', '')); tbl.append(hr);
+    const collect = () => rows.map(r => ({ k: r.k, n: r.n, att: r.att, date: r.date, status: r.status, grp: r.grp, pts: r.pts, ea: !!r.ea }));
     const mark = () => setDirty(() => api('gbpointssave', { id: t.id, rows: collect() }));
     const render = () => {
       while (tbl.rows.length > 1) tbl.deleteRow(1);
@@ -275,15 +293,17 @@ label.chip input { margin: 0; vertical-align: -1px; }
           td.append(inp); tr.append(td); });
         const st = el('td'), ss = el('select'); [['', '—'], ['manjkal', 'absent'], ['opravičen', 'excused']].forEach(([v, l]) => { const o = el('option', '', l); o.value = v; o.selected = r.status === v; ss.append(o); });
         ss.onchange = () => { r.status = ss.value; upd(); mark(); }; st.append(ss);
+        const eat = el('td'), saved = t.rows.find(x => x.k === r.k && x.att === r.att);
+        if (saved && saved.grade != null && !saved.status) eat.append(eaBox({ t: 'p', id: t.id, k: r.k, att: r.att }, saved.ea, on => { r.ea = on; }));
         const act = el('td'), rt = el('button', 'btn sm', '+ retake'); rt.title = 'Add a retake (a new attempt) for this pupil';
         rt.onclick = () => { const n = Math.max(...rows.filter(x => x.k === r.k).map(x => x.att)) + 1; const d = prompt('Date of the retake (yyyy-mm-dd):', today()); if (d === null) return;
           rows.splice(rows.indexOf(rows.filter(x => x.k === r.k).pop()) + 1, 0, { k: r.k, n: r.n, att: n, date: d, pts: t.parts.map(() => ''), status: '', grp: r.grp }); render(); mark(); };
         if (r.att === Math.max(...rows.filter(x => x.k === r.k).map(x => x.att))) act.append(rt);
-        tr.append(tot, pc, gr, st, act); upd(); tbl.append(tr);
+        tr.append(tot, pc, gr, st, eat, act); upd(); tbl.append(tr);
       });
     };
     render(); tw.append(tbl); b.append(tw);
-    b.append(el('p', 'note', 'Points are checked against the maximum of each part. Grades follow the limits of this test, like the grade table on the sheet. Save with the button at the bottom.'));
+    b.append(el('p', 'note', 'Points are checked against the maximum of each part. Grades follow the limits of this test, like the grade table on the sheet. Save with the button at the bottom. “in eA” = already entered in eAsistent (saved at once; cleared by itself when the grade changes).'));
     box.append(b);
     // analysis: share of points per part (all, and A/B), grade distribution – first attempts only
     const A = t.rows.filter(r => r.att === 1 && r.grade != null);
@@ -333,7 +353,7 @@ label.chip input { margin: 0; vertical-align: -1px; }
       if (o.q) d.append(el('div', 'small', o.q));
       const who = el('div', 'small'); who.style.marginTop = '2px';
       list.forEach(x => { const e = el('button', 'btn sm', 'Edit'); e.onclick = () => { oralPick = x.k; oralEdit = x; drawOral(); };
-        const sp = el('span'); sp.style.marginRight = '12px'; sp.style.whiteSpace = 'nowrap'; sp.append(document.createTextNode(x.n + ' '), gchip(x.grade), document.createTextNode(x.note ? ' 📝 ' : ' '), e); who.append(sp); });
+        const sp = el('span'); sp.style.marginRight = '12px'; sp.style.whiteSpace = 'nowrap'; sp.append(document.createTextNode(x.n + ' '), gchip(x.grade, '', x.ea), document.createTextNode(x.note ? ' 📝 ' : ' '), e, document.createTextNode(' '), eaBox({ t: 'o', id: x.id }, x.ea, () => drawOral())); who.append(sp); });
       d.append(who); qb.append(d);
     });
     box.append(qb);
@@ -385,6 +405,7 @@ label.chip input { margin: 0; vertical-align: -1px; }
       try { await api('gboralsave', { row: { id: oralEdit && oralEdit.id, year, cls, date: di.value, k: p.k, n: p.n, grade, topic: ti.value.trim(), q: qi.value.trim(), note: ni.value.trim() } }); oralPick = null; oralEdit = null; await loadClass(); }
       catch (e) { msg.textContent = 'Not saved: ' + e.message; sv.disabled = false; } };
     bar.append(sv, cc);
+    if (oralEdit) bar.append(eaBox({ t: 'o', id: oralEdit.id }, oralEdit.ea));
     if (oralEdit) { const del = el('button', 'btn danger', 'Delete'); del.onclick = async () => { if (!confirm('Delete this oral grade?')) return; try { await api('gboraldelete', { id: oralEdit.id }); oralPick = null; oralEdit = null; await loadClass(); } catch (e) { msg.textContent = e.message; } }; bar.append(del); }
     bar.append(msg); f.append(gs, g2, ql, nl, bar); return f;
   };
@@ -449,7 +470,7 @@ label.chip input { margin: 0; vertical-align: -1px; }
       (assigned(t).length < pupils().length ? ' · ' + assigned(t).length + ' of ' + pupils().length + ' pupils' : '') + (t.note ? ' · ' + t.note : '')));
     const byK = {}; t.rows.forEach(r => { byK[r.k] = r; });
     const rows = pupils().filter(p => assigned(t).includes(p) || byK[p.k]).map(p => Object.assign({ k: p.k, n: p.n, att: 1, grade: null, status: '' }, byK[p.k] || {}, { n: p.n }));
-    const mark = () => setDirty(() => api('gbpointssave', { id: t.id, rows: rows.map(r => ({ k: r.k, n: r.n, att: 1, date: r.date, status: r.status, grade: r.grade })) }));
+    const mark = () => setDirty(() => api('gbpointssave', { id: t.id, rows: rows.map(r => ({ k: r.k, n: r.n, att: 1, date: r.date, status: r.status, grade: r.grade, ea: !!r.ea })) }));
     const pl = el('div', 'pl');
     rows.forEach(r => {
       const line = el('div', 'box'); line.style.margin = '0'; line.style.padding = '10px';
@@ -459,7 +480,9 @@ label.chip input { margin: 0; vertical-align: -1px; }
       const paint = () => [...gs.children].forEach(x => x.setAttribute('aria-pressed', String(!r.status && Number(x.textContent) === r.grade)));
       [1, 2, 3, 4, 5].forEach(g => { const bt = el('button', '', String(g)); bt.onclick = () => { r.grade = r.grade === g ? null : g; r.status = ''; st.value = ''; paint(); mark(); }; gs.append(bt); });
       st.onchange = () => { r.status = st.value; if (r.status) r.grade = null; paint(); mark(); };
-      head.append(el('span', 'sp'), st); head.querySelector('.sp').style.flex = '1';
+      head.append(el('span', 'sp'));
+      const sv = byK[r.k]; if (sv && sv.grade != null && !sv.status) head.append(eaBox({ t: 'p', id: t.id, k: r.k, att: 1 }, sv.ea, on => { r.ea = on; }));
+      head.append(st); head.querySelector('.sp').style.flex = '1';
       gs.style.marginTop = '6px'; paint(); line.append(head, gs); pl.append(line);
     });
     b.append(pl, el('p', 'note', 'Tap a grade (tap it again to clear it). Save with the button at the bottom.'));
@@ -469,7 +492,9 @@ label.chip input { margin: 0; vertical-align: -1px; }
   // ---------- overview with filters (24 Nov 2026): classes, time (period or any dates), kind of grade, pupil search; per-class summary; print ----------
   // The data of the whole school year comes in one request (gbyear) and is kept until something is saved.
   let Y = null, Yyear = '';
-  const ov = { cls: null, per: '', from: '', to: '', kinds: new Set(['w', 'o', 'x']), q: '' };
+  const ov = { cls: null, per: '', from: '', to: '', kinds: new Set(['w', 'o', 'x']), q: '', onlyNew: false };
+  const itemOf = e => e.o ? { t: 'o', id: e.o.id } : { t: 'p', id: e.t.id, k: e.r.k, att: e.r.att };
+  const eaOf = e => !!(e.o ? e.o.ea : e.r && e.r.ea);
   const KIND_COLS = [['w', 'Written'], ['o', 'Oral'], ['x', 'Other']];
   const norm = s => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
   const range = () => {
@@ -513,21 +538,24 @@ label.chip input { margin: 0; vertical-align: -1px; }
     const sr = el('div', 'bar'), q = el('input'); q.type = 'search'; q.placeholder = 'Find a pupil (all classes) …'; q.value = ov.q; q.style.minWidth = '220px';
     let qt = null; q.oninput = () => { clearTimeout(qt); qt = setTimeout(() => { ov.q = q.value; drawOver(); setTimeout(() => { const n = $('#over input[type=search]'); if (n) { n.focus(); n.setSelectionRange(n.value.length, n.value.length); } }, 0); }, 300); };
     const pr = el('button', 'btn', '🖨 Print / PDF'); pr.onclick = () => window.print();
-    sr.append(q, pr); f.append(cr, tr, sr); box.append(f);
+    const nl = el('label', 'chip'), nx = el('input'); nx.type = 'checkbox'; nx.checked = ov.onlyNew; nx.onchange = () => { ov.onlyNew = nx.checked; drawOver(); };
+    nl.append(nx, document.createTextNode(' only grades not yet in eAsistent')); nl.title = 'Show (and copy) only the grades you have not entered in eAsistent yet';
+    sr.append(q, nl, pr); f.append(cr, tr, sr); box.append(f);
     const chosen = allCls.filter(c => ov.cls.has(c)), kindsTxt = KIND_COLS.filter(([k]) => ov.kinds.has(k)).map(x => x[1].toLowerCase()).join(', ') || 'no kind';
     const head = el('div', 'box'); head.append(el('h2', '', 'Overview · ' + year.replace('-', '/') + ' · ' + rangeText()), el('p', 'note', 'Classes: ' + (chosen.join(', ') || '—') + ' · grades: ' + kindsTxt + (ov.q ? ' · search: “' + ov.q + '”' : '')));
     // per-class summary
-    const st = el('table'), sw = el('div', 'tw'); st.innerHTML = '<tr><th>Class</th><th class="num">Pupils</th><th class="num">Grades</th><th class="num">Average</th><th class="num">5</th><th class="num">4</th><th class="num">3</th><th class="num">2</th><th class="num">1</th><th class="num">No grade yet</th></tr>';
-    const tot = { n: 0, gs: [], none: 0 };
+    const st = el('table'), sw = el('div', 'tw'); st.innerHTML = '<tr><th>Class</th><th class="num">Pupils</th><th class="num">Grades</th><th class="num">Average</th><th class="num">5</th><th class="num">4</th><th class="num">3</th><th class="num">2</th><th class="num">1</th><th class="num">No grade yet</th><th class="num">Not in eAsistent</th></tr>';
+    const tot = { n: 0, gs: [], none: 0, newN: 0 };
     chosen.forEach(c => {
       const P = (R.roster[year] || {})[c] || [], gs = []; let none = 0;
-      P.forEach(p => { const g = entriesOf(c, p).filter(e => e.grade != null && !e.status).map(e => e.grade); if (!g.length) none++; gs.push(...g); });
+      let newN = 0;
+      P.forEach(p => { const G = entriesOf(c, p).filter(e => e.grade != null && !e.status), g = G.map(e => e.grade); if (!g.length) none++; gs.push(...g); newN += G.filter(e => !eaOf(e)).length; });
       const row = el('tr'); row.append(el('td', '', c), el('td', 'num', String(P.length)), el('td', 'num', String(gs.length)), el('td', 'num', f2(avg(gs))));
       [5, 4, 3, 2, 1].forEach(g => row.append(el('td', 'num', String(gs.filter(x => x === g).length || ''))));
-      row.append(el('td', 'num' + (none ? ' warnc' : ''), String(none))); st.append(row);
-      tot.n += P.length; tot.gs.push(...gs); tot.none += none;
+      row.append(el('td', 'num' + (none ? ' warnc' : ''), String(none)), el('td', 'num', String(newN || ''))); st.append(row);
+      tot.n += P.length; tot.gs.push(...gs); tot.none += none; tot.newN += newN;
     });
-    if (chosen.length > 1) { const row = el('tr', 'totr'); row.append(el('td', '', 'Together'), el('td', 'num', String(tot.n)), el('td', 'num', String(tot.gs.length)), el('td', 'num', f2(avg(tot.gs)))); [5, 4, 3, 2, 1].forEach(g => row.append(el('td', 'num', String(tot.gs.filter(x => x === g).length || '')))); row.append(el('td', 'num', String(tot.none))); st.append(row); }
+    if (chosen.length > 1) { const row = el('tr', 'totr'); row.append(el('td', '', 'Together'), el('td', 'num', String(tot.n)), el('td', 'num', String(tot.gs.length)), el('td', 'num', f2(avg(tot.gs)))); [5, 4, 3, 2, 1].forEach(g => row.append(el('td', 'num', String(tot.gs.filter(x => x === g).length || '')))); row.append(el('td', 'num', String(tot.none)), el('td', 'num', String(tot.newN || ''))); st.append(row); }
     sw.append(st); head.append(sw); box.append(head);
     // pupils: one class chosen → that class; a search → matching pupils of the chosen classes (or of all classes when none match there)
     let list = [];
@@ -536,23 +564,30 @@ label.chip input { margin: 0; vertical-align: -1px; }
     if (list.length || ov.q.trim()) {
       const b = el('div', 'box'), cols = KIND_COLS.filter(([k]) => ov.kinds.has(k)), multi = new Set(list.map(x => x[0])).size > 1 || ov.q.trim();
       const t = el('table'), tw = el('div', 'tw'), hr = el('tr'); if (multi) hr.append(el('th', '', 'Class')); hr.append(el('th', '', 'Pupil')); cols.forEach(([, l]) => hr.append(el('th', '', l))); hr.append(el('th', 'num', 'Grades'), el('th', 'num', 'Average'), el('th', 'noprint', '')); t.append(hr);
-      const lines = [];
+      const lines = [], shownNew = [];
       list.forEach(([c, p]) => {
-        const E = entriesOf(c, p), row = el('tr'), gs = []; if (multi) row.append(el('td', '', c)); row.append(el('td', '', p.n));
+        const E = entriesOf(c, p).filter(e => !ov.onlyNew || (e.grade != null && !e.status && !eaOf(e))), row = el('tr'), gs = []; if (multi) row.append(el('td', '', c)); row.append(el('td', '', p.n));
         cols.forEach(([k]) => { const td = el('td'); E.filter(e => e.kind === k).forEach(e => {
           if (e.miss) td.append(el('span', 'chip', e.title.slice(0, 14) + ': —'));
           else if (e.status) td.append(el('span', 'chip', e.status === 'manjkal' ? 'absent' : 'excused'));
-          else if (e.grade != null) { td.append(gchip(e.grade, (k === 'x' ? kindName(e.t.kind) + ': ' : '') + e.title + ' · ' + fmtD(e.date) + (e.att > 1 ? ' · retake' : '') + (k === 'w' && e.r ? ' · ' + e.r.total + '/' + e.t.max : ''))); gs.push(e.grade); } });
+          else if (e.grade != null) {
+            const ea = eaOf(e), ch = gchip(e.grade, (k === 'x' ? kindName(e.t.kind) + ': ' : '') + e.title + ' · ' + fmtD(e.date) + (e.att > 1 ? ' · retake' : '') + (k === 'w' && e.r ? ' · ' + e.r.total + '/' + e.t.max : ''), ea);
+            ch.classList.add('click'); ch.title += ' · click: ' + (ea ? 'not in eAsistent yet' : 'entered in eAsistent');
+            ch.onclick = async () => { if (await setEA([itemOf(e)], !ea)) drawOver(); };
+            td.append(ch); gs.push(e.grade); if (!ea) shownNew.push(itemOf(e)); } });
           row.append(td); });
         const pb = el('button', 'btn sm', 'Pupil'), pt = el('td', 'noprint'); pb.onclick = () => pupilCard(p); pt.append(pb);
         row.append(el('td', 'num', String(gs.length)), el('td', 'num', f2(avg(gs))), pt); t.append(row);
-        lines.push(p.n + '\t' + gs.join(' '));
+        if (gs.length || !ov.onlyNew) lines.push(p.n + '\t' + gs.join(' '));     // "only not yet in eAsistent": copy only pupils with new grades
       });
       tw.append(t);
       const bar = el('div', 'bar noprint'), cp = el('button', 'btn', '📋 Copy for eAsistent'); bar.append(cp);
+      if (shownNew.length) { const mk = el('button', 'btn', '✓ Mark the ' + shownNew.length + ' shown grade' + (shownNew.length === 1 ? '' : 's') + ' as entered in eAsistent');
+        mk.onclick = async () => { if (!confirm('Mark ' + shownNew.length + ' grade(s) as entered in eAsistent?')) return; mk.disabled = true; if (await setEA(shownNew, true)) { status('Marked ' + shownNew.length + ' grade(s) as entered in eAsistent.'); drawOver(); } else mk.disabled = false; };
+        bar.append(mk); }
       cp.onclick = async () => { try { await navigator.clipboard.writeText(lines.join('\n')); cp.textContent = '✓ Copied'; setTimeout(() => { cp.textContent = '📋 Copy for eAsistent'; }, 1500); } catch (e) { alert(lines.join('\n')); } };
       b.append(el('h3', '', ov.q.trim() ? 'Pupils found: ' + list.length : 'Pupils · ' + chosen[0]), tw, bar,
-        el('p', 'note', 'Hover (or tap) a grade for the test and date. “—” = written test not written and no status set. Retakes count as grades.'));
+        el('p', 'note', 'Hover (or tap) a grade for the test and date. “—” = written test not written and no status set. Retakes count as grades. A grade with a green frame and ✓ is already in eAsistent – click a grade to change that. With “only grades not yet in eAsistent”, Copy takes only those; then mark them as entered.'));
       box.append(b);
     } else box.append(el('p', 'note noprint', 'Choose one class, or search for a pupil, to see the pupils with their grades.'));
   };
