@@ -19,7 +19,7 @@ What is missing is a record of **what teachers do in class**: which strategy was
 ## Who uses it
 
 - **Participating teachers** (not only the English teacher). New script property `OBSERVER_EMAILS` holds a list of school e-mails. Do not let anyone in by `@os-verzej.si` alone: **pupils have the same domain**. Teachers in `TEACHER_EMAILS` are also observers.
-- **The development team** (Anastazij, Vanja, Damjana, Mitja) sees the analysis. New property `TEAM_EMAILS`, plus everyone in `TEACHER_EMAILS`.
+- **The development team** (the members with role skupina/szs in the access list) sees the analysis. New property `TEAM_EMAILS`, plus everyone in `TEACHER_EMAILS`.
 - An observer sees and edits only their **own** observations. The team sees everyone's observations, but only on the analysis page.
 
 ## Storage
